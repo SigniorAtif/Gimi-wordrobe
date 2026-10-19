@@ -1,0 +1,79 @@
+.pending {
+  position: fixed;
+  left: var(--s-4);
+  right: var(--s-4);
+  bottom: var(--s-4);
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  min-height: var(--pending-h);
+  padding: 10px 12px 10px 18px;
+  border-radius: 16px;
+  background: var(--surface-3);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-3);
+  overflow: hidden;
+}
+.pending__count {
+  flex: none;
+  height: 22px;
+  padding: 0 8px;
+  font-size: 10.5px;
+}
+.pending__items {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  gap: 6px 18px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow: hidden;
+  white-space: nowrap;
+  mask-image: linear-gradient(to right, black 88%, transparent);
+}
+.pending__item {
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+.pending__entity {
+  color: var(--text);
+  font-weight: 600;
+}
+.pending__arrow {
+  color: var(--text-3);
+}
+.pending__to {
+  color: var(--pending);
+  font-weight: 560;
+}
+.pending__actions {
+  flex: none;
+  display: flex;
+  gap: var(--s-2);
+}
+.pending__apply {
+  min-width: 148px;
+  overflow: hidden;
+}
+.pending__apply.is-done {
+  --btn-bg: var(--accent-strong);
+}
+.pending__apply-inner {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.pending__apply:disabled {
+  opacity: 1;
+}
+.pending__progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  transform-origin: left;
+  background: var(--accent);
+}
