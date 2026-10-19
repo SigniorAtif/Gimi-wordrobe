@@ -121,7 +121,7 @@ export function ConflictRows({ clashes, snapshot, onOpen }: { clashes: HotkeyCla
             <span className="clash__text">
               Key <kbd className="kbd kbd--sm">{key}</kbd> is also used by{" "}
               <strong>
-                {ent?.name ?? "?"} · {other?.nsfw ? "a hidden skin" : (other?.name ?? "?")}
+                {ent?.name ?? "?"} · {other?.name ?? "?"}
               </strong>{" "}
               ({onDisk ? "active" : "pending"}).{" "}
               {c.severity === "conflict"

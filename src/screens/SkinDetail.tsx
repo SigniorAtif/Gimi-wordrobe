@@ -126,10 +126,11 @@ export function SkinInfo({
 }) {
   const pick = useHome((s) => s.pick);
   const picks = useHome((s) => s.picks);
+  const nsfwVisible = useHome((s) => s.nsfwVisible);
   const navigate = useApp((s) => s.navigate);
   const toast = useApp((s) => s.toast);
   const [editing, setEditing] = useState(false);
-  const clashes = useMemo(() => clashesIfPicked(snapshot, picks, skin), [snapshot, picks, skin]);
+  const clashes = useMemo(() => clashesIfPicked(snapshot, picks, skin, nsfwVisible), [snapshot, picks, skin, nsfwVisible]);
   const added = skin.addedAt ? new Date(skin.addedAt).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }) : null;
   const meta = [skin.author && `by ${skin.author}`, skin.version && `v${skin.version}`, added && `added ${added}`, ...skin.folders.map((f) => `Mods/${f}/`)].filter(Boolean);
 

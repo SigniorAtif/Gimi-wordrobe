@@ -71,9 +71,11 @@ export function EntityPage({ entityId }: { entityId: string }) {
   const total = view.skins.length + view.hidden;
   const parents = [...new Set(view.skins.flatMap((s) => s.folders.map((f) => f.split("/").slice(0, -1).join("/"))))].filter(Boolean);
   const where = parents.length === 1 ? `Mods/${parents[0]}/` : view.skins.length ? "Mods/" : "";
+  // "invisible" means hidden skins leave no trace at all, not even in the counts (SPEC §11)
+  const shownTotal = whenHidden === "stub" ? total : view.skins.length;
   const meta = [
-    `${view.skins.length} of ${total} skin${total === 1 ? "" : "s"} shown`,
-    view.hidden > 0 && `${view.hidden} hidden (18+)`,
+    `${view.skins.length} of ${shownTotal} skin${shownTotal === 1 ? "" : "s"} shown`,
+    view.hidden > 0 && whenHidden === "stub" && `${view.hidden} hidden (18+)`,
     where,
   ].filter(Boolean);
   const count = view.skins.length + 2 + (view.hidden && whenHidden === "stub" ? 1 : 0);
@@ -184,8 +186,8 @@ export function EntityPage({ entityId }: { entityId: string }) {
         <motion.div variants={riseIn(reduced)}>
           <div className="bigcard bigcard--drop">
             <span className="bigcard__plus">+</span>
-            <span>{view.skins.length ? "Drop archive here" : "No skins yet"}</span>
-            <small>{view.skins.length ? "or click + Add skin" : "drop a .zip / .rar / .7z here"}</small>
+            <span>{total ? "Drop archive here" : "No skins yet"}</span>
+            <small>{total ? "or click + Add skin" : "drop a .zip / .rar / .7z here"}</small>
           </div>
         </motion.div>
       </motion.div>
