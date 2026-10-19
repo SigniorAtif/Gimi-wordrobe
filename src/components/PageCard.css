@@ -17,6 +17,10 @@
   border-color: var(--border);
   box-shadow: var(--shadow-2);
 }
+/* the card's own shadow would hide the global focus ring */
+.pcard:focus-visible {
+  box-shadow: var(--focus-ring), var(--shadow-2);
+}
 .pcard__art {
   position: relative;
   display: grid;

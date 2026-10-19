@@ -19,6 +19,10 @@
   border-color: var(--border);
   box-shadow: var(--shadow-2);
 }
+/* the card's own shadow would hide the global focus ring */
+.ecard:focus-visible {
+  box-shadow: var(--focus-ring), var(--shadow-2);
+}
 .ecard.is-open {
   border-color: var(--accent-line);
   background: var(--surface-2);
