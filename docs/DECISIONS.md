@@ -103,3 +103,18 @@ these fill gaps or record where something had to be interpreted.
   ever touched is kept as `d3dx_user.ini.skinswitcher-original`; `.bak` holds the state before the latest write.
 - **Un-imported mods of a picked character** stay enabled (Apply only moves library skins); Apply warns about them
   and points to Re-scan.
+
+## M4 Pages mode, detail, quick peek, conflicts
+
+- **Shared-element morphs use an explicit FLIP helper** (`src/components/Flip.tsx`), not Motion's `layoutId`.
+  Across an AnimatePresence page swap Motion measured the new element but never started a shared transition (the
+  outgoing page doesn't re-render), so the source records its rect right before navigating and the target animates
+  from it on mount. It is StrictMode-safe and skipped under reduced motion.
+- **ACTIVE/PENDING tags slide with `layoutId` only within one view** (a shelf strip, the A2 grid, the C3 list); the
+  detail page and the peek list crossfade theirs so a tag never flies across the screen.
+- **Conflicts are computed in the UI** from `Hotkey.parsed` (parsed in Rust) against the pending state, so they show
+  before Apply and clear as soon as the pick changes. "Hidden" NSFW skins appear as "a hidden skin" in conflict rows.
+- **Home keeps one scroll position per layout** and carries the open shelf / last opened page across a layout
+  switch (shelf <-> focused card).
+- **C3 below 1100px opens A3** (SPEC); the `I` key does the same for the focused skin card.
+- **A3 edits** (name, author, version, link, NSFW, owning entity, hotkey labels, notes) write library.json only.
