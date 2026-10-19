@@ -9,6 +9,10 @@ use std::path::{Path, PathBuf};
 /// Resolve a `/`-separated relative path under `base` case-insensitively (Windows rules on a case-sensitive
 /// ntfs3 mount). Returns the real on-disk path when it exists.
 pub fn resolve_ci(base: &Path, rel: &str) -> Option<PathBuf> {
+    // an empty path would resolve to the base itself (the whole Mods folder): never a skin folder
+    if !rel.split(['/', '\\']).any(|s| !s.is_empty() && s != ".") {
+        return None;
+    }
     let mut cur = base.to_path_buf();
     for part in rel.split(['/', '\\']).filter(|s| !s.is_empty()) {
         if part == ".." || part.contains(':') {
@@ -172,6 +176,10 @@ mod tests {
         assert_eq!(strip_disabled("disabled Casual"), Some("Casual"));
         assert_eq!(strip_disabled("DISABLEDVaresa.ini"), Some("Varesa.ini"));
         assert!(resolve_ci(&mods, "../x").is_none());
+        for empty in ["", ".", "/", "\\", "./"] {
+            assert!(resolve_ci(&mods, empty).is_none(), "{empty:?} must not resolve to Mods itself");
+            assert_eq!(locate(&skin(&[empty]), &mods, st).location, SkinLocation::Missing);
+        }
         // a disabled parent folder switches the skin off too
         fs::create_dir_all(mods.join("DISABLED_Kazuha/Multi")).unwrap();
         assert_eq!(locate(&skin(&["Kazuha/Multi"]), &mods, st).location, SkinLocation::Disabled);

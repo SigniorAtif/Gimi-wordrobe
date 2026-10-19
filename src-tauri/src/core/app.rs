@@ -277,6 +277,19 @@ impl AppCore {
         persist::backup(&user_ini, &mut refs)
     }
 
+    /// Undo an unfinished batch before starting a new one, so its journal (the only undo record) is never lost.
+    fn recover_pending(&mut self) -> AppResult<()> {
+        if let Some(j) = self.journal_path().filter(|j| j.exists()) {
+            apply::recover(&j).map_err(|e| {
+                AppError::new(
+                    "journal_recovery",
+                    format!("An earlier Apply wasn't finished and couldn't be undone yet: {}", e.message),
+                )
+            })?;
+        }
+        Ok(())
+    }
+
     fn roots(&self) -> AppResult<(PathBuf, PathBuf)> {
         let mods = self
             .mods_dir()
@@ -295,6 +308,7 @@ impl AppCore {
         progress: &mut dyn FnMut(usize, usize, &str),
     ) -> AppResult<ApplyOutcome> {
         let (mods, stash) = self.roots()?;
+        self.recover_pending()?;
         let seen = self.last_sig;
         let fresh = self.rescan()?;
         if seen.is_some() && seen != Some(signature(&fresh)) {
@@ -327,7 +341,7 @@ impl AppCore {
                 return Err(e.into());
             }
         }
-        let mut warnings = vec![];
+        let mut warnings = self.unimported_same_entity(picks);
         let activated: Vec<&Skin> = plan.activate.iter().filter_map(|id| self.library.skin(id)).collect();
         if let Some(ui) = persist::user_ini_path(&mods)
             && let Err(e) = persist::restore(&ui, &activated)
@@ -335,8 +349,38 @@ impl AppCore {
             warnings.push(format!("Saved in-mod toggles couldn't be restored: {}", e.message));
         }
         let changed = plan.activate.len() + plan.deactivate.len();
-        let snapshot = self.rescan()?;
+        // the batch is committed; a failing re-scan must not turn it into "Apply failed"
+        let snapshot = match self.rescan() {
+            Ok(s) => s,
+            Err(e) => {
+                warnings.push(format!("Applied, but re-reading the Mods folder failed: {}", e.message));
+                self.publish()
+            }
+        };
         Ok(ApplyOutcome { snapshot, changed, changed_outside: false, warnings })
+    }
+
+    /// Mod roots of a picked entity that aren't in the library yet stay enabled; say so (SPEC §16 one enabled copy).
+    fn unimported_same_entity(&self, picks: &Picks) -> Vec<String> {
+        let Some(scan) = &self.last_scan else { return vec![] };
+        let mut out = vec![];
+        for entity_id in picks.keys() {
+            let Some(e) = self.library.entity(entity_id) else { continue };
+            let key = super::names::compact(&e.name);
+            for c in &scan.candidates {
+                if c.folders.iter().any(|f| self.library.owner_of(f).is_some()) {
+                    continue;
+                }
+                if c.guess.as_ref().map(|g| g.key() == key).unwrap_or(false) {
+                    out.push(format!(
+                        "{} looks like another {} mod that isn't in the library yet, so it stays on. Use Re-scan in Settings to add it.",
+                        c.folders.join(" + "),
+                        e.name
+                    ));
+                }
+            }
+        }
+        out
     }
 
     /// Move a skin's folders, previews and library entry to the Recycle Bin (SPEC §1 never hard delete).
@@ -348,7 +392,18 @@ impl AppCore {
             .cloned()
             .ok_or_else(|| AppError::new("unknown_skin", "That skin no longer exists."))?;
         let (mods, stash) = self.roots()?;
+        // a broken library entry must never point the Recycle Bin at Mods itself
+        for f in &skin.folders {
+            let clean = f.trim_matches(['/', '\\', '.', ' ']);
+            if clean.is_empty() || super::paths::has_parent_ref(f) || f.contains(':') {
+                return Err(AppError::new(
+                    "invalid_folder",
+                    format!("{} has an invalid folder path ({f:?}); fix library.json first.", skin.name),
+                ));
+            }
+        }
         let mut parents = vec![];
+        let mut trashed: Vec<String> = vec![];
         for f in &skin.folders {
             let mut found: Vec<PathBuf> = vec![];
             if let Some(p) = state::resolve_ci(&mods, f) {
@@ -366,9 +421,19 @@ impl AppCore {
                 {
                     parents.push(parent.to_path_buf());
                 }
-                delete(&p).map_err(|e| {
-                    AppError::new("trash_failed", format!("Couldn't move {} to the Recycle Bin: {e}", p.display()))
-                })?;
+                if let Err(e) = delete(&p) {
+                    let done = if trashed.is_empty() {
+                        String::new()
+                    } else {
+                        format!(" {} already went to the Recycle Bin.", trashed.join(", "))
+                    };
+                    let _ = self.rescan();
+                    return Err(AppError::new(
+                        "trash_failed",
+                        format!("Couldn't move {} to the Recycle Bin: {e}.{done}", p.display()),
+                    ));
+                }
+                trashed.push(p.display().to_string());
             }
         }
         if let Some(previews) = self.library_dir().map(|l| l.join("previews").join(&skin.id)).filter(|p| p.exists()) {
@@ -449,6 +514,7 @@ impl AppCore {
             && self.settings.is_configured()
             && let Ok((mods, stash)) = self.roots()
         {
+            self.recover_pending()?;
             let plan = apply::plan_migration(&self.library, Roots { mods: &mods, stash: &stash }, next.disable_method)?;
             if !plan.is_empty() {
                 let journal = self.journal_path();
@@ -755,5 +821,33 @@ pub mod tests {
         assert!(bin.join("Odette").is_dir());
         assert!(!mods.join("Odette").exists());
         assert!(snap.library.skin(&odette).is_none());
+    }
+
+    #[test]
+    fn removal_refuses_folders_that_would_point_at_mods_itself() {
+        let cfg = tempfile::tempdir().unwrap();
+        let (_t, mods, lib) = fixture_world();
+        let mut core = configured_core(cfg.path(), &mods, &lib);
+        core.library.skins[0].folders = vec!["".into()];
+        let id = core.library.skins[0].id.clone();
+        let deleted = std::cell::RefCell::new(vec![]);
+        let e = core.remove_skin(&id, &|p| {
+            deleted.borrow_mut().push(p.to_path_buf());
+            Ok(())
+        });
+        assert_eq!(e.unwrap_err().code, "invalid_folder");
+        assert!(deleted.borrow().is_empty());
+        assert!(mods.is_dir());
+    }
+
+    #[test]
+    fn apply_warns_about_unimported_mods_of_the_same_character() {
+        let cfg = tempfile::tempdir().unwrap();
+        let (_t, mods, lib) = fixture_world();
+        let mut core = configured_core(cfg.path(), &mods, &lib);
+        copy_dir(&mods.join("Furina/Casual"), &mods.join("Furina/Party"));
+        core.rescan().unwrap();
+        let out = core.apply(&picks(&[("furina", Some("furina--remembrance"))]), Fault::None, &mut noop).unwrap();
+        assert!(out.warnings.iter().any(|w| w.contains("Furina/Party")), "{:?}", out.warnings);
     }
 }
