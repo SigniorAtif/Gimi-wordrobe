@@ -127,3 +127,27 @@ these fill gaps or record where something had to be interpreted.
   A failed library save restores the in-memory library, so the UI never shows an edit that isn't on disk.
 - **Pages that are leaving ignore keys.** The outgoing page stays mounted during its exit animation, so A2/A3 key
   handlers check that the route still points at them; otherwise one Escape went back twice.
+
+## M5 Add flow
+
+- **Archives are read with bsdtar** (`bsdtar` on Linux, `C:\Windows\System32\tar.exe` on Windows), with 7-Zip and
+  then UnRAR as Windows-only fallbacks. A .rar fixture can't be made on Linux without the non-free `rar` tool, so .rar
+  is covered by the Windows testing guide instead of a fixture.
+- **Analysis extracts only the .ini files** into a staging folder under the Library to find mod roots, entities and
+  preview candidates; it is deleted afterwards. Nothing touches Mods until "Extract & add".
+- **Mod folders in one archive**: the first root is the main skin and can't be unticked. A nested root (Bennett's
+  sword, Oz) or one detected as another entity defaults to "its own skin", named after the main skin
+  ("Bennett Beach Day"); unticked roots are left out entirely.
+- **New skins land inactive** (stash or DISABLED_, per the disable method) unless "Make it the active skin" is on.
+  A4 defaults it on, matching the wireframe; C4 leaves it off and opens the entity's shelf so the user picks it there.
+- **C4 asks only for what it must** (name, link, NSFW, preview source; plus name, category and portrait for "+ New").
+  When the archive holds more than one mod, it says so and "More options…" opens A4 on the same archive.
+- **File pickers are Rust commands**, so debug builds can answer them with `SKIN_SWITCHER_E2E_PICK_ARCHIVE` /
+  `_IMAGE` (like the Apply fault hook); WebDriver can't drive native dialogs or OS file drags.
+- **A portrait picked from outside the Library isn't previewed**: the asset protocol is scoped to the Library, so the
+  circle shows a check mark and the file name until the image is copied in.
+- **The drag chip sits exactly on the cursor.** A spring only made it trail the OS drag image, and it got stuck when
+  a drag started and moved within one frame.
+- **"From GameBanana link" is selectable once a valid mod link is pasted.** Fetching the images is M7; until then the
+  link is saved with the skin.
+- **A committed Apply tidies the stash folders its moves emptied** (only empty folders, so there is nothing to undo).

@@ -9,8 +9,8 @@ Build progress for the unattended run. Milestones follow SPEC §15.
 | 2 | Hash index script, Rust scanner, library.json, fixtures | done |
 | 3 | Mode C (C1 + C2) + pending bar + Apply with rollback/journal/persist + toast | done |
 | 4 | Mode A (A1 + A2), A3 detail, C3 peek, layout switch, hotkeys + conflicts | done |
-| 5 | Add flow: drag-drop, extraction, A4, C4, new-character | next |
-| 6 | First-run import + review | todo |
+| 5 | Add flow: drag-drop, extraction, A4, C4, new-character | done |
+| 6 | First-run import + review | next |
 | 7 | Previews: archive images, drop/paste, GameBanana | todo |
 | 8 | NSFW, PIN, auto re-hide, shortcuts, 1000x700 pass, motion polish | todo |
 | 9 | NSIS bundle config + Windows testing guide | todo |
@@ -30,4 +30,5 @@ cd src-tauri && cargo run --example scan_dry_run -- <Mods> resources/hash_index.
 
 ## Known issues
 
-- none yet
+- No .rar fixture (needs the non-free `rar` tool); .rar adding is checked on Windows (docs/WINDOWS-TESTING.md).
+- "From GameBanana link" saves the link but fetches no images until M7.
