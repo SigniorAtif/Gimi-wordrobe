@@ -73,3 +73,25 @@ these fill gaps or record where something had to be interpreted.
   later library name would make it look like an entity container.
 - **The committed test index** (`fixtures/hash_index.test.json`) holds only the 35 hashes the fixture inis already
   quote (SPEC §5 allows fixtures to quote a handful of real hashes); the full index is never committed.
+
+## M3 Shelves, pending bar, Apply
+
+- **Apply refuses when the disk changed outside the app.** It re-scans first; if anything differs from what the UI
+  last saw, nothing moves, the UI gets the fresh state with a toast, and picks that still make sense are kept. The
+  user presses Apply again on purpose.
+- **The journal is deleted only after verification.** Each touched skin is re-located after the batch; a mismatch rolls
+  everything back like any other failure.
+- **Interrupted cross-drive copies** are recorded as "started"; recovery deletes the partial copy (the source is
+  intact) and undoes finished moves newest first.
+- **Persist restore failures are warnings**, not rollbacks: the skins are switched, the toast says toggles weren't
+  restored (SPEC §3 calls this best effort).
+- **Disable-method migration runs inside save_settings** as one journaled batch; if it fails, the setting isn't saved.
+- **Removing a skin** trashes every place its folders exist (Mods, DISABLED_ copy, stash) plus its previews, then tidies
+  empty parents under Mods. Tests inject a fake trash so nothing lands in the real Recycle Bin.
+- **Two skins of one entity enabled** (found on disk) show a red "!" on the card and a note in the shelf; picking one
+  and applying turns the others off.
+- **e2e fault injection** (`SKIN_SWITCHER_FAULT=fail:N|crash:N`) exists only in debug builds.
+- **e2e binary** is a `tauri build --debug --no-bundle` copied to `~/.cache/skin-switcher-e2e/` so `tauri dev`
+  (which builds to the same path without embedded assets) can't overwrite it.
+- **Debug profile keeps only line tables** (`[profile.dev]`): full debug info pushed the target dir past 11 GB on a
+  nearly full dev disk.
