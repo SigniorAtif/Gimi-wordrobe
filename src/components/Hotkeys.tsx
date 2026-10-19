@@ -114,16 +114,15 @@ export function ConflictRows({ clashes, snapshot, onOpen }: { clashes: HotkeyCla
         const onDisk = snapshot.disk.active[c.otherEntityId]?.includes(c.otherSkinId);
         const key = c.hotkey.parsed[0] ? keycaps(c.hotkey.parsed[0]).join(" + ") : c.hotkey.keys;
         return (
-          <motion.button
+          // the wrapper collapses as one box, padding and gap included, so nothing snaps at the end
+          <motion.div
             key={`${c.hotkey.keys}|${c.otherSkinId}|${c.severity}`}
-            type="button"
-            className={`clash clash--${c.severity}`}
-            onClick={() => onOpen?.(c.otherSkinId)}
-            disabled={!onOpen}
+            className="clash-wrap"
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto", transition: tween.small }}
             exit={{ opacity: 0, height: 0, transition: tween.small }}
           >
+          <button type="button" className={`clash clash--${c.severity}`} onClick={() => onOpen?.(c.otherSkinId)} disabled={!onOpen}>
             <span className="clash__icon" aria-hidden>
               {c.severity === "conflict" ? "!" : "i"}
             </span>
@@ -137,7 +136,8 @@ export function ConflictRows({ clashes, snapshot, onOpen }: { clashes: HotkeyCla
                 ? "Both toggle at once in game."
                 : "Both keys only work while that model is on screen, so they clash only when both are visible."}
             </span>
-          </motion.button>
+          </button>
+          </motion.div>
         );
       })}
     </AnimatePresence>

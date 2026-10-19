@@ -113,12 +113,14 @@ export function Shelf({
           </p>
         )}
         <AutoHeight reduced={reduced}>
+        <AnimatePresence mode="popLayout" initial={false}>
         {peekSkin ? (
           <motion.div
             key="peek"
             className="peek"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1, transition: tween.small }}
+            exit={{ opacity: 0, transition: tween.micro }}
           >
             <LayoutGroup id="peek">
             <div className="peek__list" role="radiogroup" aria-label={`${entity.name} skins`}>
@@ -168,7 +170,15 @@ export function Shelf({
             </div>
           </motion.div>
         ) : (
-        <div className="shelf__strip" role="radiogroup" aria-label={`${entity.name} skins`}>
+        <motion.div
+          key="strip"
+          className="shelf__strip"
+          role="radiogroup"
+          aria-label={`${entity.name} skins`}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1, transition: tween.small }}
+          exit={{ opacity: 0, transition: tween.micro }}
+        >
           <motion.div className="shelf__cell" {...enter(0)}>
             <OriginalCard entityId={entity.id} selected={effective === null} pending={pending} name={entity.name} reduced={reduced} onPick={() => pick(entity.id, null)} />
           </motion.div>
@@ -211,8 +221,9 @@ export function Shelf({
               </button>
             </motion.div>
           )}
-        </div>
+        </motion.div>
         )}
+        </AnimatePresence>
         </AutoHeight>
       </div>
       <Popover open={!!menu} anchor={menu?.anchor ?? null} onClose={() => setMenu(null)} align="end" label="Skin actions">

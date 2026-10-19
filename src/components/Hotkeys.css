@@ -88,7 +88,10 @@
   font-size: var(--fs-sm);
   text-align: left;
 }
-.clash + .clash {
+.clash-wrap {
+  overflow: hidden;
+}
+.clash-wrap + .clash-wrap .clash {
   margin-top: 6px;
 }
 .clash:not(:disabled):hover {

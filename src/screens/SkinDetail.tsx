@@ -193,11 +193,10 @@ export function SkinInfo({
       </AnimatePresence>
       <h2 className="caps info__h">In-game hotkeys · read from the mod's .ini</h2>
       <HotkeyTable skin={skin} />
-      {clashes.length > 0 && (
-        <div className="info__clashes">
-          <ConflictRows clashes={clashes} snapshot={snapshot} onOpen={(id) => navigate({ name: "skin", skinId: id })} />
-        </div>
-      )}
+      {/* always mounted so the last row's exit animates when a clash goes away */}
+      <div className="info__clashes">
+        <ConflictRows clashes={clashes} snapshot={snapshot} onOpen={(id) => navigate({ name: "skin", skinId: id })} />
+      </div>
       <h2 className="caps info__h">Notes</h2>
       <Notes key={skin.id} skin={skin} />
     </div>
