@@ -1,0 +1,77 @@
+/* Design tokens (SPEC §2, docs/DESIGN.md). Dark only. OKLCH neutrals tinted toward the accent hue. */
+:root {
+  color-scheme: dark;
+
+  /* Surfaces: window < 1 < 2 < 3 */
+  --bg: oklch(0.145 0.008 275);
+  --bg-deep: oklch(0.12 0.007 275);
+  --surface-1: oklch(0.182 0.009 275);
+  --surface-2: oklch(0.218 0.010 275);
+  --surface-3: oklch(0.258 0.011 275);
+  --surface-hover: oklch(0.24 0.011 275);
+
+  --border: oklch(0.285 0.011 275);
+  --border-soft: oklch(0.245 0.010 275);
+  --border-strong: oklch(0.38 0.013 275);
+
+  --text: oklch(0.95 0.006 275);
+  --text-2: oklch(0.77 0.010 275);
+  --text-3: oklch(0.58 0.012 275);
+  --text-4: oklch(0.46 0.012 275);
+
+  /* One accent: soft violet-blue */
+  --accent: oklch(0.73 0.125 278);
+  --accent-strong: oklch(0.79 0.12 278);
+  --accent-ink: oklch(0.2 0.04 278);
+  --accent-soft: oklch(0.73 0.125 278 / 0.16);
+  --accent-line: oklch(0.73 0.125 278 / 0.55);
+  --focus-ring: 0 0 0 2px var(--bg), 0 0 0 4px oklch(0.73 0.125 278 / 0.85);
+
+  /* Semantic */
+  --pending: oklch(0.85 0.14 88);
+  --pending-ink: oklch(0.25 0.05 88);
+  --pending-soft: oklch(0.85 0.14 88 / 0.14);
+  --danger: oklch(0.67 0.19 25);
+  --danger-ink: oklch(0.98 0.01 25);
+  --danger-soft: oklch(0.67 0.19 25 / 0.14);
+  --danger-line: oklch(0.67 0.19 25 / 0.5);
+
+  /* Type */
+  --font: "Inter Variable", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "Cascadia Mono", "JetBrains Mono", ui-monospace, monospace;
+  --fs-caps: 11px;
+  --fs-meta: 12px;
+  --fs-sm: 13px;
+  --fs-body: 14px;
+  --fs-title: 16px;
+  --fs-page: 20px;
+  --fs-detail: 26px;
+
+  /* Shape */
+  --r-card: 14px;
+  --r-btn: 10px;
+  --r-sm: 6px;
+  --r-pill: 999px;
+
+  /* Space */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 20px;
+  --s-6: 24px;
+  --s-7: 32px;
+  --s-8: 40px;
+  --s-9: 56px;
+  --gutter: 24px;
+
+  /* Depth */
+  --shadow-1: 0 1px 2px oklch(0.05 0.01 275 / 0.5), 0 2px 8px oklch(0.05 0.01 275 / 0.25);
+  --shadow-2: 0 2px 4px oklch(0.05 0.01 275 / 0.45), 0 10px 28px oklch(0.05 0.01 275 / 0.45);
+  --shadow-3: 0 6px 16px oklch(0.04 0.01 275 / 0.5), 0 24px 60px oklch(0.04 0.01 275 / 0.55);
+
+  /* Layout */
+  --toolbar-h: 64px;
+  --pending-h: 64px;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+}
