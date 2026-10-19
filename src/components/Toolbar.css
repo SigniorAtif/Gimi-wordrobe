@@ -1,5 +1,6 @@
 .toolbar {
-  position: relative;
+  position: sticky;
+  top: 0;
   z-index: 20;
   flex: none;
   height: var(--toolbar-h);

@@ -2,7 +2,6 @@ import { AnimatePresence, LayoutGroup, MotionConfig, motion } from "motion/react
 import { useEffect } from "react";
 import { Page, type PageKind } from "./components/Page";
 import { Toasts } from "./components/Toasts";
-import { Toolbar } from "./components/Toolbar";
 import { tween } from "./motion";
 import { useMotionConfigMode, useReduced } from "./lib/useReduced";
 import { Home } from "./screens/Home";
@@ -29,13 +28,10 @@ export default function App() {
     void boot();
   }, [boot]);
 
-  const showToolbar = !!snapshot && route.name === "home";
-
   return (
     <MotionConfig reducedMotion={motionMode}>
       <LayoutGroup>
         <div className="app">
-          <AnimatePresence>{showToolbar && <Toolbar key="toolbar" />}</AnimatePresence>
           <main className="app__main">
             <AnimatePresence initial={false} custom={{ dir: navDir, reduced }}>
               {snapshot ? (

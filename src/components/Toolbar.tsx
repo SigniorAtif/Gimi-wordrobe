@@ -5,13 +5,13 @@ import { useApp } from "../store/app";
 import "./Toolbar.css";
 
 /** Global toolbar for the home screens (§6). Search and filters are wired in the Home milestone. */
-export function Toolbar() {
+export function Toolbar({ animateIn = true }: { animateIn?: boolean }) {
   const reduced = useReduced();
   const navigate = useApp((s) => s.navigate);
   return (
     <motion.header
       className="toolbar"
-      initial={reduced ? { opacity: 0 } : { opacity: 0, y: -10 }}
+      initial={!animateIn ? false : reduced ? { opacity: 0 } : { opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0, transition: { ...spring.gentle, opacity: tween.medium } }}
       exit={{ opacity: 0, transition: tween.small }}
     >

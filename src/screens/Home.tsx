@@ -1,15 +1,19 @@
 import { motion } from "motion/react";
 import { useMemo } from "react";
 import { api } from "../api";
+import { Toolbar } from "../components/Toolbar";
 import type { Category, Entity, Snapshot } from "../api/types";
 import { riseIn, staggerContainer } from "../motion";
 import { CATEGORY_LABEL, CATEGORY_ORDER, diskActive, skinMap, sortEntities } from "../lib/derive";
 import { useReduced } from "../lib/useReduced";
+import { useApp } from "../store/app";
 import "./Home.css";
 
 /** Sectioned home grid (C1 base). Shelves, filters and badges arrive with the Home milestone. */
 export function Home({ snapshot }: { snapshot: Snapshot }) {
   const reduced = useReduced();
+  // Returning to Home reverses the page transition; only launch and forward visits replay the card stagger.
+  const replay = useApp((s) => s.navDir) === 1;
   const skins = useMemo(() => skinMap(snapshot), [snapshot]);
   const sections = useMemo(() => {
     return CATEGORY_ORDER.map((cat) => ({
@@ -20,10 +24,12 @@ export function Home({ snapshot }: { snapshot: Snapshot }) {
   const total = sections.reduce((n, s) => n + s.items.length, 0);
 
   return (
+    <>
+    <Toolbar animateIn={replay} />
     <motion.div
       className="home"
       variants={staggerContainer(total, reduced, 0.12)}
-      initial="hidden"
+      initial={replay ? "hidden" : false}
       animate="show"
     >
       {sections.map(({ cat, items }) => (
@@ -48,6 +54,7 @@ export function Home({ snapshot }: { snapshot: Snapshot }) {
         </section>
       ))}
     </motion.div>
+    </>
   );
 }
 
