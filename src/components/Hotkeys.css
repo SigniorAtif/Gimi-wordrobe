@@ -1,0 +1,120 @@
+.hk-caps {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+.hk-hint {
+  margin-left: 8px;
+  font-size: 11px;
+  color: var(--text-4);
+}
+.hk-raw {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-2);
+}
+.hk-empty {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--text-3);
+}
+.hk-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.hk-table td {
+  padding: 7px 8px;
+  border-bottom: 1px solid var(--border-soft);
+  vertical-align: middle;
+}
+.hk-table tr:last-child td {
+  border-bottom: 0;
+}
+.hk-table__keys {
+  width: 44%;
+}
+.hk-table__label {
+  font-size: var(--fs-sm);
+}
+.hk-table__kind {
+  width: 70px;
+  text-align: right;
+  font-size: var(--fs-meta);
+  color: var(--text-3);
+}
+.hk-label-input {
+  width: 100%;
+  max-width: 220px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 7px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text);
+  font-size: var(--fs-sm);
+  transition:
+    border-color 120ms var(--ease-out),
+    background-color 120ms var(--ease-out);
+}
+.hk-label-input:hover {
+  border-color: var(--border);
+}
+.hk-label-input:focus {
+  border-color: var(--accent-line);
+  background: var(--bg-deep);
+}
+.hk-ungated {
+  margin-left: 8px;
+  padding: 1px 6px;
+  border-radius: 5px;
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+.clash {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  overflow: hidden;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-1);
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  text-align: left;
+}
+.clash + .clash {
+  margin-top: 6px;
+}
+.clash:not(:disabled):hover {
+  border-color: var(--border-strong);
+}
+.clash--conflict {
+  border-color: var(--danger-line);
+  background: var(--danger-soft);
+  color: var(--text);
+}
+.clash__icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 800;
+  background: var(--surface-3);
+  color: var(--text-2);
+}
+.clash--conflict .clash__icon {
+  background: var(--danger);
+  color: var(--danger-ink);
+}
+.clash__text strong {
+  color: var(--text);
+}

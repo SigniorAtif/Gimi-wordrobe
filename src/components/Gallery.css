@@ -1,0 +1,124 @@
+.gallery {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  min-width: 0;
+}
+.gallery__main {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  border-radius: var(--r-card);
+  overflow: hidden;
+  background: var(--surface-1);
+  border: 1px solid var(--border-soft);
+}
+.gallery--compact .gallery__main {
+  aspect-ratio: 4 / 3.4;
+}
+.gallery__main img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: oklch(0.1 0.006 275);
+}
+.gallery__empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+}
+.gallery__empty--add {
+  border: 1.5px dashed var(--border-strong);
+  border-radius: inherit;
+  margin: 10px;
+}
+.gallery__plus {
+  font-size: 26px;
+  line-height: 1;
+}
+.gallery__sub {
+  font-size: var(--fs-meta);
+  color: var(--text-4);
+}
+.gallery__count {
+  position: absolute;
+  right: 10px;
+  bottom: 8px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: oklch(0.12 0.01 275 / 0.7);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+.gallery__nav {
+  position: absolute;
+  top: 50%;
+  width: 34px;
+  height: 34px;
+  margin-top: -17px;
+  border-radius: 50%;
+  border: 1px solid oklch(1 0 0 / 0.12);
+  background: oklch(0.13 0.01 275 / 0.7);
+  color: var(--text);
+  font-size: 20px;
+  line-height: 1;
+  opacity: 0;
+  transition: opacity 120ms var(--ease-out);
+}
+.gallery__main:hover .gallery__nav,
+.gallery__nav:focus-visible {
+  opacity: 1;
+}
+.gallery__nav--prev {
+  left: 10px;
+}
+.gallery__nav--next {
+  right: 10px;
+}
+.gallery__thumbs {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: var(--s-2);
+}
+.gallery--compact .gallery__thumbs {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+.gallery__thumb {
+  aspect-ratio: 4 / 3;
+  padding: 0;
+  overflow: hidden;
+  border-radius: 8px;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-1);
+  transition: border-color 120ms var(--ease-out);
+}
+.gallery__thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.gallery__thumb.is-on {
+  border: 2px solid var(--accent);
+}
+.gallery__thumb--drop {
+  display: grid;
+  place-items: center;
+  border: 1.5px dashed var(--border-strong);
+  font-size: 10.5px;
+  color: var(--text-3);
+  text-align: center;
+}
+.gallery__caption {
+  margin: 0;
+  font-size: var(--fs-meta);
+  color: var(--text-3);
+}
