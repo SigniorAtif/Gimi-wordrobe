@@ -30,6 +30,7 @@ export function PageCard({
       type="button"
       className={`pcard ${pending ? "is-pending" : ""}`}
       data-entity={entity.id}
+      data-drop={`entity:${entity.id}`}
       aria-label={`${entity.name}, ${subtitle}${pending ? ", pending" : ""}`}
       variants={riseIn(reduced)}
       exit={reduced ? { opacity: 0, transition: tween.small } : { opacity: 0, scale: 0.94, transition: tween.small }}

@@ -33,3 +33,21 @@
 .home__empty p {
   margin: 0;
 }
+.home__newtile {
+  display: grid;
+  place-items: center;
+  min-height: 76px;
+  border-radius: var(--r-card);
+  border: 1.5px dashed var(--border-strong);
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  font-weight: 560;
+  transition:
+    scale 200ms var(--ease-out),
+    background-color 160ms var(--ease-out);
+}
+.home__newtile.is-drop-hover {
+  scale: 1.03;
+  background: var(--accent-soft);
+  color: var(--text);
+}
