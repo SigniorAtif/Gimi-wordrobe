@@ -33,7 +33,7 @@ pub fn read_entries(text: &str) -> Vec<Entry> {
         }
         let Some((k, v)) = t.split_once('=') else { continue };
         let key = k.trim();
-        if !key.to_ascii_lowercase().starts_with("$\\mods\\") {
+        if !key.to_lowercase().starts_with("$\\mods\\") {
             continue; // never touch $\global\... or other namespaces (libraries own them)
         }
         if let Ok(value) = v.trim().parse::<f64>() {
@@ -47,7 +47,8 @@ pub fn read_entries(text: &str) -> Vec<Entry> {
 pub fn entries_for<'a>(entries: &'a [Entry], skin: &Skin) -> impl Iterator<Item = &'a Entry> + 'a {
     let prefixes: Vec<String> = skin.folders.iter().map(|f| paths::persist_prefix(f)).collect();
     entries.iter().filter(move |e| {
-        let k = e.key.to_ascii_lowercase();
+        // same lowercasing as persist_prefix (Unicode, not just ASCII)
+        let k = e.key.to_lowercase();
         prefixes.iter().any(|p| k.starts_with(p.as_str()))
     })
 }
@@ -150,7 +151,95 @@ pub fn merge_text(text: &str, lines: &BTreeMap<String, f64>) -> String {
     s
 }
 
-/// Restore skins' saved toggles into d3dx_user.ini: `.bak` first, then an atomic write. Best effort (SPEC §3).
+/// Merge saved lines into the raw file bytes, keeping its encoding, BOM, line endings and every other byte
+/// exactly as they were (SPEC §3). Matching keys keep their original spelling; only the value changes.
+pub fn merge_bytes(orig: &[u8], lines: &BTreeMap<String, f64>) -> Vec<u8> {
+    // UTF-16 files: round-trip through text and write UTF-16 back with the same BOM
+    if orig.starts_with(&[0xFF, 0xFE]) || orig.starts_with(&[0xFE, 0xFF]) {
+        let le = orig[0] == 0xFF;
+        let merged = merge_text(&ini::decode(orig), lines);
+        let mut out = if le { vec![0xFF, 0xFE] } else { vec![0xFE, 0xFF] };
+        for u in merged.encode_utf16() {
+            out.extend_from_slice(&if le { u.to_le_bytes() } else { u.to_be_bytes() });
+        }
+        return out;
+    }
+    let crlf = orig.windows(2).any(|w| w == b"\r\n");
+    let eol: &[u8] = if crlf { b"\r\n" } else { b"\n" };
+    let mut pending: Vec<(&String, &f64)> = lines.iter().collect();
+    let mut out: Vec<Vec<u8>> = vec![];
+    let mut in_constants = false;
+    let mut saw_constants = false;
+    let mut constants_end: Option<usize> = None;
+    let body = orig.strip_suffix(b"\n").unwrap_or(orig);
+    if !orig.is_empty() {
+        for raw in body.split(|b| *b == b'\n') {
+            let has_cr = raw.ends_with(b"\r");
+            let line = if has_cr { &raw[..raw.len() - 1] } else { raw };
+            let t = line.trim_ascii();
+            if t.starts_with(b"[") {
+                if in_constants {
+                    constants_end = Some(out.len());
+                }
+                in_constants = t.eq_ignore_ascii_case(b"[constants]");
+                saw_constants |= in_constants;
+                out.push(raw.to_vec());
+                continue;
+            }
+            if t.starts_with(b"$")
+                && let Some(eq) = t.iter().position(|b| *b == b'=')
+            {
+                let key_bytes = t[..eq].trim_ascii();
+                let key = String::from_utf8_lossy(key_bytes).to_lowercase();
+                if let Some(pos) = pending.iter().position(|(pk, _)| pk.to_lowercase() == key) {
+                    let (_, v) = pending.remove(pos);
+                    let mut l = key_bytes.to_vec();
+                    l.extend_from_slice(format!(" = {}", fmt_value(*v)).as_bytes());
+                    if has_cr {
+                        l.push(b'\r');
+                    }
+                    out.push(l);
+                    continue;
+                }
+            }
+            out.push(raw.to_vec());
+        }
+    }
+    if in_constants {
+        let mut end = out.len();
+        while end > 0 && out[end - 1].trim_ascii().is_empty() {
+            end -= 1;
+        }
+        constants_end = Some(end);
+    }
+    let cr = if crlf { "\r" } else { "" };
+    let new_lines: Vec<Vec<u8>> =
+        pending.iter().map(|(k, v)| format!("{k} = {}{cr}", fmt_value(**v)).into_bytes()).collect();
+    if !new_lines.is_empty() {
+        match (saw_constants, constants_end) {
+            (true, Some(at)) => {
+                for (i, l) in new_lines.into_iter().enumerate() {
+                    out.insert(at + i, l);
+                }
+            }
+            _ => {
+                if out.last().map(|l| !l.trim_ascii().is_empty()).unwrap_or(false) {
+                    out.push(cr.as_bytes().to_vec());
+                }
+                out.push(format!("[Constants]{cr}").into_bytes());
+                out.extend(new_lines);
+            }
+        }
+    }
+    let mut bytes = out.join(&b"\n"[..]);
+    if !bytes.is_empty() {
+        bytes.extend_from_slice(if crlf { b"\n" } else { eol });
+    }
+    bytes
+}
+
+/// Restore skins' saved toggles into d3dx_user.ini: keep a one-time copy of the original, `.bak` the current file,
+/// then write atomically. Best effort (SPEC §3), but never on top of a file it couldn't read.
 pub fn restore(user_ini: &Path, skins: &[&Skin]) -> AppResult<usize> {
     let mut lines = BTreeMap::new();
     for s in skins {
@@ -163,15 +252,23 @@ pub fn restore(user_ini: &Path, skins: &[&Skin]) -> AppResult<usize> {
     if lines.is_empty() {
         return Ok(0);
     }
-    let original = std::fs::read(user_ini).map(|b| ini::decode(&b)).unwrap_or_default();
-    let merged = merge_text(&original, &lines);
+    let original = match std::fs::read(user_ini) {
+        Ok(b) => b,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => vec![],
+        Err(e) => return Err(e.into()),
+    };
+    let merged = merge_bytes(&original, &lines);
     if merged == original {
         return Ok(0);
     }
     if user_ini.exists() {
+        let first = fsutil::with_suffix(user_ini, ".skinswitcher-original");
+        if !first.exists() {
+            std::fs::copy(user_ini, &first)?;
+        }
         std::fs::copy(user_ini, fsutil::with_suffix(user_ini, ".bak"))?;
     }
-    fsutil::write_atomic(user_ini, merged.as_bytes(), false)?;
+    fsutil::write_atomic(user_ini, &merged, false)?;
     Ok(lines.len())
 }
 
@@ -228,6 +325,29 @@ mod tests {
         // no [Constants] at all
         let out2 = merge_text("", &lines);
         assert!(out2.starts_with("[Constants]"));
+    }
+
+    #[test]
+    fn byte_merge_keeps_bom_crlf_and_non_utf8_bytes() {
+        let mut orig = vec![0xEF, 0xBB, 0xBF];
+        orig.extend_from_slice(b"; caf\xe9 (ANSI)\r\n[Constants]\r\n$version = 7\r\n$\\mods\\x\\a.ini\\hat = 0\r\n");
+        let mut lines = BTreeMap::new();
+        lines.insert("$\\mods\\X\\A.ini\\HAT".to_string(), 2.0);
+        lines.insert("$\\mods\\y\\b.ini\\v".to_string(), 1.0);
+        let out = merge_bytes(&orig, &lines);
+        assert!(out.starts_with(&[0xEF, 0xBB, 0xBF]), "BOM kept");
+        assert!(out.windows(5).any(|w| w == b"caf\xe9 "), "ANSI byte untouched");
+        let text = String::from_utf8_lossy(&out);
+        assert!(text.contains("$\\mods\\x\\a.ini\\hat = 2\r\n"), "original key spelling, new value: {text}");
+        assert!(text.contains("$\\mods\\y\\b.ini\\v = 1\r\n"));
+        assert!(!text.contains("\n\n"));
+    }
+
+    #[test]
+    fn unicode_folder_names_match_their_keys() {
+        let s = Skin { folders: vec!["Éclair/Outfit".into()], ..Skin::default() };
+        let e = read_entries("[Constants]\n$\\mods\\éclair\\outfit\\x.ini\\hat = 1\n");
+        assert_eq!(entries_for(&e, &s).count(), 1);
     }
 
     #[test]
