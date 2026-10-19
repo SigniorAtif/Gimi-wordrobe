@@ -1,0 +1,73 @@
+.lp {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 8px;
+  height: 128px;
+  border-radius: 10px;
+  background: var(--bg);
+  overflow: hidden;
+}
+.lp__bar {
+  height: 7px;
+  width: 45%;
+  border-radius: 3px;
+  background: var(--surface-2);
+}
+.lp__grid {
+  display: grid;
+  gap: 4px;
+}
+.lp__grid--5 {
+  grid-template-columns: repeat(5, 1fr);
+}
+.lp__grid--6 {
+  grid-template-columns: repeat(6, 1fr);
+}
+.lp__card {
+  aspect-ratio: 3 / 4;
+  border-radius: 4px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.lp__card img,
+.lp__skin img,
+.lp__dot img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.lp__tile {
+  height: 16px;
+  border-radius: 4px;
+  background: var(--surface-1);
+  border: 1px solid var(--border-soft);
+  display: flex;
+  align-items: center;
+  padding-left: 3px;
+}
+.lp__tile.is-open {
+  border-color: var(--accent-line);
+}
+.lp__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--surface-3);
+}
+.lp__shelf {
+  display: flex;
+  gap: 4px;
+  padding: 5px;
+  border-radius: 5px;
+  border: 1px solid var(--accent-line);
+  background: var(--surface-1);
+}
+.lp__skin {
+  width: 22px;
+  aspect-ratio: 3 / 4;
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--surface-2);
+}

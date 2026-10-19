@@ -27,6 +27,7 @@ export function Page({ id, kind, children }: { id: string; kind: PageKind; child
   return (
     <motion.div
       ref={ref}
+      layoutScroll
       className={`page page--${kind}`}
       data-page={kind}
       custom={{ dir, reduced }}
