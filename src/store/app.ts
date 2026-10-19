@@ -53,6 +53,8 @@ interface AppState {
 
 let toastSeq = 1;
 let settingsSeq = 0;
+/** Last settings the backend confirmed; a failed save falls back to these. */
+let confirmedSettings: Settings | null = null;
 
 export const useApp = create<AppState>((set, get) => ({
   snapshot: null,
@@ -68,6 +70,7 @@ export const useApp = create<AppState>((set, get) => ({
     set({ booting: true, bootError: null });
     try {
       const snapshot = await api.load();
+      confirmedSettings = snapshot.settings;
       set({ snapshot, booting: false, route: snapshot.configured ? { name: "home" } : { name: "setup" }, history: [] });
       if (snapshot.recovered) {
         get().toast({ kind: "info", text: snapshot.recovered.message, ttl: 0 });
@@ -78,6 +81,7 @@ export const useApp = create<AppState>((set, get) => ({
   },
 
   setSnapshot(snapshot) {
+    confirmedSettings = snapshot.settings;
     set({ snapshot });
   },
 
@@ -114,14 +118,14 @@ export const useApp = create<AppState>((set, get) => ({
     set({ snapshot: { ...snap, settings: next } });
     try {
       const fresh = await api.saveSettings(next);
+      confirmedSettings = fresh.settings;
       // a newer save already went out with this patch included; only the latest response wins
       if (seq === settingsSeq) set({ snapshot: fresh });
     } catch (e) {
       if (seq === settingsSeq) {
+        // fall back to what the backend last confirmed, not just this call's keys
         const cur = get().snapshot ?? snap;
-        const reverted = { ...cur.settings } as Record<keyof Settings, unknown>;
-        for (const k of Object.keys(patch) as (keyof Settings)[]) reverted[k] = snap.settings[k];
-        set({ snapshot: { ...cur, settings: reverted as unknown as Settings } });
+        set({ snapshot: { ...cur, settings: confirmedSettings ?? snap.settings } });
       }
       get().toast({ kind: "error", text: toFailure(e).message });
     }

@@ -4,7 +4,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { openUrl as openExternal } from "@tauri-apps/plugin-opener";
 import { toFailure, type Api } from "./api";
-import type { Settings, Snapshot } from "./types";
+import type { FirstRunDefaults, Settings, Snapshot } from "./types";
 
 async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
   try {
@@ -28,6 +28,7 @@ export const api: Api = {
   load: () => snap("load"),
   rescan: () => snap("rescan"),
   saveSettings: (settings: Settings) => snap("save_settings", { settings }),
+  firstRunDefaults: () => call<FirstRunDefaults>("first_run_defaults"),
   async pickFolder({ title, defaultPath }) {
     const picked = await openDialog({ directory: true, multiple: false, title, defaultPath });
     return typeof picked === "string" ? picked : null;

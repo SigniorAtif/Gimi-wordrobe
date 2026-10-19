@@ -199,7 +199,7 @@ pub enum WhenHidden {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", default)]
 pub struct NsfwSettings {
     pub hotkey: String,
     pub when_hidden: WhenHidden,
@@ -215,7 +215,7 @@ impl Default for NsfwSettings {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", default)]
 pub struct Settings {
     #[serde(default)]
     pub active_loader: Loader,
@@ -310,6 +310,8 @@ pub struct Snapshot {
     pub recovered: Option<RecoveryInfo>,
     pub hash_index: HashIndexInfo,
     pub configured: bool,
+    /// Library and Mods on the same drive (moves are instant renames). None when unknown.
+    pub same_drive: Option<bool>,
 }
 
 #[cfg(test)]
@@ -337,5 +339,10 @@ mod tests {
         let s: Settings = serde_json::from_str("{}").unwrap();
         assert_eq!(s.disable_method, DisableMethod::Move);
         assert!(!s.is_configured());
+        // a partial nsfw object keeps the other defaults instead of failing the whole file
+        let s: Settings = serde_json::from_str(r#"{"nsfw":{"whenHidden":"invisible"}}"#).unwrap();
+        assert_eq!(s.nsfw.hotkey, "Ctrl+H");
+        assert!(s.nsfw.auto_rehide);
+        assert_eq!(s.nsfw.when_hidden, WhenHidden::Invisible);
     }
 }
