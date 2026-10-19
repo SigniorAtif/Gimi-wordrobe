@@ -1,6 +1,6 @@
 // Small form controls shared by Settings, Setup and dialogs.
 import { AnimatePresence, motion } from "motion/react";
-import { useId, useState, type ReactNode } from "react";
+import { useId, useRef, useState, type ReactNode } from "react";
 import { spring } from "../motion";
 import "./controls.css";
 
@@ -112,7 +112,13 @@ export function PathField({
     setSeen(value);
     setDraft(value);
   }
+  const cancelled = useRef(false);
   const commit = () => {
+    if (cancelled.current) {
+      // Escape: blur must not save the draft it just discarded
+      cancelled.current = false;
+      return;
+    }
     if (draft.trim() !== value.trim()) onCommit(draft.trim());
   };
   return (
@@ -129,6 +135,8 @@ export function PathField({
         onKeyDown={(e) => {
           if (e.key === "Enter") (e.target as HTMLInputElement).blur();
           if (e.key === "Escape") {
+            e.stopPropagation();
+            cancelled.current = true;
             setDraft(value);
             (e.target as HTMLInputElement).blur();
           }

@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "motion/react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { tween } from "../motion";
 
 const MOD_KEYS = new Set(["Control", "Alt", "Shift", "Meta", "OS"]);
@@ -40,9 +40,18 @@ export function KeyCombo({ combo, small }: { combo: string; small?: boolean }) {
 export function HotkeyRecorder({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [recording, setRecording] = useState(false);
   const [hint, setHint] = useState<string | null>(null);
+  const box = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!recording) return;
+    const stop = () => {
+      setRecording(false);
+      setHint(null);
+    };
+    // clicking elsewhere or leaving the window cancels, so keys are never trapped
+    const onDown = (e: PointerEvent) => {
+      if (!box.current?.contains(e.target as Node)) stop();
+    };
     const onKey = (e: KeyboardEvent) => {
       e.preventDefault();
       e.stopPropagation();
@@ -62,11 +71,17 @@ export function HotkeyRecorder({ value, onChange }: { value: string; onChange: (
       onChange(combo);
     };
     window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
+    window.addEventListener("pointerdown", onDown, true);
+    window.addEventListener("blur", stop);
+    return () => {
+      window.removeEventListener("keydown", onKey, true);
+      window.removeEventListener("pointerdown", onDown, true);
+      window.removeEventListener("blur", stop);
+    };
   }, [recording, onChange]);
 
   return (
-    <div className="hotkey-rec">
+    <div className="hotkey-rec" ref={box}>
       <div className="hotkey-rec__row">
         <AnimatePresence mode="wait" initial={false}>
           {recording ? (
