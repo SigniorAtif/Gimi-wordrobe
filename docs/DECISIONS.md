@@ -95,3 +95,11 @@ these fill gaps or record where something had to be interpreted.
   (which builds to the same path without embedded assets) can't overwrite it.
 - **Debug profile keeps only line tables** (`[profile.dev]`): full debug info pushed the target dir past 11 GB on a
   nearly full dev disk.
+- **Cross-drive moves are two-phase in the journal** (started -> copied -> done). Recovery deletes a partial copy
+  only while the source is intact; once the copy is verified it rebuilds the source from it instead.
+- **A leftover journal is always recovered first**; a new batch never overwrites it. A successful batch marks its
+  journal committed before deleting it, so a failed delete can't cause a spurious rollback on the next start.
+- **d3dx_user.ini is merged on raw bytes** (BOM, CRLF, UTF-16 and ANSI bytes in other lines survive). The first copy
+  ever touched is kept as `d3dx_user.ini.skinswitcher-original`; `.bak` holds the state before the latest write.
+- **Un-imported mods of a picked character** stay enabled (Apply only moves library skins); Apply warns about them
+  and points to Re-scan.
