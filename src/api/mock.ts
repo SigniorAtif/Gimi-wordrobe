@@ -1,6 +1,6 @@
 // In-memory fixture backend for the browser test harness (SPEC §0). Enabled with VITE_MOCK=1, never in release builds.
 // URL flags: ?firstrun=1 starts unconfigured; ?pages=1 starts in Pages layout; ?reduced=1 forces reduced motion.
-import { ApiFailure, type Api } from "./api";
+import type { Api } from "./api";
 import { buildMockWorld, MOCK_LIBRARIES, MOCK_SETTINGS, type MockWorld } from "./mockData";
 import type { DiskState, Settings, Snapshot } from "./types";
 
@@ -64,9 +64,8 @@ export const api: Api = {
   },
   async saveSettings(next) {
     await wait(40);
-    if (!next.libraryPath) throw new ApiFailure("invalid_settings", "Choose a Library folder.");
     settings = structuredClone(next);
-    configured = !!(settings.modsPath[settings.activeLoader] && settings.libraryPath);
+    configured = !!(settings.modsPath[settings.activeLoader]?.trim() && settings.libraryPath.trim());
     return snapshot();
   },
   async pickFolder({ defaultPath }) {
