@@ -41,15 +41,20 @@ export function SettingsPage() {
         <Section title="Appearance" reduced={reduced} wide>
           <Appearance s={s} snapshot={snapshot} save={save} />
         </Section>
-        <Section title="Mod loader" reduced={reduced}>
-          <LoaderSection s={s} save={save} />
-        </Section>
-        <Section title="Library" reduced={reduced}>
-          <LibrarySection s={s} snapshot={snapshot} save={save} />
-        </Section>
-        <Section title="NSFW" reduced={reduced}>
-          <NsfwSection s={s} save={save} />
-        </Section>
+        {/* two independent columns, so a tall Library card never leaves a hole under Mod loader */}
+        <div className="settings__col">
+          <Section title="Mod loader" reduced={reduced}>
+            <LoaderSection s={s} save={save} />
+          </Section>
+          <Section title="NSFW" reduced={reduced}>
+            <NsfwSection s={s} save={save} />
+          </Section>
+        </div>
+        <div className="settings__col">
+          <Section title="Library" reduced={reduced}>
+            <LibrarySection s={s} snapshot={snapshot} save={save} />
+          </Section>
+        </div>
       </motion.div>
     </div>
   );
@@ -154,6 +159,19 @@ function LibrarySection({ s, snapshot, save }: { s: Settings; snapshot: Snapshot
   const setSnapshot = useApp((st) => st.setSnapshot);
   const toast = useApp((st) => st.toast);
   const [scanning, setScanning] = useState(false);
+  const [updating, setUpdating] = useState(false);
+  const updateIndex = async () => {
+    setUpdating(true);
+    try {
+      const snap = await api.updateHashIndex();
+      setSnapshot(snap);
+      toast({ kind: "success", text: `Hash index updated (${snap.hashIndex.date ?? "latest"}).` });
+    } catch (e) {
+      toast({ kind: "error", text: "Couldn't update the hash index.", detail: toFailure(e).message });
+    } finally {
+      setUpdating(false);
+    }
+  };
   const browse = async () => {
     const picked = await api.pickFolder({ title: "Choose the Library folder", defaultPath: s.libraryPath });
     if (picked) void save({ libraryPath: picked });
@@ -225,7 +243,7 @@ function LibrarySection({ s, snapshot, save }: { s: Settings; snapshot: Snapshot
             ))}
           </ul>
         ) : (
-          <div className="settings__empty">None found in the Mods folder.</div>
+          <div className="settings__empty">{snapshot.disk.modsExists ? "None found in the Mods folder." : "The Mods folder isn't set or doesn't exist."}</div>
         )}
       </Field>
       <div className="hash-row">
@@ -237,6 +255,10 @@ function LibrarySection({ s, snapshot, save }: { s: Settings; snapshot: Snapshot
               : "Not built yet. Detection falls back to names."}
           </div>
         </div>
+        <button className="btn btn--sm" onClick={() => void updateIndex()} disabled={updating}>
+          {updating && <span className="spinner" aria-hidden />}
+          {updating ? "Updating…" : "Update hash index"}
+        </button>
       </div>
     </div>
   );

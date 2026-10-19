@@ -14,9 +14,15 @@ pub fn path(config_dir: &Path) -> PathBuf {
 }
 
 pub fn load(config_dir: &Path) -> Settings {
-    match fsutil::read_json_or_bak::<Settings>(&path(config_dir)) {
+    let p = path(config_dir);
+    match fsutil::read_json_or_bak::<Settings>(&p) {
         Ok(Some(s)) => s,
-        _ => Settings::default(),
+        Ok(None) => Settings::default(),
+        Err(_) => {
+            // keep the unreadable file for the user before defaults get saved over it
+            let _ = std::fs::copy(&p, fsutil::with_suffix(&p, ".corrupt"));
+            Settings::default()
+        }
     }
 }
 
@@ -36,7 +42,10 @@ pub fn validate(s: &Settings) -> AppResult<()> {
         .collect();
     for p in mods.iter().copied().chain((!lib.is_empty()).then_some(lib)) {
         if !paths::is_absolute_like(p) {
-            return Err(AppError::new("relative_path", format!("Use a full path, e.g. D:\\mods\\SkinLibrary (got \"{p}\").")));
+            return Err(AppError::new(
+                "relative_path",
+                format!("Use a full path, e.g. D:\\mods\\SkinLibrary (got \"{p}\")."),
+            ));
         }
         if paths::has_parent_ref(p) {
             return Err(AppError::new("parent_ref", format!("Paths can't contain \"..\" ({p}).")));
@@ -58,8 +67,14 @@ pub fn validate(s: &Settings) -> AppResult<()> {
     }
     let hk = s.nsfw.hotkey.trim().to_ascii_lowercase();
     let parts: Vec<&str> = hk.split('+').collect();
-    if parts.len() < 2 || !(parts.contains(&"ctrl") || parts.contains(&"alt")) || parts.last().map(|k| k.is_empty()).unwrap_or(true) {
-        return Err(AppError::new("invalid_hotkey", "The NSFW reveal hotkey needs Ctrl or Alt plus a key, e.g. Ctrl+H."));
+    if parts.len() < 2
+        || !(parts.contains(&"ctrl") || parts.contains(&"alt"))
+        || parts.last().map(|k| k.is_empty()).unwrap_or(true)
+    {
+        return Err(AppError::new(
+            "invalid_hotkey",
+            "The NSFW reveal hotkey needs Ctrl or Alt plus a key, e.g. Ctrl+H.",
+        ));
     }
     Ok(())
 }
@@ -104,14 +119,22 @@ pub fn first_run_defaults() -> FirstRunDefaults {
     let xxmi = std::env::var_os("APPDATA").map(|a| PathBuf::from(a).join("XXMI Launcher").join("GIMI").join("Mods"));
     let m = migoto.is_dir().then(|| migoto.to_string_lossy().into_owned());
     let x = xxmi.filter(|p| p.is_dir()).map(|p| p.to_string_lossy().into_owned());
-    let loader = if m.is_some() { Some(Loader::Migoto) } else if x.is_some() { Some(Loader::Xxmi) } else { None };
+    let loader = if m.is_some() {
+        Some(Loader::Migoto)
+    } else if x.is_some() {
+        Some(Loader::Xxmi)
+    } else {
+        None
+    };
     // Same drive as the Mods folder so moves are instant renames, and never a drive root (needs admin).
     let library = Some(if m.is_some() || x.is_none() {
         r"D:\mods\SkinLibrary".to_string()
     } else {
         // XXMI only: next to the GIMI folder, e.g. %AppData%\XXMI Launcher\SkinLibrary
         let mods = PathBuf::from(x.as_deref().unwrap_or_default());
-        mods.parent().and_then(Path::parent).map(|p| p.join("SkinLibrary").to_string_lossy().into_owned())
+        mods.parent()
+            .and_then(Path::parent)
+            .map(|p| p.join("SkinLibrary").to_string_lossy().into_owned())
             .unwrap_or_else(|| r"D:\mods\SkinLibrary".to_string())
     });
     FirstRunDefaults { loader, mods_3dmigoto: m, mods_xxmi: x, library }

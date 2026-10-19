@@ -44,3 +44,32 @@ these fill gaps or record where something had to be interpreted.
 - **XXMI-only first run** suggests `%AppData%\XXMI Launcher\SkinLibrary` (same drive, user-writable, outside
   `GIMI\Mods`); otherwise `D:\mods\SkinLibrary` as SPEC §5 says.
 - **Commands are async** and do their disk work on a blocking thread (Tauri runs sync commands on the main thread).
+
+## M2 Hash index, scanner, fixtures
+
+- **Two index builders.** `scripts/build-hash-index.mjs` (predev/prebuild) and the in-app "Update hash index"
+  (`src-tauri/src/net.rs`) produce the same JSON. The app loads whichever of the bundled and updated files is newer.
+  The Rust copy exists because the button must work in a release build without Node.
+- **`KaedeharaKazuha` displays as "Kazuha"** (and a few similar overrides) to match SPEC/wireframe naming.
+- **Grouping rules** (SPEC §5, refined against the real disk):
+  - parts vs alternatives = hash overlap ratio `|A∩B| / min(|A|,|B|)` with alternatives at >= 0.5. The real Sandrone
+    `Face Texture` ini shares `65a4831f` with `outfit/`, so "any shared position hash" would wrongly split them.
+  - an entity container (`Mods/Furina/`) needs an exact or alias name match; `paimon_cc116` (Paimon + more) is a mod
+    folder and collapses to itself.
+  - texture-only roots with no known entity are guessed as weapons (the real Teaspoon ini only swaps a diffuse).
+  - a root's own folder name beats a non-container ancestor's name, so `sandrone_marionette_by_neyori/A Teaspoon of
+    Transcendence` becomes its own weapon instead of more Sandrone.
+- **Heuristic libraries** (namespace, no index hash, no name match) are kept out of the skin list and reported as
+  "looks like a library" for the import review.
+- **First-run quick import (temporary):** an empty library adopts every mod root with suggested names. The import
+  milestone replaces this with the SPEC §5 review screen; later scans already report new folders instead of adopting.
+- **Fixtures are generated** by `scripts/make-fixtures.mjs` (committed together with its output). Tests copy them to a
+  temp dir before touching anything.
+- **Parts merge at the Mods root too.** An archive like `varesa_by_neyori` extracted straight into Mods leaves
+  `Face/` and `Outfit/` side by side at the root; they are one skin. Two unrelated same-entity mods with disjoint
+  hashes at the root would also merge; the import review lets the user split them.
+- **Hash values parse like 3DMigoto's `%lx`:** optional `0x`, leading hex digits, anything after (a `;note`) ignored.
+- **Known skin folders are always roots.** Once imported, a folder keeps its grouping on every re-scan even if a
+  later library name would make it look like an entity container.
+- **The committed test index** (`fixtures/hash_index.test.json`) holds only the 35 hashes the fixture inis already
+  quote (SPEC §5 allows fixtures to quote a handful of real hashes); the full index is never committed.

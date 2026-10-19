@@ -75,6 +75,9 @@ export const useApp = create<AppState>((set, get) => ({
       if (snapshot.recovered) {
         get().toast({ kind: "info", text: snapshot.recovered.message, ttl: 0 });
       }
+      if (snapshot.notice) {
+        get().toast({ kind: "error", text: snapshot.notice, ttl: 0 });
+      }
     } catch (e) {
       set({ booting: false, bootError: toFailure(e).message });
     }

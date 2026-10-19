@@ -20,7 +20,13 @@ pub fn cmp_key(p: &str) -> String {
         }
         parts.push(part);
     }
-    let lead = if unified.starts_with("//") { "//" } else if unified.starts_with('/') { "/" } else { "" };
+    let lead = if unified.starts_with("//") {
+        "//"
+    } else if unified.starts_with('/') {
+        "/"
+    } else {
+        ""
+    };
     format!("{lead}{}", parts.join("/")).to_lowercase()
 }
 

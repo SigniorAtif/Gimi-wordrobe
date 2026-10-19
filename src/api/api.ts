@@ -21,6 +21,8 @@ export interface Api {
   rescan(): Promise<Snapshot>;
   /** Save settings (instantly, no Save button). Changing loader or paths re-scans. */
   saveSettings(settings: Settings): Promise<Snapshot>;
+  /** Fetch the latest hash index from GI-Model-Importer-Assets, then re-scan (SPEC §5). */
+  updateHashIndex(): Promise<Snapshot>;
   /** First-run pre-fill (SPEC §5): existing loader paths and a suggested Library. Windows only. */
   firstRunDefaults(): Promise<FirstRunDefaults>;
   pickFolder(opts: FolderPickOptions): Promise<string | null>;

@@ -60,6 +60,16 @@ pub async fn save_settings(app: AppHandle, state: State<'_, AppState>, settings:
     Ok(snap)
 }
 
+/// "Update hash index" (Settings › Library): download outside the lock, then reload and re-scan.
+#[tauri::command]
+pub async fn update_hash_index(state: State<'_, AppState>) -> AppResult<Snapshot> {
+    let dest = state.lock()?.config_dir().join(crate::core::app::HASH_INDEX_FILE);
+    tauri::async_runtime::spawn_blocking(move || crate::net::update_hash_index(&dest))
+        .await
+        .map_err(|e| AppError::new("task", e.to_string()))??;
+    state.run(|c| c.reload_index()).await
+}
+
 #[tauri::command]
 pub fn first_run_defaults() -> FirstRunDefaults {
     settings::first_run_defaults()
@@ -71,9 +81,13 @@ pub enum OpenTarget {
     Mods,
     Library,
     #[serde(rename_all = "camelCase")]
-    Skin { skin_id: String },
+    Skin {
+        skin_id: String,
+    },
     #[serde(rename_all = "camelCase")]
-    Entity { entity_id: String },
+    Entity {
+        entity_id: String,
+    },
 }
 
 #[tauri::command]

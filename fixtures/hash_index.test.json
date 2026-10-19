@@ -1,0 +1,330 @@
+{
+ "version": 1,
+ "source": "hashes quoted by the fixture inis (see fixtures/Mods); not the full index",
+ "commit": "test",
+ "date": "2026-08-03",
+ "entities": [
+  {
+   "key": "Furina",
+   "name": "Furina",
+   "group": "character",
+   "base": null,
+   "path": "PlayerCharacterData/Furina"
+  },
+  {
+   "key": "Varesa",
+   "name": "Varesa",
+   "group": "character",
+   "base": null,
+   "path": "PlayerCharacterData/Varesa"
+  },
+  {
+   "key": "Sandrone",
+   "name": "Sandrone",
+   "group": "character",
+   "base": null,
+   "path": "PlayerCharacterData/Sandrone"
+  },
+  {
+   "key": "Paimon",
+   "name": "Paimon",
+   "group": "npc",
+   "base": null,
+   "path": "NPCData/Paimon"
+  },
+  {
+   "key": "KaedeharaKazuha",
+   "name": "Kazuha",
+   "group": "character",
+   "base": null,
+   "path": "PlayerCharacterData/KaedeharaKazuha"
+  },
+  {
+   "key": "MonaCN",
+   "name": "Mona CN",
+   "group": "character",
+   "base": "Mona",
+   "path": "PlayerCharacterData/MonaCN"
+  },
+  {
+   "key": "TomeofEternalFlow",
+   "name": "Tome of the Eternal Flow",
+   "group": "weapon",
+   "base": null,
+   "path": "WeaponData/Catalysts/5Star/TomeofEternalFlow"
+  },
+  {
+   "key": "GaMing",
+   "name": "Ga Ming",
+   "group": "character",
+   "base": null,
+   "path": "PlayerCharacterData/GaMing"
+  },
+  {
+   "key": "Mona",
+   "name": "Mona",
+   "group": "character",
+   "base": null,
+   "path": "PlayerCharacterData/Mona"
+  },
+  {
+   "key": "Oz",
+   "name": "Oz",
+   "group": "npc",
+   "base": null,
+   "path": "NPCData/Oz"
+  }
+ ],
+ "hashes": {
+  "47590010": [
+   [
+    1,
+    "texture:Diffuse",
+    "NatlanFX"
+   ]
+  ],
+  "65475558": [
+   [
+    2,
+    "blend_vb",
+    "Bangs"
+   ]
+  ],
+  "045e580b": [
+   [
+    0,
+    "ib",
+    ""
+   ]
+  ],
+  "0fa7f23f": [
+   [
+    1,
+    "texcoord_vb",
+    ""
+   ]
+  ],
+  "1aeb272b": [
+   [
+    2,
+    "draw_vb",
+    "Bangs"
+   ]
+  ],
+  "1bedd6d1": [
+   [
+    2,
+    "position_vb",
+    "Body"
+   ]
+  ],
+  "1f7f0600": [
+   [
+    3,
+    "position_vb",
+    ""
+   ]
+  ],
+  "28a1fab0": [
+   [
+    4,
+    "blend_vb",
+    ""
+   ]
+  ],
+  "356cdbde": [
+   [
+    4,
+    "ib",
+    ""
+   ]
+  ],
+  "488fceb4": [
+   [
+    1,
+    "ib",
+    ""
+   ]
+  ],
+  "515f3ce6": [
+   [
+    5,
+    "position_vb",
+    ""
+   ]
+  ],
+  "5b4cdc9c": [
+   [
+    3,
+    "ib",
+    ""
+   ]
+  ],
+  "5f7534b6": [
+   [
+    4,
+    "texcoord_vb",
+    ""
+   ]
+  ],
+  "65a4831f": [
+   [
+    2,
+    "position_vb",
+    "Bangs"
+   ]
+  ],
+  "73c8cae2": [
+   [
+    2,
+    "ib",
+    "Body"
+   ]
+  ],
+  "788a5c69": [
+   [
+    6,
+    "texture:Diffuse",
+    ""
+   ],
+   [
+    6,
+    "texture:Diffuse",
+    ""
+   ]
+  ],
+  "7c0c47b3": [
+   [
+    4,
+    "position_vb",
+    ""
+   ]
+  ],
+  "8294fe98": [
+   [
+    0,
+    "position_vb",
+    ""
+   ]
+  ],
+  "87ecca6f": [
+   [
+    2,
+    "texture:Diffuse",
+    "Face"
+   ]
+  ],
+  "8b5fc47d": [
+   [
+    7,
+    "draw_vb",
+    ""
+   ]
+  ],
+  "9784dbe3": [
+   [
+    1,
+    "position_vb",
+    ""
+   ]
+  ],
+  "a327ea5e": [
+   [
+    0,
+    "texcoord_vb",
+    ""
+   ]
+  ],
+  "bad2731b": [
+   [
+    5,
+    "blend_vb",
+    ""
+   ]
+  ],
+  "c6358586": [
+   [
+    2,
+    "blend_vb",
+    "Body"
+   ]
+  ],
+  "ce8cbdfb": [
+   [
+    3,
+    "texcoord_vb",
+    ""
+   ]
+  ],
+  "d33c21da": [
+   [
+    2,
+    "texcoord_vb",
+    "Body"
+   ]
+  ],
+  "d5ad8084": [
+   [
+    5,
+    "ib",
+    ""
+   ]
+  ],
+  "d8c43862": [
+   [
+    0,
+    "blend_vb",
+    ""
+   ]
+  ],
+  "df022de9": [
+   [
+    4,
+    "texture:Diffuse",
+    ""
+   ]
+  ],
+  "e4924b14": [
+   [
+    2,
+    "ib",
+    "Bangs"
+   ]
+  ],
+  "e543af5d": [
+   [
+    5,
+    "texcoord_vb",
+    ""
+   ]
+  ],
+  "e70695e0": [
+   [
+    3,
+    "blend_vb",
+    ""
+   ]
+  ],
+  "edae63e5": [
+   [
+    1,
+    "texture:Diffuse",
+    ""
+   ]
+  ],
+  "ef26783e": [
+   [
+    1,
+    "blend_vb",
+    ""
+   ]
+  ],
+  "f8d59976": [
+   [
+    2,
+    "texcoord_vb",
+    "Bangs"
+   ]
+  ]
+ }
+}

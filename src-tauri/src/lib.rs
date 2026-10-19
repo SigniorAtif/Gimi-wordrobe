@@ -1,5 +1,6 @@
 pub mod commands;
 pub mod core;
+pub mod net;
 
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -17,7 +18,7 @@ pub fn run() {
                 .map(Ok)
                 .unwrap_or_else(|| app.path().app_config_dir())?;
             std::fs::create_dir_all(&config_dir)?;
-            let core = core::app::AppCore::open(&config_dir);
+            let core = core::app::AppCore::open_with(&config_dir, app.path().resource_dir().ok());
             commands::sync_asset_scope(app.handle(), core.settings());
             app.manage(commands::AppState(Arc::new(Mutex::new(core))));
             Ok(())
@@ -27,6 +28,7 @@ pub fn run() {
             commands::rescan,
             commands::save_settings,
             commands::first_run_defaults,
+            commands::update_hash_index,
             commands::open_folder,
         ])
         .run(tauri::generate_context!())
