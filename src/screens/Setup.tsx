@@ -22,6 +22,8 @@ export function Setup() {
   const [library, setLibrary] = useState(snapshot.settings.libraryPath);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // The form appears once the pre-fill is known, so defaults never overwrite something the user typed.
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     let live = true;
@@ -33,7 +35,8 @@ export function Setup() {
         setLibrary((l) => l || d.library || "");
         if (d.loader) setLoader(d.loader);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => live && setReady(true));
     return () => {
       live = false;
     };
@@ -70,6 +73,8 @@ export function Setup() {
       setBusy(false);
     }
   };
+
+  if (!ready) return <div className="setup" />;
 
   return (
     <div className="setup">
