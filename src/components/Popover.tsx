@@ -55,6 +55,10 @@ export function Popover({
 
   useEffect(() => {
     if (!open) return;
+    // keyboard users land on the first item and get it back to the trigger on close
+    const trigger = document.activeElement as HTMLElement | null;
+    const items = () => [...(ref.current?.querySelectorAll<HTMLElement>('[role^="menuitem"]:not(:disabled)') ?? [])];
+    const focusT = setTimeout(() => items()[0]?.focus(), 20);
     const onDown = (e: PointerEvent) => {
       if (!ref.current?.contains(e.target as Node)) onClose();
     };
@@ -62,6 +66,22 @@ export function Popover({
       if (e.key === "Escape") {
         e.stopPropagation();
         onClose();
+        trigger?.focus?.();
+        return;
+      }
+      if (e.key === "Tab") {
+        onClose();
+        return;
+      }
+      if (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Home" || e.key === "End") {
+        const list = items();
+        if (!list.length) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const i = list.indexOf(document.activeElement as HTMLElement);
+        const next =
+          e.key === "Home" ? 0 : e.key === "End" ? list.length - 1 : e.key === "ArrowDown" ? (i + 1) % list.length : (i - 1 + list.length) % list.length;
+        list[next]?.focus();
       }
     };
     const onScroll = (e: Event) => {
@@ -72,6 +92,7 @@ export function Popover({
     window.addEventListener("scroll", onScroll, true);
     window.addEventListener("resize", onClose);
     return () => {
+      clearTimeout(focusT);
       window.removeEventListener("pointerdown", onDown, true);
       window.removeEventListener("keydown", onKey, true);
       window.removeEventListener("scroll", onScroll, true);

@@ -29,6 +29,22 @@ export function Modal({
       if (e.key === "Escape") {
         e.stopPropagation();
         onClose();
+        return;
+      }
+      // keep Tab inside the dialog (aria-modal)
+      if (e.key === "Tab" && ref.current) {
+        const f = [...ref.current.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), select, textarea, [tabindex]:not([tabindex="-1"])')];
+        if (!f.length) return;
+        const first = f[0];
+        const last = f[f.length - 1];
+        const active = document.activeElement as HTMLElement | null;
+        if (e.shiftKey && (active === first || !ref.current.contains(active))) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && (active === last || !ref.current.contains(active))) {
+          e.preventDefault();
+          first.focus();
+        }
       }
     };
     window.addEventListener("keydown", onKey, true);
