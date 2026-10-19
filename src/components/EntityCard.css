@@ -124,3 +124,12 @@
   border-right: 1px solid var(--accent-line);
   z-index: 2;
 }
+.ecard__portrait {
+  display: inline-flex;
+  flex: none;
+  border-radius: 50%;
+}
+.ecard--weapon .ecard__portrait,
+.ecard--extra .ecard__portrait {
+  border-radius: 12px;
+}

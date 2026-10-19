@@ -1,10 +1,12 @@
-import { AnimatePresence, LayoutGroup, motion } from "motion/react";
-import { useMemo, useRef, useState, type ReactNode } from "react";
+import { AnimatePresence, motion } from "motion/react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { Category, Snapshot } from "../api/types";
 import { AnimatedNumber } from "../components/AnimatedNumber";
 import { EntityCard } from "../components/EntityCard";
+import { PageCard } from "../components/PageCard";
 import { MenuItem, Popover, type Anchor } from "../components/Popover";
 import { Shelf } from "../components/Shelf";
+import { rememberFlipKey } from "../components/Flip";
 import { Toolbar } from "../components/Toolbar";
 import {
   CATEGORY_LABEL,
@@ -15,6 +17,7 @@ import {
   sortEntities,
   type EntityView,
 } from "../lib/derive";
+import { useClashes } from "../lib/conflicts";
 import { useColumns } from "../lib/useColumns";
 import { useReduced } from "../lib/useReduced";
 import { riseIn, spring, staggerContainer, tween } from "../motion";
@@ -24,6 +27,8 @@ import "./Home.css";
 
 /** Mode C home (C1 + C2): one scrolling page of sections; a card's shelf opens under its row (SPEC §6). */
 export function Home({ snapshot }: { snapshot: Snapshot }) {
+  // re-render on navigation so the outgoing page's shared elements snapshot their layout before the morph
+  useApp((s) => s.route);
   const reduced = useReduced();
   const replay = useApp((s) => s.navDir) === 1;
   const picks = useHome((s) => s.picks);
@@ -34,7 +39,40 @@ export function Home({ snapshot }: { snapshot: Snapshot }) {
   const openShelf = useHome((s) => s.openShelf);
   const toggleShelf = useHome((s) => s.toggleShelf);
   const pick = useHome((s) => s.pick);
-  const cols = useColumns(6, 4);
+  const setMorph = useHome((s) => s.setMorph);
+  const navigate = useApp((s) => s.navigate);
+  const layout = snapshot.settings.layout;
+  const clashes = useClashes();
+  const shelfCols = useColumns(6, 4);
+  const pageCols = useColumns(5, 4);
+  const cols = layout === "pages" ? pageCols : shelfCols;
+  // the card's portrait / cover morphs into the next page's hero (SPEC §7)
+  const openEntity = (id: string) => {
+    setMorph({ entity: id });
+    rememberFlipKey(`entity:${id}`);
+    navigate({ name: "entity", entityId: id });
+  };
+  const openSkin = (id: string) => {
+    rememberFlipKey(`skin:${id}`);
+    navigate({ name: "skin", skinId: id });
+  };
+
+  // switching layouts keeps context (SPEC §6): the open shelf becomes the focused card, and back again
+  useEffect(() => {
+    const h = useHome.getState();
+    const id = h.openShelf ?? h.contextEntity;
+    if (!id) return;
+    if (layout === "shelves") {
+      if (!h.openShelf) h.toggleShelf(id);
+      return;
+    }
+    const t = setTimeout(() => {
+      const el = document.querySelector<HTMLElement>(`[data-entity="${id}"]`);
+      el?.scrollIntoView({ block: "nearest" });
+      el?.focus({ preventScroll: true });
+    }, 60);
+    return () => clearTimeout(t);
+  }, [layout]);
   const searchRef = useRef<HTMLInputElement>(null);
   const [menu, setMenu] = useState<{ view: EntityView; anchor: Anchor } | null>(null);
 
@@ -64,7 +102,6 @@ export function Home({ snapshot }: { snapshot: Snapshot }) {
             <p>Try another search or filter.</p>
           </motion.div>
         ) : null}
-        <LayoutGroup id="home-grid">
           <AnimatePresence initial={false}>
             {sections.map(({ cat, views }) =>
               views.length === 0 ? null : (
@@ -81,21 +118,34 @@ export function Home({ snapshot }: { snapshot: Snapshot }) {
                   <motion.h2 className="caps home__heading" variants={riseIn(reduced)}>
                     {CATEGORY_LABEL[cat]} <span className="home__count">· <AnimatedNumber value={views.length} /></span>
                   </motion.h2>
-                  <SectionGrid
-                    cat={cat}
-                    views={views}
-                    cols={cols}
-                    openShelf={openShelf}
-                    reduced={reduced}
-                    whenHidden={snapshot.settings.nsfw.whenHidden}
-                    onToggle={toggleShelf}
-                    onMenu={(view, anchor) => setMenu({ view, anchor })}
-                  />
+                  {layout === "pages" ? (
+                    <PagesGrid
+                      views={views}
+                      cols={cols}
+                      reduced={reduced}
+                      conflicts={clashes.conflictEntities}
+                      onOpen={openEntity}
+                      onMenu={(view, anchor) => setMenu({ view, anchor })}
+                    />
+                  ) : (
+                    <SectionGrid
+                      cat={cat}
+                      views={views}
+                      cols={cols}
+                      openShelf={openShelf}
+                      reduced={reduced}
+                      whenHidden={snapshot.settings.nsfw.whenHidden}
+                      conflicts={clashes.conflictEntities}
+                      onToggle={toggleShelf}
+                      onOpenPage={openEntity}
+                      onDetails={openSkin}
+                      onMenu={(view, anchor) => setMenu({ view, anchor })}
+                    />
+                  )}
                 </motion.section>
               ),
             )}
           </AnimatePresence>
-        </LayoutGroup>
       </motion.div>
       <Popover open={!!menu} anchor={menu?.anchor ?? null} onClose={() => setMenu(null)} label="Quick switch">
         {menu && (
@@ -116,13 +166,49 @@ export function Home({ snapshot }: { snapshot: Snapshot }) {
   );
 }
 
+function PagesGrid({
+  views,
+  cols,
+  reduced,
+  conflicts,
+  onOpen,
+  onMenu,
+}: {
+  views: EntityView[];
+  cols: number;
+  reduced: boolean;
+  conflicts: Set<string>;
+  onOpen: (id: string) => void;
+  onMenu: (v: EntityView, anchor: Anchor) => void;
+}) {
+  return (
+    <div className="home__grid home__grid--pages" style={{ ["--cols" as string]: cols }}>
+      <AnimatePresence initial={false}>
+        {views.map((v) => (
+          <PageCard
+            key={v.entity.id}
+            view={v}
+            reduced={reduced}
+            conflict={conflicts.has(v.entity.id)}
+            onOpen={() => onOpen(v.entity.id)}
+            onContextMenu={(e) => onMenu(v, { x: e.clientX, y: e.clientY })}
+          />
+        ))}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 function SectionGrid({
   views,
   cols,
   openShelf,
   reduced,
   whenHidden,
+  conflicts,
   onToggle,
+  onOpenPage,
+  onDetails,
   onMenu,
 }: {
   cat: Category;
@@ -131,7 +217,10 @@ function SectionGrid({
   openShelf: string | null;
   reduced: boolean;
   whenHidden: "stub" | "invisible";
+  conflicts: Set<string>;
   onToggle: (id: string) => void;
+  onOpenPage: (id: string) => void;
+  onDetails: (skinId: string) => void;
   onMenu: (v: EntityView, anchor: Anchor) => void;
 }) {
   // the shelf goes after the last card in the open card's row
@@ -145,6 +234,7 @@ function SectionGrid({
         view={v}
         open={v.entity.id === openShelf}
         reduced={reduced}
+        conflict={conflicts.has(v.entity.id)}
         onToggle={() => onToggle(v.entity.id)}
         onContextMenu={(e) => onMenu(v, { x: e.clientX, y: e.clientY })}
       />,
@@ -152,7 +242,16 @@ function SectionGrid({
     // shelves are direct siblings so opening one and closing another animate at the same time
     if (i === rowEnd && openIdx >= 0) {
       const ov = views[openIdx];
-      children.push(<Shelf key={`shelf-${ov.entity.id}`} view={ov} reduced={reduced} whenHidden={whenHidden} />);
+      children.push(
+        <Shelf
+          key={`shelf-${ov.entity.id}`}
+          view={ov}
+          reduced={reduced}
+          whenHidden={whenHidden}
+          onOpenPage={() => onOpenPage(ov.entity.id)}
+          onDetails={onDetails}
+        />,
+      );
     }
   });
   return (
