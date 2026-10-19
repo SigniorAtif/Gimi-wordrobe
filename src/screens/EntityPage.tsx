@@ -15,6 +15,7 @@ import { useColumns } from "../lib/useColumns";
 import { useReduced } from "../lib/useReduced";
 import { riseIn, staggerContainer } from "../motion";
 import { useApp } from "../store/app";
+import { useAdd } from "../store/add";
 import { useHome } from "../store/home";
 import "./EntityPage.css";
 
@@ -36,6 +37,7 @@ export function EntityPage({ entityId }: { entityId: string }) {
   const setNsfwVisible = useHome((s) => s.setNsfwVisible);
   const pick = useHome((s) => s.pick);
   const removeSkin = useHome((s) => s.removeSkin);
+  const browse = useAdd((s) => s.browse);
   const clashes = useClashes();
   const reduced = useReduced();
   const cols = useColumns(5, 4);
@@ -111,7 +113,7 @@ export function EntityPage({ entityId }: { entityId: string }) {
         <button type="button" className={`nsfw-chip ${nsfwVisible ? "is-visible" : ""}`} onClick={() => setNsfwVisible(!nsfwVisible)}>
           18+ {nsfwVisible ? "VISIBLE" : "HIDDEN"} · {snapshot.settings.nsfw.hotkey.toUpperCase()}
         </button>
-        <button className="btn" disabled>
+        <button className="btn" onClick={() => void browse(entity.id)}>
           + Add skin to {entity.name}
         </button>
         <button className="btn btn--icon" aria-label="More" onClick={(e) => setMenu({ skin: null, anchor: e.currentTarget.getBoundingClientRect() })}>
@@ -187,11 +189,11 @@ export function EntityPage({ entityId }: { entityId: string }) {
           </motion.div>
         )}
         <motion.div variants={riseIn(reduced)}>
-          <div className="bigcard bigcard--drop">
+          <button type="button" className="bigcard bigcard--drop" data-drop={`entity:${entity.id}`} onClick={() => void browse(entity.id)}>
             <span className="bigcard__plus">+</span>
             <span>{total ? "Drop archive here" : "No skins yet"}</span>
-            <small>{total ? "or click + Add skin" : "drop a .zip / .rar / .7z here"}</small>
-          </div>
+            <small>{total ? "or click to browse" : "drop a .zip / .rar / .7z here or click to browse"}</small>
+          </button>
         </motion.div>
       </motion.div>
       <Popover open={!!menu} anchor={menu?.anchor ?? null} onClose={() => setMenu(null)} align="end" label="Actions">

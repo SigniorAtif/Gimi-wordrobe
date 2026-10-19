@@ -1,0 +1,208 @@
+/* Shared pieces of the add dialogs (A4 / C4). */
+
+.input.is-invalid {
+  border-color: var(--danger-line);
+}
+
+.field-error {
+  display: block;
+  overflow: hidden;
+}
+.field-error__text {
+  display: block;
+  padding-top: 4px;
+  color: var(--danger);
+  font-size: var(--fs-meta);
+}
+
+/* category switch for a new entry */
+.catpick {
+  display: inline-flex;
+  padding: 2px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--border-soft);
+  background: var(--surface-1);
+}
+.catpick__opt {
+  position: relative;
+  height: 26px;
+  padding: 0 12px;
+  border: 0;
+  background: transparent;
+  border-radius: var(--r-pill);
+  color: var(--text-3);
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  transition: color 160ms var(--ease-out);
+}
+.catpick__opt[aria-checked="true"] {
+  color: var(--text);
+}
+.catpick__pill {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--surface-3);
+}
+.catpick__label {
+  position: relative;
+}
+
+/* round portrait drop target */
+.portrait-drop {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  border: 1px dashed var(--border-strong);
+  background: var(--surface-1);
+  color: var(--text-3);
+  transition:
+    border-color 160ms var(--ease-out),
+    background-color 160ms var(--ease-out),
+    transform 160ms var(--ease-out);
+}
+.portrait-drop:hover {
+  border-color: var(--accent-line);
+  color: var(--text-2);
+}
+.portrait-drop.has-image {
+  border-style: solid;
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+}
+.portrait-drop__hint {
+  font-size: 10px;
+  line-height: 1.2;
+  text-align: center;
+  padding: 0 8px;
+}
+.portrait-drop__initial {
+  font-size: 22px;
+  font-weight: 650;
+  color: var(--text-2);
+}
+.portrait-drop__done {
+  font-size: 22px;
+  color: var(--accent);
+}
+/* an image is being dragged over the window: show where it can land */
+body.dragging-image .portrait-drop,
+body.dragging-image .ptile[data-drop="preview"] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* preview source tiles */
+.previews-pick {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--s-2);
+}
+.ptile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  min-width: 0;
+  border-radius: 10px;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-1);
+  text-align: left;
+  transition:
+    border-color 160ms var(--ease-out),
+    opacity 160ms var(--ease-out);
+}
+.ptile:not(:disabled):hover {
+  border-color: var(--border);
+}
+.ptile:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.ptile__ring {
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  border: 1.5px solid var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+  pointer-events: none;
+}
+.ptile__art {
+  display: grid;
+  place-items: center;
+  height: 52px;
+  padding: 0 6px;
+  border-radius: 6px;
+  border: 1px dashed var(--border);
+  color: var(--text-3);
+  font-size: 10.5px;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ptile.is-on .ptile__art {
+  border-color: var(--accent-line);
+  color: var(--text-2);
+}
+.ptile__label {
+  font-size: var(--fs-meta);
+  color: var(--text-2);
+  line-height: 1.25;
+}
+.previews-pick--compact .ptile__art {
+  height: 40px;
+}
+
+/* extraction progress */
+.add-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
+.add-progress__label {
+  font-size: var(--fs-meta);
+  color: var(--text-2);
+}
+.add-progress__track {
+  display: block;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+.add-progress__fill {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transform-origin: 0 50%;
+}
+
+/* reading the archive */
+.add-skeleton {
+  display: block;
+  height: 12px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--surface-2) 0%, var(--surface-3) 50%, var(--surface-2) 100%);
+  background-size: 200% 100%;
+  animation: add-shimmer 1.2s linear infinite;
+}
+@keyframes add-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .add-skeleton {
+    animation: none;
+  }
+}

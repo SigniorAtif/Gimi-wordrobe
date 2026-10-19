@@ -13,7 +13,8 @@ function anchorPoint(a: Anchor): { x: number; y: number; w: number; h: number } 
 
 /**
  * Floating panel anchored to an element or the cursor. Scales in from the anchor (transform-origin at the trigger,
- * SPEC §7) and closes on outside click, Esc, scroll or resize.
+ * SPEC §7) and closes on outside click or Esc. A "menu" also closes on Tab, scroll or resize and gets arrow-key
+ * navigation; a "dialog" (the C4 add panel) keeps focus inside and follows its anchor instead.
  */
 export function Popover({
   open,
@@ -23,6 +24,7 @@ export function Popover({
   align = "start",
   className,
   label,
+  kind = "menu",
 }: {
   open: boolean;
   anchor: Anchor | null;
@@ -31,34 +33,56 @@ export function Popover({
   align?: "start" | "end";
   className?: string;
   label?: string;
+  kind?: "menu" | "dialog";
 }) {
   const reduced = useReduced();
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ left: number; top: number; origin: string } | null>(null);
+  const below = useRef(true);
 
   useLayoutEffect(() => {
     if (!open || !anchor || !ref.current) return;
-    const a = anchorPoint(anchor);
-    const box = ref.current.getBoundingClientRect();
-    const margin = 8;
-    let left = align === "end" ? a.x + a.w - box.width : a.x;
-    left = Math.max(margin, Math.min(left, window.innerWidth - box.width - margin));
-    let top = a.y + a.h + 6;
-    let below = true;
-    if (top + box.height > window.innerHeight - margin) {
-      top = Math.max(margin, a.y - box.height - 6);
-      below = false;
-    }
-    const ox = Math.max(0, Math.min(box.width, a.x + a.w / 2 - left));
-    setPos({ left, top, origin: `${ox}px ${below ? 0 : box.height}px` });
-  }, [open, anchor, align]);
+    const el = ref.current;
+    const place = (first: boolean) => {
+      const a = anchorPoint(anchor);
+      const box = el.getBoundingClientRect();
+      const margin = 8;
+      let left = align === "end" ? a.x + a.w - box.width : a.x;
+      left = Math.max(margin, Math.min(left, window.innerWidth - box.width - margin));
+      // pick a side once; a dialog that grows later keeps it unless it would leave the window
+      const fitsBelow = a.y + a.h + 6 + box.height <= window.innerHeight - margin;
+      if (first || (below.current && !fitsBelow)) below.current = fitsBelow || a.y - box.height - 6 < margin;
+      const top = below.current
+        ? Math.max(margin, Math.min(a.y + a.h + 6, window.innerHeight - box.height - margin))
+        : Math.max(margin, a.y - box.height - 6);
+      const ox = Math.max(0, Math.min(box.width, a.x + a.w / 2 - left));
+      setPos({ left, top, origin: `${ox}px ${below.current ? 0 : box.height}px` });
+    };
+    place(true);
+    if (kind !== "dialog") return;
+    // the add panel grows when the archive summary arrives and follows window resizes
+    const ro = new ResizeObserver(() => place(false));
+    ro.observe(el);
+    const onResize = () => place(false);
+    window.addEventListener("resize", onResize);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", onResize);
+    };
+  }, [open, anchor, align, kind]);
 
   useEffect(() => {
     if (!open) return;
-    // keyboard users land on the first item and get it back to the trigger on close
+    // keyboard users land on the first item (or field) and get focus back to the trigger on close
     const trigger = document.activeElement as HTMLElement | null;
     const items = () => [...(ref.current?.querySelectorAll<HTMLElement>('[role^="menuitem"]:not(:disabled)') ?? [])];
-    const focusT = setTimeout(() => items()[0]?.focus(), 20);
+    const focusables = () => [
+      ...(ref.current?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled)') ?? []),
+    ];
+    const focusT = setTimeout(() => {
+      if (kind === "dialog") (ref.current?.querySelector<HTMLElement>("[data-autofocus]") ?? focusables()[0])?.focus();
+      else items()[0]?.focus();
+    }, 20);
     const onDown = (e: PointerEvent) => {
       if (!ref.current?.contains(e.target as Node)) onClose();
     };
@@ -69,10 +93,26 @@ export function Popover({
         trigger?.focus?.();
         return;
       }
+      if (e.key === "Tab" && kind === "dialog") {
+        // keep Tab inside the panel
+        const f = focusables();
+        if (!f.length) return;
+        const active = document.activeElement as HTMLElement | null;
+        const i = f.indexOf(active as HTMLElement);
+        if (e.shiftKey && i <= 0) {
+          e.preventDefault();
+          f[f.length - 1].focus();
+        } else if (!e.shiftKey && (i === f.length - 1 || i < 0)) {
+          e.preventDefault();
+          f[0].focus();
+        }
+        return;
+      }
       if (e.key === "Tab") {
         onClose();
         return;
       }
+      if (kind === "dialog") return;
       if (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Home" || e.key === "End") {
         const list = items();
         if (!list.length) return;
@@ -89,8 +129,10 @@ export function Popover({
     };
     window.addEventListener("pointerdown", onDown, true);
     window.addEventListener("keydown", onKey, true);
-    window.addEventListener("scroll", onScroll, true);
-    window.addEventListener("resize", onClose);
+    if (kind === "menu") {
+      window.addEventListener("scroll", onScroll, true);
+      window.addEventListener("resize", onClose);
+    }
     return () => {
       clearTimeout(focusT);
       window.removeEventListener("pointerdown", onDown, true);
@@ -98,16 +140,16 @@ export function Popover({
       window.removeEventListener("scroll", onScroll, true);
       window.removeEventListener("resize", onClose);
     };
-  }, [open, onClose]);
+  }, [open, onClose, kind]);
 
   return createPortal(
     <AnimatePresence>
       {open && anchor && (
         <motion.div
           ref={ref}
-          role="menu"
+          role={kind}
           aria-label={label}
-          className={`popover ${className ?? ""}`}
+          className={`popover ${kind === "dialog" ? "popover--dialog" : ""} ${className ?? ""}`}
           style={{ left: pos?.left ?? -9999, top: pos?.top ?? -9999, transformOrigin: pos?.origin ?? "0 0" }}
           initial={reduced ? { opacity: 0 } : { opacity: 0, scale: 0.92 }}
           animate={{ opacity: 1, scale: 1, transition: { ...spring.snappy, opacity: tween.micro } }}

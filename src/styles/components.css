@@ -278,3 +278,24 @@ textarea.input {
   align-items: baseline;
   gap: 8px;
 }
+
+/* inline text button ("More options…", "Choose another…") */
+.link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--accent-line);
+  text-underline-offset: 2px;
+  cursor: pointer;
+  transition: color 160ms var(--ease-out);
+}
+.link:hover {
+  color: var(--accent-strong);
+}
+.link:disabled {
+  color: var(--text-4);
+  cursor: default;
+}

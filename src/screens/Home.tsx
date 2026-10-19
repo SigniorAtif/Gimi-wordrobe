@@ -45,6 +45,7 @@ export function Home({ snapshot }: { snapshot: Snapshot }) {
   const layout = snapshot.settings.layout;
   const clashes = useClashes();
   const dragging = useAdd((s) => s.drag.active && s.drag.kind === "archive");
+  const browse = useAdd((s) => s.browse);
   const dropOver = useAdd((s) => (s.drag.over?.kind === "entity" ? s.drag.over.id : s.drag.over?.kind === "new" ? `new:${s.drag.over.category}` : null));
   const shelfCols = useColumns(6, 4);
   const pageCols = useColumns(5, 4);
@@ -92,7 +93,7 @@ export function Home({ snapshot }: { snapshot: Snapshot }) {
 
   return (
     <>
-      <Toolbar ref={searchRef} animateIn={replay} onToggleNsfw={() => setNsfwVisible(!nsfwVisible)} />
+      <Toolbar ref={searchRef} animateIn={replay} onAdd={() => void browse()} onToggleNsfw={() => setNsfwVisible(!nsfwVisible)} />
       <motion.div className="home" variants={staggerContainer(total, reduced, 0.12)} initial={replay ? "hidden" : false} animate="show">
         {empty ? (
           <motion.div className="home__empty" variants={riseIn(reduced)}>
@@ -144,6 +145,7 @@ export function Home({ snapshot }: { snapshot: Snapshot }) {
                       onToggle={toggleShelf}
                       onOpenPage={openEntity}
                       onDetails={openSkin}
+                      onAdd={(id) => void browse(id)}
                       onMenu={(view, anchor) => setMenu({ view, anchor })}
                     />
                   )}
@@ -216,6 +218,7 @@ function SectionGrid({
   onToggle,
   onOpenPage,
   onDetails,
+  onAdd,
   onMenu,
 }: {
   cat: Category;
@@ -231,6 +234,7 @@ function SectionGrid({
   onToggle: (id: string) => void;
   onOpenPage: (id: string) => void;
   onDetails: (skinId: string) => void;
+  onAdd: (entityId: string) => void;
   onMenu: (v: EntityView, anchor: Anchor) => void;
 }) {
   // the shelf goes after the last card in the open card's row
@@ -261,6 +265,7 @@ function SectionGrid({
           whenHidden={whenHidden}
           onOpenPage={() => onOpenPage(ov.entity.id)}
           onDetails={onDetails}
+          onAdd={() => onAdd(ov.entity.id)}
         />,
       );
     }

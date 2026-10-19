@@ -1,5 +1,6 @@
 import { AnimatePresence, LayoutGroup, MotionConfig, motion } from "motion/react";
 import { useEffect } from "react";
+import { AddHost } from "./components/AddHost";
 import { Page, type PageKind } from "./components/Page";
 import { PendingBar } from "./components/PendingBar";
 import { Toasts } from "./components/Toasts";
@@ -53,6 +54,7 @@ export default function App() {
             </AnimatePresence>
           </main>
           {snapshot?.configured && <PendingBar />}
+          {snapshot?.configured && <AddHost />}
           <Toasts />
         </div>
       </LayoutGroup>
