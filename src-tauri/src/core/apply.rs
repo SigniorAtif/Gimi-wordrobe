@@ -54,6 +54,8 @@ impl Op {
 pub enum Status {
     Pending,
     Started,
+    /// Cross-drive move: the copy is complete and verified; the source is being deleted.
+    Copied,
     Done,
 }
 
@@ -71,6 +73,9 @@ pub struct Journal {
     pub version: u32,
     pub started_at: String,
     pub entries: Vec<JournalEntry>,
+    /// Set once the batch succeeded; recovery just deletes a committed journal instead of undoing it.
+    #[serde(default)]
+    pub committed: bool,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -340,8 +345,35 @@ fn tree_size(p: &Path) -> io::Result<(u64, u64)> {
     Ok((files, bytes))
 }
 
+/// Copy whatever `src` has that `dst` lacks (put a half-deleted source back together from its verified copy).
+fn fill_missing(src: &Path, dst: &Path) -> io::Result<()> {
+    if fs::symlink_metadata(src)?.is_file() {
+        if !dst.exists() {
+            fs::copy(src, dst)?;
+        }
+        return Ok(());
+    }
+    fs::create_dir_all(dst)?;
+    for e in fs::read_dir(src)? {
+        let e = e?;
+        fill_missing(&e.path(), &dst.join(e.file_name()))?;
+    }
+    Ok(())
+}
+
+fn remove_any(p: &Path) -> io::Result<()> {
+    if fs::symlink_metadata(p)?.is_dir() { fs::remove_dir_all(p) } else { fs::remove_file(p) }
+}
+
 /// Move a folder: rename, retrying once if locked; across drives copy, verify and delete the source.
 pub fn move_path(from: &Path, to: &Path) -> io::Result<()> {
+    move_path_journaled(from, to, &mut || Ok(()))
+}
+
+/// Like `move_path`, calling `on_copied` after a cross-drive copy is verified and before the source is deleted,
+/// so the journal knows the copy is the complete one. If deleting the source fails, the source is restored from
+/// the copy and the copy removed: the move either happened or it didn't.
+pub fn move_path_journaled(from: &Path, to: &Path, on_copied: &mut dyn FnMut() -> io::Result<()>) -> io::Result<()> {
     let mut tried_again = false;
     loop {
         match fs::rename(from, to) {
@@ -353,7 +385,18 @@ pub fn move_path(from: &Path, to: &Path) -> io::Result<()> {
                     let _ = fs::remove_dir_all(to);
                     return Err(copied.err().unwrap_or_else(|| io::Error::other("copy verification failed")));
                 }
-                return if fs::metadata(from)?.is_dir() { fs::remove_dir_all(from) } else { fs::remove_file(from) };
+                if let Err(e) = on_copied() {
+                    let _ = remove_any(to);
+                    return Err(e);
+                }
+                return match remove_any(from) {
+                    Ok(()) => Ok(()),
+                    Err(e) => {
+                        fill_missing(to, from)?;
+                        remove_any(to)?;
+                        Err(e)
+                    }
+                };
             }
             Err(e) if is_locked(&e) && !tried_again => {
                 tried_again = true;
@@ -397,7 +440,12 @@ fn undo_op(op: &Op, status: Status) -> io::Result<()> {
                     move_path(to, from)
                 }
                 // a cross-drive copy was interrupted: drop the partial copy, the source is intact
-                (Status::Started, true, true) => fs::remove_dir_all(to),
+                (Status::Started, true, true) => remove_any(to),
+                // interrupted while deleting the source after a verified copy: rebuild the source, drop the copy
+                (Status::Copied, true, true) => {
+                    fill_missing(to, from)?;
+                    remove_any(to)
+                }
                 _ => Ok(()),
             }
         }
@@ -494,12 +542,20 @@ pub fn execute_verified(
     progress: &mut dyn FnMut(usize, usize, &str),
     verify: &dyn Fn() -> Result<(), AppError>,
 ) -> Result<usize, ExecError> {
+    // never overwrite the undo record of an earlier batch
+    if journal_path.is_some_and(Path::exists) {
+        return Err(ExecError::RolledBack(AppError::new(
+            "journal_exists",
+            "An earlier Apply wasn't finished. Restart Skin Switcher so it can undo it first.",
+        )));
+    }
     let mut j = Journaled {
         path: journal_path,
         journal: Journal {
             version: 1,
             started_at: super::import::now_iso(),
             entries: plan.ops.iter().map(|op| JournalEntry { op: op.clone(), status: Status::Pending }).collect(),
+            committed: false,
         },
     };
     let fail = |j: &mut Journaled, e: AppError| -> ExecError {
@@ -524,7 +580,17 @@ pub fn execute_verified(
         if let Err(e) = j.save() {
             return Err(fail(&mut j, err("journal", format!("Couldn't update the Apply journal: {e}"))));
         }
-        if let Err(e) = run_op(&op) {
+        let result = match &op {
+            Op::Move { from, to } => {
+                let journal = &mut j;
+                move_path_journaled(from, to, &mut || {
+                    journal.journal.entries[i].status = Status::Copied;
+                    journal.save()
+                })
+            }
+            other => run_op(other),
+        };
+        if let Err(e) = result {
             j.journal.entries[i].status = Status::Pending;
             return Err(fail(&mut j, err("move_failed", describe(&op, &e))));
         }
@@ -562,6 +628,9 @@ pub fn execute_verified(
         return Err(fail(&mut j, e));
     }
     progress(total, total, "Done");
+    // mark it committed first: if deleting the file fails, the next start won't undo a successful Apply
+    j.journal.committed = true;
+    let _ = j.save();
     if let Some(p) = journal_path {
         let _ = fs::remove_file(p);
     }
@@ -571,6 +640,10 @@ pub fn execute_verified(
 /// Roll back an interrupted Apply found at startup. Returns Some(undone) when a journal existed.
 pub fn recover(journal_path: &Path) -> AppResult<Option<usize>> {
     let Some(journal) = fsutil::read_json_or_bak::<Journal>(journal_path)? else { return Ok(None) };
+    if journal.committed {
+        let _ = fs::remove_file(journal_path);
+        return Ok(None);
+    }
     let mut j = Journaled { path: Some(journal_path), journal };
     rollback(&mut j).map(Some)
 }
@@ -716,6 +789,54 @@ pub mod tests {
         assert_eq!(tree(&mods), before);
         assert!(!journal.exists());
         assert_eq!(recover(&journal).unwrap(), None);
+    }
+
+    #[test]
+    fn a_committed_journal_is_not_undone_and_a_stale_one_is_never_overwritten() {
+        let t = tempfile::tempdir().unwrap();
+        let journal = t.path().join(JOURNAL_FILE);
+        let a = t.path().join("a");
+        fs::create_dir_all(&a).unwrap();
+        let plan = Plan { ops: vec![Op::Move { from: a.clone(), to: t.path().join("b") }], ..Plan::default() };
+        // a stale journal blocks a new batch
+        fs::write(&journal, br#"{"version":1,"startedAt":"x","entries":[]}"#).unwrap();
+        assert!(matches!(
+            execute(&plan, t.path(), Some(&journal), Fault::None, &mut noop),
+            Err(ExecError::RolledBack(_))
+        ));
+        assert!(a.exists());
+        fs::remove_file(&journal).unwrap();
+        // committed journals are just deleted on recovery
+        fs::write(&journal, br#"{"version":1,"startedAt":"x","committed":true,"entries":[{"op":"move","from":"/nope","to":"/nope2","status":"done"}]}"#).unwrap();
+        assert_eq!(recover(&journal).unwrap(), None);
+        assert!(!journal.exists());
+    }
+
+    #[test]
+    fn interrupted_source_delete_after_a_verified_copy_restores_the_source() {
+        let t = tempfile::tempdir().unwrap();
+        let from = t.path().join("Mods/Skin");
+        let to = t.path().join("stash/Skin");
+        fs::create_dir_all(from.join("sub")).unwrap();
+        fs::create_dir_all(&to).unwrap();
+        fs::write(from.join("a.ini"), "a").unwrap();
+        // the copy finished (to is complete) and deletion removed some of the source before a crash
+        copy_dir_all(&from, &to);
+        fs::remove_file(from.join("a.ini")).unwrap();
+        undo_op(&Op::Move { from: from.clone(), to: to.clone() }, Status::Copied).unwrap();
+        assert!(from.join("a.ini").is_file(), "source rebuilt from the verified copy");
+        assert!(!to.exists());
+    }
+
+    fn copy_dir_all(from: &Path, to: &Path) {
+        fs::create_dir_all(to).unwrap();
+        for e in fs::read_dir(from).unwrap().flatten() {
+            if e.file_type().unwrap().is_dir() {
+                copy_dir_all(&e.path(), &to.join(e.file_name()));
+            } else {
+                fs::copy(e.path(), to.join(e.file_name())).unwrap();
+            }
+        }
     }
 
     #[test]
