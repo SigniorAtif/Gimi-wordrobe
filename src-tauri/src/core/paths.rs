@@ -5,12 +5,46 @@
 
 use std::path::{Component, Path, PathBuf};
 
-/// Comparison key for a path: lowercase, `/` separators, no trailing separator, no `.` parts.
+/// Comparison key for a path: lowercase, `/` separators, no trailing separator, `.` dropped and `..` resolved
+/// lexically (so `D:\a\x\..\Mods` compares equal to `D:\a\Mods`).
 pub fn cmp_key(p: &str) -> String {
     let unified = p.replace('\\', "/");
-    let parts: Vec<&str> = unified.split('/').filter(|s| !s.is_empty() && *s != ".").collect();
-    let lead = if unified.starts_with('/') { "/" } else { "" };
+    let mut parts: Vec<&str> = vec![];
+    for part in unified.split('/').filter(|s| !s.is_empty() && *s != ".") {
+        if part == ".." {
+            // never pop a drive ("d:") off the front
+            if parts.last().map(|l| !l.ends_with(':')).unwrap_or(false) {
+                parts.pop();
+            }
+            continue;
+        }
+        parts.push(part);
+    }
+    let lead = if unified.starts_with("//") { "//" } else if unified.starts_with('/') { "/" } else { "" };
     format!("{lead}{}", parts.join("/")).to_lowercase()
+}
+
+/// Any `..` component.
+pub fn has_parent_ref(p: &str) -> bool {
+    p.split(['/', '\\']).any(|c| c == "..")
+}
+
+/// Absolute on Windows (`X:\`, `\\server\share`) or, for Linux dev runs, `/...`.
+pub fn is_absolute_like(p: &str) -> bool {
+    let b = p.as_bytes();
+    (b.len() >= 3 && b[0].is_ascii_alphabetic() && b[1] == b':' && (b[2] == b'\\' || b[2] == b'/'))
+        || p.starts_with("\\\\")
+        || p.starts_with('/')
+}
+
+/// `X:\`, `X:`, `/` or a bare UNC share: too broad to be a Library.
+pub fn is_drive_root(p: &str) -> bool {
+    let k = cmp_key(p);
+    let parts: Vec<&str> = k.trim_start_matches('/').split('/').filter(|s| !s.is_empty()).collect();
+    if k.starts_with("//") {
+        return parts.len() <= 2;
+    }
+    parts.is_empty() || (parts.len() == 1 && parts[0].ends_with(':'))
 }
 
 pub fn same_path(a: &str, b: &str) -> bool {
@@ -27,13 +61,20 @@ pub fn is_within(child: &str, parent: &str) -> bool {
     c == p || c.starts_with(&format!("{p}/"))
 }
 
-/// Join a `/`-separated relative path onto a base directory using OS separators.
-pub fn join_rel(base: &Path, rel: &str) -> PathBuf {
+/// Join a `/`-separated relative path onto a base directory using OS separators. Returns None for anything that
+/// could escape the base: `..`, drive prefixes (`C:`), or an absolute path.
+pub fn join_rel(base: &Path, rel: &str) -> Option<PathBuf> {
+    if rel.starts_with('/') || rel.starts_with('\\') {
+        return None;
+    }
     let mut out = base.to_path_buf();
-    for part in rel.split(['/', '\\']).filter(|s| !s.is_empty()) {
+    for part in rel.split(['/', '\\']).filter(|s| !s.is_empty() && *s != ".") {
+        if part == ".." || part.contains(':') {
+            return None;
+        }
         out.push(part);
     }
-    out
+    Some(out)
 }
 
 /// Express `path` relative to `base` with `/` separators. Case-insensitive prefix match.
@@ -88,19 +129,22 @@ pub fn is_dot_name(name: &str) -> bool {
     name.starts_with('.')
 }
 
-const RESERVED: [&str; 22] = [
-    "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9", "LPT1",
-    "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+const RESERVED: [&str; 30] = [
+    "CON", "PRN", "AUX", "NUL", "COM0", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9", "LPT0",
+    "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9", "COM¹", "COM²", "COM³", "LPT¹", "LPT²",
+    "LPT³",
 ];
 
 /// Make one path component safe on NTFS: strip `<>:"/\|?*` and control characters, trailing dots and spaces,
-/// and suffix reserved device names. Valid Unicode is kept as it is (SPEC §9).
+/// and suffix reserved device names. Valid Unicode is kept as it is (SPEC §9). U+FFFD (what a wrong code page turns
+/// "é" into) can't be recovered, so it is dropped and the leftover spaces collapsed.
 pub fn sanitize_component(name: &str) -> String {
-    let mut s: String = name
+    let cleaned: String = name
         .chars()
         .filter(|c| !matches!(c, '<' | '>' | ':' | '"' | '/' | '\\' | '|' | '?' | '*') && !c.is_control())
         .filter(|c| *c != '\u{FFFD}')
         .collect();
+    let mut s = cleaned.split(' ').filter(|w| !w.is_empty()).collect::<Vec<_>>().join(" ");
     while s.ends_with('.') || s.ends_with(' ') {
         s.pop();
     }
@@ -139,6 +183,24 @@ mod tests {
         assert!(is_within("D:\\mods\\3dmigoto\\Mods\\Furina", "d:/MODS/3dmigoto/mods"));
         assert!(!is_within("D:\\mods\\3dmigoto\\ModsX", "D:\\mods\\3dmigoto\\Mods"));
         assert!(is_within("/a/b", "/a/b"));
+        // `..` is resolved before comparing, so it can't sneak a Library into Mods
+        assert!(is_within("D:\\mods\\3dmigoto\\X\\..\\Mods\\Lib", "D:\\mods\\3dmigoto\\Mods"));
+        assert_eq!(cmp_key("D:\\..\\x"), "d:/x");
+    }
+
+    #[test]
+    fn absolute_and_root_detection() {
+        assert!(is_absolute_like("D:\\mods\\SkinLibrary"));
+        assert!(is_absolute_like("\\\\nas\\share\\lib"));
+        assert!(is_absolute_like("/home/x/lib"));
+        assert!(!is_absolute_like("SkinLibrary"));
+        assert!(!is_absolute_like("D:SkinLibrary"));
+        assert!(is_drive_root("D:\\"));
+        assert!(is_drive_root("d:"));
+        assert!(is_drive_root("/"));
+        assert!(is_drive_root("\\\\nas\\share"));
+        assert!(!is_drive_root("D:\\SkinLibrary"));
+        assert!(has_parent_ref("a/../b"));
     }
 
     #[test]
@@ -173,7 +235,9 @@ mod tests {
     #[test]
     fn sanitises_for_ntfs() {
         assert_eq!(sanitize_component("Culottée à mort"), "Culottée à mort");
-        assert_eq!(sanitize_component("Culott\u{FFFD}e \u{FFFD} mort"), "Culotte  mort");
+        assert_eq!(sanitize_component("Culott\u{FFFD}e \u{FFFD} mort"), "Culotte mort");
+        assert_eq!(sanitize_component("COM0"), "COM0_");
+        assert_eq!(sanitize_component("LPT¹.txt"), "LPT¹.txt_");
         assert_eq!(sanitize_component("a<b>c:d\"e|f?g*h"), "abcdefgh");
         assert_eq!(sanitize_component("name. . "), "name");
         assert_eq!(sanitize_component("CON"), "CON_");
@@ -187,7 +251,10 @@ mod tests {
         let base = Path::new("/x/Mods");
         assert_eq!(rel_from(base, Path::new("/x/mods/Furina/Rem")).as_deref(), Some("Furina/Rem"));
         assert_eq!(rel_from(base, Path::new("/y/Furina")), None);
-        assert_eq!(join_rel(base, "Furina/Rem"), Path::new("/x/Mods/Furina/Rem"));
+        assert_eq!(join_rel(base, "Furina/Rem").unwrap(), Path::new("/x/Mods/Furina/Rem"));
+        assert!(join_rel(base, "../x").is_none());
+        assert!(join_rel(base, "C:/x").is_none());
+        assert!(join_rel(base, "/etc").is_none());
         assert_eq!(windows_drive("d:\\mods"), Some("D:".into()));
         assert_eq!(windows_drive("/run/media"), None);
     }

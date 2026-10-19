@@ -28,8 +28,24 @@ pub fn save(config_dir: &Path, s: &Settings) -> AppResult<()> {
 /// Reject settings that would put files where 3DMigoto loads them, or that cannot work at all.
 pub fn validate(s: &Settings) -> AppResult<()> {
     let lib = s.library_path.trim();
-    let mods = [s.mods_path.xxmi.as_deref(), s.mods_path.migoto.as_deref()];
-    for m in mods.into_iter().flatten().map(str::trim).filter(|m| !m.is_empty()) {
+    let mods: Vec<&str> = [s.mods_path.xxmi.as_deref(), s.mods_path.migoto.as_deref()]
+        .into_iter()
+        .flatten()
+        .map(str::trim)
+        .filter(|m| !m.is_empty())
+        .collect();
+    for p in mods.iter().copied().chain((!lib.is_empty()).then_some(lib)) {
+        if !paths::is_absolute_like(p) {
+            return Err(AppError::new("relative_path", format!("Use a full path, e.g. D:\\mods\\SkinLibrary (got \"{p}\").")));
+        }
+        if paths::has_parent_ref(p) {
+            return Err(AppError::new("parent_ref", format!("Paths can't contain \"..\" ({p}).")));
+        }
+    }
+    if !lib.is_empty() && paths::is_drive_root(lib) {
+        return Err(AppError::new("library_root", "Pick a folder for the Library, not a whole drive."));
+    }
+    for m in &mods {
         if !lib.is_empty() && paths::is_within(lib, m) {
             return Err(AppError::new(
                 "library_inside_mods",
@@ -40,9 +56,10 @@ pub fn validate(s: &Settings) -> AppResult<()> {
             return Err(AppError::new("mods_inside_library", "The Mods folder can't be inside the Library."));
         }
     }
-    let hk = s.nsfw.hotkey.trim();
-    if hk.is_empty() {
-        return Err(AppError::new("invalid_hotkey", "The NSFW reveal hotkey can't be empty."));
+    let hk = s.nsfw.hotkey.trim().to_ascii_lowercase();
+    let parts: Vec<&str> = hk.split('+').collect();
+    if parts.len() < 2 || !(parts.contains(&"ctrl") || parts.contains(&"alt")) || parts.last().map(|k| k.is_empty()).unwrap_or(true) {
+        return Err(AppError::new("invalid_hotkey", "The NSFW reveal hotkey needs Ctrl or Alt plus a key, e.g. Ctrl+H."));
     }
     Ok(())
 }
@@ -88,11 +105,14 @@ pub fn first_run_defaults() -> FirstRunDefaults {
     let m = migoto.is_dir().then(|| migoto.to_string_lossy().into_owned());
     let x = xxmi.filter(|p| p.is_dir()).map(|p| p.to_string_lossy().into_owned());
     let loader = if m.is_some() { Some(Loader::Migoto) } else if x.is_some() { Some(Loader::Xxmi) } else { None };
-    // Same drive as the Mods folder so moves are instant renames.
-    let library = Some(match m.as_deref().or(x.as_deref()).and_then(paths::windows_drive) {
-        Some(d) if d == "D:" || m.is_some() => r"D:\mods\SkinLibrary".to_string(),
-        Some(d) => format!(r"{d}\SkinLibrary"),
-        None => r"D:\mods\SkinLibrary".to_string(),
+    // Same drive as the Mods folder so moves are instant renames, and never a drive root (needs admin).
+    let library = Some(if m.is_some() || x.is_none() {
+        r"D:\mods\SkinLibrary".to_string()
+    } else {
+        // XXMI only: next to the GIMI folder, e.g. %AppData%\XXMI Launcher\SkinLibrary
+        let mods = PathBuf::from(x.as_deref().unwrap_or_default());
+        mods.parent().and_then(Path::parent).map(|p| p.join("SkinLibrary").to_string_lossy().into_owned())
+            .unwrap_or_else(|| r"D:\mods\SkinLibrary".to_string())
     });
     FirstRunDefaults { loader, mods_3dmigoto: m, mods_xxmi: x, library }
 }
@@ -120,6 +140,18 @@ mod tests {
         let e = validate(&s("D:\\lib\\Mods", "D:\\lib")).unwrap_err();
         assert_eq!(e.code, "mods_inside_library");
         assert!(validate(&s("D:\\mods\\3dmigoto\\Mods", "D:\\mods\\SkinLibrary")).is_ok());
+    }
+
+    #[test]
+    fn rejects_relative_root_and_dotdot_paths_and_bare_hotkeys() {
+        assert_eq!(validate(&s("D:\\mods\\Mods", "SkinLibrary")).unwrap_err().code, "relative_path");
+        assert_eq!(validate(&s("D:\\mods\\Mods", "D:\\")).unwrap_err().code, "library_root");
+        assert_eq!(validate(&s("D:\\mods\\Mods", "D:\\mods\\x\\..\\Mods\\Lib")).unwrap_err().code, "parent_ref");
+        let mut v = s("D:\\mods\\Mods", "D:\\mods\\Lib");
+        v.nsfw.hotkey = "H".into();
+        assert_eq!(validate(&v).unwrap_err().code, "invalid_hotkey");
+        v.nsfw.hotkey = "Alt+Shift+N".into();
+        assert!(validate(&v).is_ok());
     }
 
     #[test]
