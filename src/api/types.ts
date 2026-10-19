@@ -129,6 +129,15 @@ export interface Snapshot {
   hashIndex: HashIndexInfo;
   /** False until a Mods folder and Library are configured (first run). */
   configured: boolean;
+  /** Library and Mods on the same drive, so moves are instant renames. null = unknown. */
+  sameDrive: boolean | null;
+}
+
+export interface FirstRunDefaults {
+  loader: Loader | null;
+  mods3dmigoto: string | null;
+  modsXxmi: string | null;
+  library: string | null;
 }
 
 /** entityId -> skinId, or null for "Original / no mod". Only entities the user changed. */

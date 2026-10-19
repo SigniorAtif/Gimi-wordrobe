@@ -49,6 +49,7 @@ function snapshot(): Snapshot {
     recovered: null,
     hashIndex: { date: "2026-08-03", entries: 18342 },
     configured,
+    sameDrive: true,
   };
 }
 
@@ -67,6 +68,15 @@ export const api: Api = {
     settings = structuredClone(next);
     configured = !!(settings.modsPath[settings.activeLoader]?.trim() && settings.libraryPath.trim());
     return snapshot();
+  },
+  async firstRunDefaults() {
+    await wait(40);
+    return {
+      loader: "3dmigoto",
+      mods3dmigoto: "D:\\mods\\3dmigoto\\Mods",
+      modsXxmi: null,
+      library: "D:\\mods\\SkinLibrary",
+    };
   },
   async pickFolder({ defaultPath }) {
     await wait(60);

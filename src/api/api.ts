@@ -1,6 +1,6 @@
 // The one typed interface every component goes through (SPEC §13). Two implementations:
 // tauri.ts (real backend) and mock.ts (in-memory fixtures for the browser test harness, VITE_MOCK=1).
-import type { Settings, Snapshot } from "./types";
+import type { FirstRunDefaults, Settings, Snapshot } from "./types";
 
 export type OpenTarget =
   | { kind: "mods" }
@@ -21,6 +21,8 @@ export interface Api {
   rescan(): Promise<Snapshot>;
   /** Save settings (instantly, no Save button). Changing loader or paths re-scans. */
   saveSettings(settings: Settings): Promise<Snapshot>;
+  /** First-run pre-fill (SPEC §5): existing loader paths and a suggested Library. Windows only. */
+  firstRunDefaults(): Promise<FirstRunDefaults>;
   pickFolder(opts: FolderPickOptions): Promise<string | null>;
   openFolder(target: OpenTarget): Promise<void>;
   openUrl(url: string): Promise<void>;
