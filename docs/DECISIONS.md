@@ -65,3 +65,11 @@ these fill gaps or record where something had to be interpreted.
   milestone replaces this with the SPEC §5 review screen; later scans already report new folders instead of adopting.
 - **Fixtures are generated** by `scripts/make-fixtures.mjs` (committed together with its output). Tests copy them to a
   temp dir before touching anything.
+- **Parts merge at the Mods root too.** An archive like `varesa_by_neyori` extracted straight into Mods leaves
+  `Face/` and `Outfit/` side by side at the root; they are one skin. Two unrelated same-entity mods with disjoint
+  hashes at the root would also merge; the import review lets the user split them.
+- **Hash values parse like 3DMigoto's `%lx`:** optional `0x`, leading hex digits, anything after (a `;note`) ignored.
+- **Known skin folders are always roots.** Once imported, a folder keeps its grouping on every re-scan even if a
+  later library name would make it look like an entity container.
+- **The committed test index** (`fixtures/hash_index.test.json`) holds only the 35 hashes the fixture inis already
+  quote (SPEC §5 allows fixtures to quote a handful of real hashes); the full index is never committed.
