@@ -1,6 +1,6 @@
 // The one typed interface every component goes through (SPEC §13). Two implementations:
 // tauri.ts (real backend) and mock.ts (in-memory fixtures for the browser test harness, VITE_MOCK=1).
-import type { FirstRunDefaults, Settings, Snapshot } from "./types";
+import type { ApplyProgress, ApplyResult, FirstRunDefaults, Picks, Settings, Snapshot } from "./types";
 
 export type OpenTarget =
   | { kind: "mods" }
@@ -26,6 +26,10 @@ export interface Api {
   /** First-run pre-fill (SPEC §5): existing loader paths and a suggested Library. Windows only. */
   firstRunDefaults(): Promise<FirstRunDefaults>;
   pickFolder(opts: FolderPickOptions): Promise<string | null>;
+  /** Apply pending picks as one batch with rollback (SPEC §3). */
+  apply(picks: Picks, onProgress?: (p: ApplyProgress) => void): Promise<ApplyResult>;
+  /** Folders and previews go to the Recycle Bin. */
+  removeSkin(skinId: string): Promise<Snapshot>;
   openFolder(target: OpenTarget): Promise<void>;
   openUrl(url: string): Promise<void>;
   setWindowTitle(title: string): Promise<void>;

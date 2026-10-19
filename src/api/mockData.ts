@@ -211,7 +211,7 @@ const ROSTER: EntitySeed[] = [
 
 export interface MockWorld {
   library: Library;
-  /** skinIds whose folders are currently in Mods (active). */
+  /** skinIds whose folders are currently in Mods (active). Reassigned on rollback. */
   active: Set<string>;
   images: Map<string, string>; // preview file path -> data URL
 }

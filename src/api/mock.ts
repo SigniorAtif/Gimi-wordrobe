@@ -1,6 +1,6 @@
 // In-memory fixture backend for the browser test harness (SPEC §0). Enabled with VITE_MOCK=1, never in release builds.
 // URL flags: ?firstrun=1 starts unconfigured; ?pages=1 starts in Pages layout; ?reduced=1 forces reduced motion.
-import type { Api } from "./api";
+import { ApiFailure, type Api } from "./api";
 import { buildMockWorld, MOCK_LIBRARIES, MOCK_SETTINGS, type MockWorld } from "./mockData";
 import type { DiskState, Settings, Snapshot } from "./types";
 
@@ -16,7 +16,12 @@ if (params.get("reduced") === "1") settings.reduceMotion = "on";
 /** Test controls, reachable from agent-browser via `window.__mock`. */
 export const mockControls = {
   latencyMs: 120,
+  /** Next Apply fails after some progress and "rolls back". */
   failNextApply: false,
+  /** Next Apply reports that the Mods folder changed outside the app. */
+  changeOutsideNextApply: false,
+  /** ms per simulated folder move */
+  applyStepMs: 260,
   world,
 };
 (globalThis as unknown as { __mock: typeof mockControls }).__mock = mockControls;
@@ -74,6 +79,47 @@ export const api: Api = {
   async updateHashIndex() {
     await wait(1200);
     hashIndex = { date: "2026-10-12", entries: 3990 };
+    return snapshot();
+  },
+  async apply(picks, onProgress) {
+    const before = new Set(world.active);
+    const steps: string[] = [];
+    for (const [entityId, target] of Object.entries(picks)) {
+      for (const s of world.library.skins.filter((k) => k.entityId === entityId)) {
+        const on = world.active.has(s.id);
+        if (s.id === target && !on) steps.push(`Moving ${s.folders[0].split("/").pop()}`);
+        if (s.id !== target && on) steps.push(`Moving ${s.folders[0].split("/").pop()}`);
+      }
+    }
+    if (mockControls.changeOutsideNextApply) {
+      mockControls.changeOutsideNextApply = false;
+      await wait();
+      return { snapshot: snapshot(), changed: 0, changedOutside: true, warnings: [] };
+    }
+    for (let i = 0; i < steps.length; i++) {
+      onProgress?.({ done: i, total: steps.length, label: steps[i] });
+      await wait(mockControls.applyStepMs);
+      if (mockControls.failNextApply && i === Math.floor(steps.length / 2)) {
+        mockControls.failNextApply = false;
+        world.active = before;
+        throw new ApiFailure("move_failed", "Couldn't move Furina\\Remembrance: it's in use. Close the game or any Explorer window showing it. Nothing was changed.");
+      }
+    }
+    for (const [entityId, target] of Object.entries(picks)) {
+      for (const s of world.library.skins.filter((k) => k.entityId === entityId)) world.active.delete(s.id);
+      if (target) world.active.add(target);
+    }
+    onProgress?.({ done: steps.length, total: steps.length, label: "Done" });
+    return { snapshot: snapshot(), changed: steps.length, changedOutside: false, warnings: [] };
+  },
+  async removeSkin(skinId) {
+    await wait();
+    const s = world.library.skins.find((k) => k.id === skinId);
+    if (!s) throw new ApiFailure("unknown_skin", "That skin no longer exists.");
+    world.library.skins = world.library.skins.filter((k) => k.id !== skinId);
+    const e = world.library.entities.find((x) => x.id === s.entityId);
+    if (e) e.skinIds = e.skinIds.filter((x) => x !== skinId);
+    world.active.delete(skinId);
     return snapshot();
   },
   async firstRunDefaults() {

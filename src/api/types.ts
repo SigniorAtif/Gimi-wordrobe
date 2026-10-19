@@ -153,7 +153,11 @@ export interface ApplyProgress {
 
 export interface ApplyResult {
   snapshot: Snapshot;
+  /** Skins enabled or disabled. */
   changed: number;
+  /** The disk changed since the UI last looked: nothing was applied, `snapshot` is the fresh state. */
+  changedOutside: boolean;
+  warnings: string[];
 }
 
 export interface ApiError {
