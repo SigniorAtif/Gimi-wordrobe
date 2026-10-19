@@ -5,8 +5,8 @@ Build progress for the unattended run. Milestones follow SPEC §15.
 | # | Milestone | Status |
 |---|---|---|
 | 0 | Scaffold, tokens, motion tokens, animated router shell, typed API + mock | done |
-| 1 | Settings page + persistence | next |
-| 2 | Hash index script, Rust scanner, library.json, fixtures | todo |
+| 1 | Settings page + persistence | done |
+| 2 | Hash index script, Rust scanner, library.json, fixtures | next |
 | 3 | Mode C (C1 + C2) + pending bar + Apply with rollback/journal/persist + toast | todo |
 | 4 | Mode A (A1 + A2), A3 detail, C3 peek, layout switch, hotkeys + conflicts | todo |
 | 5 | Add flow: drag-drop, extraction, A4, C4, new-character | todo |
