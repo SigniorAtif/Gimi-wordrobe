@@ -1,12 +1,14 @@
 //! Thin `#[tauri::command]` wrappers over `core::app::AppCore` (SPEC §13). No disk logic lives here.
 
-use crate::core::app::{AppCore, IMAGE_DIRS};
+use crate::core::app::{AppCore, ApplyOutcome, IMAGE_DIRS, Picks};
+use crate::core::apply::Fault;
 use crate::core::error::{AppError, AppResult};
 use crate::core::model::{Settings, Snapshot};
 use crate::core::settings::{self, FirstRunDefaults};
 use serde::Deserialize;
+use serde::Serialize;
 use std::sync::{Arc, Mutex, MutexGuard};
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_opener::OpenerExt;
 
 /// Let the webview load images only from the Library's previews and portraits folders (SPEC §10).
@@ -70,6 +72,57 @@ pub async fn update_hash_index(state: State<'_, AppState>) -> AppResult<Snapshot
     state.run(|c| c.reload_index()).await
 }
 
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ApplyProgress {
+    done: usize,
+    total: usize,
+    label: String,
+}
+
+/// Debug builds only: `SKIN_SWITCHER_FAULT=fail:N` or `crash:N` makes Apply fail (and roll back) or kill the app
+/// before operation N, for the e2e tests of rollback and journal recovery.
+fn fault_from_env() -> Fault {
+    #[cfg(debug_assertions)]
+    if let Ok(v) = std::env::var("SKIN_SWITCHER_FAULT") {
+        let (kind, n) = v.split_once(':').unwrap_or((v.as_str(), "0"));
+        let n = n.parse().unwrap_or(0);
+        return match kind {
+            "fail" => Fault::FailAt(n),
+            "crash" => Fault::CrashAt(n),
+            _ => Fault::None,
+        };
+    }
+    Fault::None
+}
+
+/// Apply pending picks (SPEC §3). Emits `apply-progress` events while it runs.
+#[tauri::command]
+pub async fn apply(app: AppHandle, state: State<'_, AppState>, picks: Picks) -> AppResult<ApplyOutcome> {
+    let fault = fault_from_env();
+    let emitter = app.clone();
+    let result = state
+        .run(move |c| {
+            c.apply(&picks, fault, &mut |done, total, label| {
+                let _ = emitter.emit("apply-progress", ApplyProgress { done, total, label: label.to_string() });
+            })
+        })
+        .await;
+    if let Err(e) = &result
+        && e.code == "crashed"
+    {
+        // simulated kill for the journal-recovery test: leave the journal behind, exit immediately
+        std::process::exit(101);
+    }
+    result
+}
+
+/// Remove a skin: folders and previews go to the Recycle Bin (SPEC §1).
+#[tauri::command]
+pub async fn remove_skin(state: State<'_, AppState>, skin_id: String) -> AppResult<Snapshot> {
+    state.run(move |c| c.remove_skin(&skin_id, &|p| trash::delete(p).map_err(std::io::Error::other))).await
+}
+
 #[tauri::command]
 pub fn first_run_defaults() -> FirstRunDefaults {
     settings::first_run_defaults()
@@ -98,7 +151,8 @@ pub fn open_folder(app: AppHandle, state: State<'_, AppState>, target: OpenTarge
         match target {
             OpenTarget::Mods => s.mods_path().map(str::to_string),
             OpenTarget::Library => Some(s.library_path.clone()).filter(|p| !p.trim().is_empty()),
-            OpenTarget::Skin { .. } | OpenTarget::Entity { .. } => None,
+            OpenTarget::Skin { skin_id } => core.skin_path(&skin_id).map(|p| p.to_string_lossy().into_owned()),
+            OpenTarget::Entity { entity_id } => core.entity_path(&entity_id).map(|p| p.to_string_lossy().into_owned()),
         }
     };
     let path = path.ok_or_else(|| AppError::new("no_path", "That folder isn't set yet."))?;

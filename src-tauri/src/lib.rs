@@ -30,6 +30,8 @@ pub fn run() {
             commands::first_run_defaults,
             commands::update_hash_index,
             commands::open_folder,
+            commands::apply,
+            commands::remove_skin,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

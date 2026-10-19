@@ -73,3 +73,33 @@ these fill gaps or record where something had to be interpreted.
   later library name would make it look like an entity container.
 - **The committed test index** (`fixtures/hash_index.test.json`) holds only the 35 hashes the fixture inis already
   quote (SPEC §5 allows fixtures to quote a handful of real hashes); the full index is never committed.
+
+## M3 Shelves, pending bar, Apply
+
+- **Apply refuses when the disk changed outside the app.** It re-scans first; if anything differs from what the UI
+  last saw, nothing moves, the UI gets the fresh state with a toast, and picks that still make sense are kept. The
+  user presses Apply again on purpose.
+- **The journal is deleted only after verification.** Each touched skin is re-located after the batch; a mismatch rolls
+  everything back like any other failure.
+- **Interrupted cross-drive copies** are recorded as "started"; recovery deletes the partial copy (the source is
+  intact) and undoes finished moves newest first.
+- **Persist restore failures are warnings**, not rollbacks: the skins are switched, the toast says toggles weren't
+  restored (SPEC §3 calls this best effort).
+- **Disable-method migration runs inside save_settings** as one journaled batch; if it fails, the setting isn't saved.
+- **Removing a skin** trashes every place its folders exist (Mods, DISABLED_ copy, stash) plus its previews, then tidies
+  empty parents under Mods. Tests inject a fake trash so nothing lands in the real Recycle Bin.
+- **Two skins of one entity enabled** (found on disk) show a red "!" on the card and a note in the shelf; picking one
+  and applying turns the others off.
+- **e2e fault injection** (`SKIN_SWITCHER_FAULT=fail:N|crash:N`) exists only in debug builds.
+- **e2e binary** is a `tauri build --debug --no-bundle` copied to `~/.cache/skin-switcher-e2e/` so `tauri dev`
+  (which builds to the same path without embedded assets) can't overwrite it.
+- **Debug profile keeps only line tables** (`[profile.dev]`): full debug info pushed the target dir past 11 GB on a
+  nearly full dev disk.
+- **Cross-drive moves are two-phase in the journal** (started -> copied -> done). Recovery deletes a partial copy
+  only while the source is intact; once the copy is verified it rebuilds the source from it instead.
+- **A leftover journal is always recovered first**; a new batch never overwrites it. A successful batch marks its
+  journal committed before deleting it, so a failed delete can't cause a spurious rollback on the next start.
+- **d3dx_user.ini is merged on raw bytes** (BOM, CRLF, UTF-16 and ANSI bytes in other lines survive). The first copy
+  ever touched is kept as `d3dx_user.ini.skinswitcher-original`; `.bak` holds the state before the latest write.
+- **Un-imported mods of a picked character** stay enabled (Apply only moves library skins); Apply warns about them
+  and points to Re-scan.

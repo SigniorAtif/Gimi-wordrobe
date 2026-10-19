@@ -1,13 +1,16 @@
 import { AnimatePresence, LayoutGroup, MotionConfig, motion } from "motion/react";
 import { useEffect } from "react";
 import { Page, type PageKind } from "./components/Page";
+import { PendingBar } from "./components/PendingBar";
 import { Toasts } from "./components/Toasts";
 import { tween } from "./motion";
 import { useMotionConfigMode, useReduced } from "./lib/useReduced";
+import { useShortcuts } from "./lib/useShortcuts";
 import { Home } from "./screens/Home";
 import { SettingsPage } from "./screens/SettingsPage";
 import { Setup } from "./screens/Setup";
 import { routeKey, useApp, type Route } from "./store/app";
+import { useHome } from "./store/home";
 import "./App.css";
 
 /**
@@ -23,6 +26,8 @@ export default function App() {
   const navDir = useApp((s) => s.navDir);
   const reduced = useReduced();
   const motionMode = useMotionConfigMode();
+  const pendingShown = useHome((s) => Object.keys(s.picks).length > 0 || s.applyState.phase !== "idle");
+  useShortcuts();
 
   useEffect(() => {
     void boot();
@@ -31,7 +36,7 @@ export default function App() {
   return (
     <MotionConfig reducedMotion={motionMode}>
       <LayoutGroup>
-        <div className="app">
+        <div className="app" style={{ ["--pending-offset" as string]: pendingShown ? "84px" : "0px" }}>
           <main className="app__main">
             <AnimatePresence initial={false} custom={{ dir: navDir, reduced }}>
               {snapshot ? (
@@ -45,6 +50,7 @@ export default function App() {
               )}
             </AnimatePresence>
           </main>
+          {snapshot?.configured && <PendingBar />}
           <Toasts />
         </div>
       </LayoutGroup>

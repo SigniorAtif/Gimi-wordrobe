@@ -1,0 +1,126 @@
+.ecard {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  min-height: 76px;
+  padding: 12px 12px;
+  border-radius: var(--r-card);
+  border: 1px solid var(--border-soft);
+  background: var(--surface-1);
+  text-align: left;
+  box-shadow: var(--shadow-1);
+  transition:
+    border-color 160ms var(--ease-out),
+    box-shadow 200ms var(--ease-out),
+    background-color 160ms var(--ease-out);
+}
+.ecard:hover {
+  border-color: var(--border);
+  box-shadow: var(--shadow-2);
+}
+.ecard.is-open {
+  border-color: var(--accent-line);
+  background: var(--surface-2);
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.ecard.is-drop-target {
+  border-style: dashed;
+}
+.ecard__text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  flex: 1;
+}
+.ecard__name {
+  font-weight: 640;
+  font-size: var(--fs-body);
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  padding-right: 4px;
+}
+.ecard__caret {
+  color: var(--accent-strong);
+  font-size: 11px;
+}
+.ecard__sub {
+  position: relative;
+  display: block;
+  height: 17px;
+  overflow: hidden;
+  font-size: var(--fs-meta);
+  color: var(--text-2);
+}
+.ecard__sub-text {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ecard__dots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+.ecard__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  border: 1.2px solid var(--text-4);
+  display: grid;
+  place-items: center;
+  transition: border-color 160ms var(--ease-out);
+}
+.ecard__dot.is-on {
+  border-color: var(--accent);
+}
+.ecard__dot.is-pending {
+  border-color: var(--pending);
+}
+.ecard__dot-fill {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.ecard__dot.is-pending .ecard__dot-fill {
+  background: var(--pending);
+}
+.ecard__badges {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+.ecard__alert {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--danger);
+  color: var(--danger-ink);
+  font-size: 11px;
+  font-weight: 800;
+}
+.ecard__tab {
+  position: absolute;
+  left: -1px;
+  right: -1px;
+  top: 100%;
+  height: calc(var(--s-3) + 2px);
+  transform-origin: top;
+  background: var(--surface-2);
+  border-left: 1px solid var(--accent-line);
+  border-right: 1px solid var(--accent-line);
+  z-index: 2;
+}
