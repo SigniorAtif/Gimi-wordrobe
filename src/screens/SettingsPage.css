@@ -31,6 +31,12 @@
   max-width: 1240px;
   align-items: start;
 }
+.settings__col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  min-width: 0;
+}
 .settings__section {
   display: flex;
   flex-direction: column;

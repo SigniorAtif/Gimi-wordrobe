@@ -41,15 +41,20 @@ export function SettingsPage() {
         <Section title="Appearance" reduced={reduced} wide>
           <Appearance s={s} snapshot={snapshot} save={save} />
         </Section>
-        <Section title="Mod loader" reduced={reduced}>
-          <LoaderSection s={s} save={save} />
-        </Section>
-        <Section title="Library" reduced={reduced}>
-          <LibrarySection s={s} snapshot={snapshot} save={save} />
-        </Section>
-        <Section title="NSFW" reduced={reduced}>
-          <NsfwSection s={s} save={save} />
-        </Section>
+        {/* two independent columns, so a tall Library card never leaves a hole under Mod loader */}
+        <div className="settings__col">
+          <Section title="Mod loader" reduced={reduced}>
+            <LoaderSection s={s} save={save} />
+          </Section>
+          <Section title="NSFW" reduced={reduced}>
+            <NsfwSection s={s} save={save} />
+          </Section>
+        </div>
+        <div className="settings__col">
+          <Section title="Library" reduced={reduced}>
+            <LibrarySection s={s} snapshot={snapshot} save={save} />
+          </Section>
+        </div>
       </motion.div>
     </div>
   );
