@@ -26,6 +26,13 @@ ureq = { version = "3", features = ["json"] }
 [dev-dependencies]
 tempfile = "3"
 
+# Keep debug builds small: the dev box is short on disk and nobody steps through dependencies.
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+debug = false
+
 [profile.release]
 codegen-units = 1
 lto = true
