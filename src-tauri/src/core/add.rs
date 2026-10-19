@@ -6,6 +6,7 @@ use super::app::AppCore;
 use super::apply::{self, Fault};
 use super::archive::{self, Entry};
 use super::error::{AppError, AppResult};
+use super::fsutil;
 use super::import;
 use super::model::{Category, DisableMethod, Hotkey, Preview, PreviewSource, Skin, Snapshot};
 use super::names;
@@ -73,6 +74,9 @@ pub struct AddTarget {
 pub struct AddSplit {
     /// Root folder inside the archive (relative to the content root) that becomes its own skin.
     pub root_path: String,
+    /// Every folder of that root when it has several (Face + Outfit); empty = just `root_path`.
+    #[serde(default)]
+    pub folders: Vec<String>,
     #[serde(flatten)]
     pub target: AddTarget,
 }
@@ -108,9 +112,41 @@ pub struct AddResult {
     pub warnings: Vec<String>,
 }
 
-fn stage_dir(lib: &Path, tag: &str) -> PathBuf {
-    let n = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis()).unwrap_or(0);
-    lib.join("tmp").join(format!("{tag}-{n}"))
+/// A fresh, empty staging folder under `<Library>/tmp`. The name can't be guessed and `create_dir` fails when it
+/// already exists, so nothing planted there beforehand (a junction, say) is ever extracted into.
+fn new_stage(lib: &Path, tag: &str) -> AppResult<PathBuf> {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+    let tmp = lib.join("tmp");
+    fs::create_dir_all(&tmp)?;
+    for _ in 0..16 {
+        let nanos =
+            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0);
+        let n = COUNTER.fetch_add(1, Ordering::Relaxed);
+        let p = tmp.join(format!("{tag}-{}-{nanos:x}-{n}", std::process::id()));
+        match fs::create_dir(&p) {
+            Ok(()) => return Ok(p),
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(e) => return Err(e.into()),
+        }
+    }
+    Err(AppError::new("stage_failed", "Couldn't create a staging folder in the Library."))
+}
+
+/// Remove staging folders a crash or kill left in `<Library>/tmp` (extracted copies nobody owns). Run at startup.
+pub fn sweep_staging(lib: &Path) {
+    let _ = fsutil::remove_tree_force(&lib.join("tmp"));
+}
+
+/// The folders a split takes out of the archive.
+fn split_folders(s: &AddSplit) -> Vec<String> {
+    if s.folders.is_empty() { vec![s.root_path.clone()] } else { s.folders.clone() }
+}
+
+/// `path` is `dir` or inside it (case-insensitive, `/`-separated).
+fn within(path: &str, dir: &str) -> bool {
+    let (p, d) = (path.to_lowercase(), dir.trim_end_matches('/').to_lowercase());
+    p == d || p.starts_with(&format!("{d}/"))
 }
 
 /// The folder an archive sits in names its character in the user's archive library ("Benny", "Veresa/nsfw").
@@ -206,16 +242,14 @@ impl AppCore {
         let lib = self.library_dir().ok_or_else(|| AppError::new("no_library", "Choose a Library folder first."))?;
         let entries = archive::list(archive)?;
         archive::check_entries(&entries)?;
-        let stage = stage_dir(&lib, "analyze");
+        let stage = new_stage(&lib, "analyze")?;
         let result = (|| {
             archive::extract(archive, &stage, &["*.[iI][nN][iI]"], &mut |_| {})?;
             archive::strip_unwanted(&stage)?;
             archive::sanitize_tree(&stage)?;
             let wrapper = archive::wrapper_of(&entries);
-            let root = match &wrapper {
-                Some(w) => stage.join(paths::sanitize_component(w.trim_end_matches('/'))),
-                None => stage.clone(),
-            };
+            // scan what is on disk, as add_skin does: a listing name can differ from the extracted one (code pages)
+            let root = archive::content_root(&stage)?;
             let (hint, hint_guess) = self.hint_guess(archive);
             let mut ctx = ScanContext::new(&self.index, &self.library);
             ctx.archive_root = true;
@@ -257,7 +291,7 @@ impl AppCore {
                 wrapper,
             })
         })();
-        let _ = fs::remove_dir_all(&stage);
+        let _ = fsutil::remove_tree_force(&stage);
         result
     }
 
@@ -271,12 +305,21 @@ impl AppCore {
         if name.is_empty() {
             return Err(AppError::new("no_entity", "The new character needs a name."));
         }
+        let count = self.library.entities.len();
         let id = self.library.ensure_entity(name, ne.category, ne.parent_id.clone().filter(|p| !p.is_empty()));
-        if let (Some(src), Some(lib)) = (ne.portrait_path.as_ref(), self.library_dir()) {
+        // the name may match an existing entry: only give it the portrait when it has none, and never write over a file
+        let created = self.library.entities.len() > count;
+        let has_portrait = self.library.entity(&id).map(|e| e.portrait.is_some()).unwrap_or(false);
+        if let (Some(src), Some(lib)) = (ne.portrait_path.as_ref(), self.library_dir())
+            && (created || !has_portrait)
+        {
             let ext =
                 Path::new(src).extension().map(|e| e.to_string_lossy().to_lowercase()).unwrap_or_else(|| "png".into());
-            let rel = format!("portraits/{id}.{ext}");
             fs::create_dir_all(lib.join("portraits"))?;
+            let rel = (1..)
+                .map(|n| if n == 1 { format!("portraits/{id}.{ext}") } else { format!("portraits/{id}-{n}.{ext}") })
+                .find(|r| !lib.join(r).exists())
+                .unwrap();
             fs::copy(src, lib.join(&rel))?;
             if let Some(e) = self.library.entity_mut(&id) {
                 e.portrait = Some(rel);
@@ -333,37 +376,63 @@ impl AppCore {
         let entries = archive::list(&archive_path)?;
         archive::check_entries(&entries)?;
         let total: u64 = entries.iter().map(|e| e.size).sum::<u64>().max(1);
-        let stage = stage_dir(&lib, "add");
+        let stage = new_stage(&lib, "add")?;
+        // every folder made in lib/tmp besides `stage` (root-file skins, multi-folder splits), cleaned up at the end
+        let mut scratch: Vec<PathBuf> = vec![];
         let mut placed: Vec<PathBuf> = vec![];
         let library_before = self.library.clone();
-        let result = (|| -> AppResult<(Vec<String>, Vec<String>)> {
+        let result = (|| -> AppResult<Vec<String>> {
             progress(0, total, "Extracting");
             archive::extract(&archive_path, &stage, &[], &mut |b| progress(b.min(total), total, "Extracting"))?;
             archive::strip_unwanted(&stage)?;
             archive::sanitize_tree(&stage)?;
             let root = archive::content_root(&stage)?;
+            // unticked roots go first, so the scan below never credits their hotkeys or hashes to a skin
+            for ex in &req.exclude {
+                if let Some(p) = paths::join_rel(&root, ex).filter(|p| p != &root && p.exists()) {
+                    if p.is_dir() { fsutil::remove_tree_force(&p)? } else { fsutil::remove_file_force(&p)? }
+                }
+            }
             let mut ctx = ScanContext::new(&self.index, &self.library);
             ctx.archive_root = true;
             let scan = scanner::scan(&root, &ctx);
-            for ex in &req.exclude {
-                if let Some(p) = paths::join_rel(&root, ex).filter(|p| p != &root && p.exists()) {
-                    fs::remove_dir_all(&p).or_else(|_| fs::remove_file(&p))?;
-                }
-            }
             let file_name = archive_path.file_name().map(|n| n.to_string_lossy().into_owned());
+            // a split inside an unticked root is gone with it
+            let splits: Vec<AddSplit> = req
+                .splits
+                .iter()
+                .filter(|s| !split_folders(s).iter().any(|f| req.exclude.iter().any(|x| within(f, x))))
+                .cloned()
+                .collect();
+            let split_dirs: Vec<String> = splits.iter().flat_map(split_folders).collect();
             let mut ids = vec![];
             // deepest first: a nested root must leave its parent before the parent moves
-            let mut splits = req.splits.clone();
-            splits.sort_by_key(|s| std::cmp::Reverse(s.root_path.matches('/').count()));
-            let mut jobs: Vec<(Option<String>, AddTarget)> =
-                splits.into_iter().map(|s| (Some(s.root_path), s.target)).collect();
+            let mut jobs: Vec<(Option<AddSplit>, AddTarget)> =
+                splits.iter().map(|s| (Some(s.clone()), s.target.clone())).collect();
+            jobs.sort_by_key(|(s, _)| {
+                std::cmp::Reverse(s.as_ref().map(|s| s.root_path.matches('/').count()).unwrap_or(0))
+            });
             jobs.push((None, req.main.clone()));
-            for (root_path, target) in jobs {
-                let src = match &root_path {
-                    Some(r) => paths::join_rel(&root, r)
+            for (split, target) in jobs {
+                let folders = split.as_ref().map(split_folders).unwrap_or_default();
+                let src = match folders.as_slice() {
+                    [] => root.clone(),
+                    [one] => paths::join_rel(&root, one)
                         .filter(|p| p.exists())
-                        .ok_or_else(|| AppError::new("missing_root", format!("{r} isn't in the archive.")))?,
-                    None => root.clone(),
+                        .ok_or_else(|| AppError::new("missing_root", format!("{one} isn't in the archive.")))?,
+                    many => {
+                        // several folders make one skin: gather them side by side in a folder of their own
+                        let group = new_stage(&lib, "split")?;
+                        scratch.push(group.clone());
+                        for f in many {
+                            let p = paths::join_rel(&root, f)
+                                .filter(|p| p.exists())
+                                .ok_or_else(|| AppError::new("missing_root", format!("{f} isn't in the archive.")))?;
+                            let name = p.file_name().map(|n| n.to_os_string()).unwrap_or_default();
+                            fs::rename(&p, group.join(name))?;
+                        }
+                        group
+                    }
                 };
                 if fs::read_dir(&src).map(|mut d| d.next().is_none()).unwrap_or(true) {
                     continue; // nothing left (everything split out or excluded)
@@ -372,16 +441,15 @@ impl AppCore {
                 let name = target.skin_name.trim();
                 let name = if name.is_empty() { "Skin" } else { name };
                 let rel = self.unique_target(&entity_id, name, &mods, &stash);
-                let prefix = root_path.clone().map(|r| format!("{}/", r.to_lowercase()));
+                // the ini's path inside this skin's folder, if the ini belongs to it (paths share the scan's spelling)
                 let own = |ini_rel: &str| -> Option<String> {
-                    let l = ini_rel.to_lowercase();
-                    match &prefix {
-                        Some(p) => l.starts_with(p).then(|| ini_rel[p.len()..].to_string()),
-                        // the main skin: what isn't inside a split root
-                        None => {
-                            (!req.splits.iter().any(|s| l.starts_with(&format!("{}/", s.root_path.to_lowercase()))))
-                                .then(|| ini_rel.to_string())
-                        }
+                    match folders.as_slice() {
+                        [] => (!split_dirs.iter().any(|d| within(ini_rel, d))).then(|| ini_rel.to_string()),
+                        [one] => ini_rel.strip_prefix(&format!("{one}/")).map(str::to_string),
+                        many => many.iter().find_map(|f| {
+                            let base = f.rsplit('/').next().unwrap_or(f);
+                            ini_rel.strip_prefix(&format!("{f}/")).map(|rest| format!("{base}/{rest}"))
+                        }),
                     }
                 };
                 let mut hotkeys: Vec<Hotkey> = vec![];
@@ -405,6 +473,7 @@ impl AppCore {
                     let picks = archive::preview_candidates(&files, &scan);
                     previews = copy_previews(&lib, &skin_id, &src, &picks, PreviewSource::Archive)?;
                 } else if req.preview_source == "user"
+                    && split.is_none()
                     && let Some(img) = &req.user_image_path
                 {
                     let p = PathBuf::from(img);
@@ -412,10 +481,12 @@ impl AppCore {
                     let fname = p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
                     previews = copy_previews(&lib, &skin_id, &parent, &[fname], PreviewSource::User)?;
                 }
-                let dest = if root_path.is_none() && src == stage {
+                let dest = if split.is_none() && src == stage {
                     // files at the archive root: they become the skin folder's content
-                    let tmp = stage.with_extension("root");
+                    let tmp = new_stage(&lib, "root")?;
+                    fs::remove_dir(&tmp)?;
                     fs::rename(&stage, &tmp)?;
+                    scratch.push(tmp.clone());
                     self.place_inactive(&tmp, &rel, &mods, &stash)?
                 } else {
                     self.place_inactive(&src, &rel, &mods, &stash)?
@@ -426,8 +497,10 @@ impl AppCore {
                     entity_id,
                     name: name.to_string(),
                     folders: vec![rel],
-                    nsfw: req.nsfw && root_path.is_none(),
-                    game_banana_url: req.game_banana_url.clone().filter(|u| !u.trim().is_empty()),
+                    // a split keeps the archive's NSFW flag: hidden by mistake beats shown by mistake (SPEC §11)
+                    nsfw: req.nsfw,
+                    // the link is the main skin's page, not the weapon's or extra's
+                    game_banana_url: req.game_banana_url.clone().filter(|u| split.is_none() && !u.trim().is_empty()),
                     source_archive: file_name.clone(),
                     previews,
                     hotkeys,
@@ -440,28 +513,43 @@ impl AppCore {
             if ids.is_empty() {
                 return Err(AppError::new("empty_archive", "Nothing in this archive was left to add."));
             }
-            Ok((ids, vec![]))
+            // saved inside the undo scope: a failed save takes the placed folders back out
+            self.save_library()?;
+            Ok(ids)
         })();
-        let _ = fs::remove_dir_all(&stage);
-        let _ = fs::remove_dir_all(stage.with_extension("root"));
-        let (ids, mut warnings) = match result {
+        let _ = fsutil::remove_tree_force(&stage);
+        for d in &scratch {
+            let _ = fsutil::remove_tree_force(d);
+        }
+        let ids = match result {
             Ok(v) => v,
             Err(e) => {
                 // undo: extracted copies are ours (the archive is untouched), so they can simply go
                 for p in placed {
-                    let _ = fs::remove_dir_all(&p);
+                    let _ = fsutil::remove_tree_force(&p);
                 }
                 self.library = library_before;
                 return Err(e);
             }
         };
-        self.save_library()?;
-        let mut snapshot = self.rescan()?;
+        let mut warnings = vec![];
+        // the skins are saved now; a failed re-scan must not read as a failed add (a retry would duplicate them)
+        let mut snapshot = match self.rescan() {
+            Ok(s) => s,
+            Err(e) => {
+                warnings.push(format!("Added, but re-reading the Mods folder failed: {}", e.message));
+                self.snapshot()
+            }
+        };
         if req.make_active {
             let main = ids.last().cloned().unwrap_or_default();
             if let Some(entity) = self.library.skin(&main).map(|s| s.entity_id.clone()) {
                 let picks = std::iter::once((entity, Some(main))).collect();
                 match self.apply(&picks, Fault::None, &mut |d, t, l| progress(d as u64, t as u64, l)) {
+                    Ok(out) if out.changed_outside => {
+                        warnings.push("Added, but the Mods folder changed meanwhile, so it wasn't made active. Pick it and Apply.".into());
+                        snapshot = out.snapshot;
+                    }
                     Ok(out) => {
                         warnings.extend(out.warnings);
                         snapshot = out.snapshot;
@@ -573,8 +661,11 @@ mod tests {
                 skin_name: "Beach Day".into(),
             },
         );
+        req.nsfw = true;
+        req.game_banana_url = Some("https://gamebanana.com/mods/1".into());
         req.splits = vec![AddSplit {
             root_path: "TravelerHandySword".into(),
+            folders: vec![],
             target: AddTarget {
                 entity_id: None,
                 new_entity: Some(NewEntity {
@@ -604,6 +695,109 @@ mod tests {
         assert!(lib.join(&bennett.previews[0].file).is_file());
         let sword = snap.library.skins.iter().find(|s| s.name == "Bennett Beach Day").unwrap();
         assert_eq!(snap.library.entity(&sword.entity_id).unwrap().category, Category::Weapon);
+        // a split stays hidden with its NSFW archive, but the link is the main skin's page
+        assert!(bennett.nsfw && sword.nsfw);
+        assert!(bennett.game_banana_url.is_some() && sword.game_banana_url.is_none());
+    }
+
+    #[test]
+    fn unticked_roots_leave_no_hotkeys_or_hashes_and_take_their_splits_with_them() {
+        let cfg = tempfile::tempdir().unwrap();
+        let (_t, mods, lib) = fixture_world();
+        let mut core = configured_core(cfg.path(), &mods, &lib);
+        let mut req = request("bennett_beach.zip", target("mona", "Beach Day"));
+        req.exclude = vec!["TravelerHandySword".into()];
+        // the UI never sends this, but a split inside an unticked root must not fail the add
+        req.splits =
+            vec![AddSplit { root_path: "TravelerHandySword".into(), folders: vec![], target: target("mona", "Sword") }];
+        let out = core.add_skin(req, &mut |_, _, _| {}).unwrap();
+        assert_eq!(out.skin_ids.len(), 1);
+        let skin = out.snapshot.library.skin(&out.skin_ids[0]).unwrap();
+        assert!(!skin.hashes.iter().any(|h| h == "65914967" || h == "4035c5d6"), "{:?}", skin.hashes);
+        assert!(!skin.hotkeys.iter().any(|h| h.ini_file.contains("Skyward")));
+        assert!(!lib.join("stash/Mona/Beach Day/TravelerHandySword").exists());
+    }
+
+    #[test]
+    fn a_split_of_several_folders_keeps_them_together() {
+        let cfg = tempfile::tempdir().unwrap();
+        let (t, mods, lib) = fixture_world();
+        let mut core = configured_core(cfg.path(), &mods, &lib);
+        // Main/ plus a two-folder root (Side/Face, Side/Outfit) that goes to another entity
+        let src = t.path().join("multi-src");
+        let ini = |hash: &str, key: &str| {
+            format!("[TextureOverrideX]\nhash = {hash}\n$active = 1\n\n[KeyX]\nkey = {key}\ncondition = $active == 1\n")
+        };
+        for (rel, body) in [
+            ("Main/Main.ini", ini("aaaa0001", "5")),
+            ("Side/Face/Face.ini", ini("bbbb0001", "6")),
+            ("Side/Outfit/Outfit.ini", ini("bbbb0002", "7")),
+        ] {
+            let p = src.join(rel);
+            fs::create_dir_all(p.parent().unwrap()).unwrap();
+            fs::write(p, body).unwrap();
+        }
+        let zip = t.path().join("multi.zip");
+        let st = std::process::Command::new(archive::tar_program())
+            .arg("-a")
+            .arg("-cf")
+            .arg(&zip)
+            .arg("-C")
+            .arg(&src)
+            .arg("Main")
+            .arg("Side")
+            .status()
+            .unwrap();
+        assert!(st.success());
+        let mut req = request("bennett_beach.zip", target("mona", "Main Skin"));
+        req.archive_path = zip.to_string_lossy().into();
+        req.splits = vec![AddSplit {
+            root_path: "Side/Face".into(),
+            folders: vec!["Side/Face".into(), "Side/Outfit".into()],
+            target: target("kazuha", "Side Skin"),
+        }];
+        let out = core.add_skin(req, &mut |_, _, _| {}).unwrap();
+        let stash = lib.join("stash");
+        assert!(stash.join("Kazuha/Side Skin/Face/Face.ini").is_file());
+        assert!(stash.join("Kazuha/Side Skin/Outfit/Outfit.ini").is_file());
+        assert!(!stash.join("Mona/Main Skin/Side/Face").exists() && !stash.join("Mona/Main Skin/Side/Outfit").exists());
+        let side = out.snapshot.library.skins.iter().find(|s| s.name == "Side Skin").unwrap();
+        assert_eq!(side.hashes, vec!["bbbb0001".to_string(), "bbbb0002".to_string()]);
+        let files: Vec<&str> = side.hotkeys.iter().map(|h| h.ini_file.as_str()).collect();
+        assert!(
+            files.contains(&"Kazuha/Side Skin/Face/Face.ini") && files.contains(&"Kazuha/Side Skin/Outfit/Outfit.ini"),
+            "{files:?}"
+        );
+        let main = out.snapshot.library.skins.iter().find(|s| s.name == "Main Skin").unwrap();
+        assert_eq!(main.hashes, vec!["aaaa0001".to_string()]);
+    }
+
+    #[test]
+    fn a_new_entry_matching_an_existing_one_never_overwrites_its_portrait() {
+        let cfg = tempfile::tempdir().unwrap();
+        let (t, mods, lib) = fixture_world();
+        let mut core = configured_core(cfg.path(), &mods, &lib);
+        fs::create_dir_all(lib.join("portraits")).unwrap();
+        fs::write(lib.join("portraits/mona.png"), b"original").unwrap();
+        core.library.entity_mut("mona").unwrap().portrait = Some("portraits/mona.png".into());
+        let new_img = t.path().join("other.png");
+        fs::write(&new_img, b"other").unwrap();
+        let req = request(
+            "mona_starry_skin.zip",
+            AddTarget {
+                entity_id: None,
+                new_entity: Some(NewEntity {
+                    name: "Mona".into(),
+                    category: Category::Character,
+                    parent_id: None,
+                    portrait_path: Some(new_img.to_string_lossy().into()),
+                }),
+                skin_name: "Again".into(),
+            },
+        );
+        core.add_skin(req, &mut |_, _, _| {}).unwrap();
+        assert_eq!(fs::read(lib.join("portraits/mona.png")).unwrap(), b"original");
+        assert_eq!(core.library.entity("mona").unwrap().portrait.as_deref(), Some("portraits/mona.png"));
     }
 
     #[test]

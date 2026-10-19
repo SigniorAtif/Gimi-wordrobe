@@ -257,6 +257,10 @@ impl AppCore {
     /// Startup: roll back an interrupted Apply (SPEC §3 journal), then scan.
     pub fn load(&mut self) -> AppResult<Snapshot> {
         self.recovered = None;
+        // extracted copies a crashed add left behind belong to nobody
+        if let Some(lib) = self.library_dir() {
+            super::add::sweep_staging(&lib);
+        }
         if let Some(j) = self.journal_path() {
             self.recovered = match apply::recover(&j) {
                 Ok(Some(n)) => Some(RecoveryInfo {
