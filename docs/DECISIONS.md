@@ -113,8 +113,17 @@ these fill gaps or record where something had to be interpreted.
 - **ACTIVE/PENDING tags slide with `layoutId` only within one view** (a shelf strip, the A2 grid, the C3 list); the
   detail page and the peek list crossfade theirs so a tag never flies across the screen.
 - **Conflicts are computed in the UI** from `Hotkey.parsed` (parsed in Rust) against the pending state, so they show
-  before Apply and clear as soon as the pick changes. "Hidden" NSFW skins appear as "a hidden skin" in conflict rows.
+  before Apply and clear as soon as the pick changes. While 18+ skins are hidden they leave no trace: they don't
+  raise conflicts, don't count toward "2 skins are on", and A2 only mentions the hidden count in "stub" mode.
+- **Gated keys clash only as a muted note.** Two `$active`-gated keys collide only while both models are on screen,
+  so a pair that can't share a screen (a weapon with another weapon, or an unrelated extra) still shows the grey
+  overlap note rather than staying silent; we can't know which models appear together.
 - **Home keeps one scroll position per layout** and carries the open shelf / last opened page across a layout
   switch (shelf <-> focused card).
 - **C3 below 1100px opens A3** (SPEC); the `I` key does the same for the focused skin card.
 - **A3 edits** (name, author, version, link, NSFW, owning entity, hotkey labels, notes) write library.json only.
+- **Moving a skin to another character needs it to be off first**: an enabled skin's folders sit in Mods under its
+  current owner's grouping, so the move is refused with "skin_enabled" until it is set to Original and applied.
+  A failed library save restores the in-memory library, so the UI never shows an edit that isn't on disk.
+- **Pages that are leaving ignore keys.** The outgoing page stays mounted during its exit animation, so A2/A3 key
+  handlers check that the route still points at them; otherwise one Escape went back twice.
