@@ -1,10 +1,13 @@
-//! Thin `#[tauri::command]` wrappers over `core` (SPEC §13). No disk logic lives here.
+//! Thin `#[tauri::command]` wrappers over `core::app::AppCore` (SPEC §13). No disk logic lives here.
 
+use crate::core::app::AppCore;
 use crate::core::error::{AppError, AppResult};
-use crate::core::model::{DiskState, HashIndexInfo, Library, Settings, Snapshot};
+use crate::core::model::{Settings, Snapshot};
+use crate::core::settings::{self, FirstRunDefaults};
 use serde::Deserialize;
-use std::sync::Mutex;
+use std::sync::{Mutex, MutexGuard};
 use tauri::{AppHandle, Manager, State};
+use tauri_plugin_opener::OpenerExt;
 
 /// Let the webview load images from the Library only (previews, portraits) via the asset protocol (SPEC §10).
 pub fn sync_asset_scope(app: &AppHandle, settings: &Settings) {
@@ -14,40 +17,34 @@ pub fn sync_asset_scope(app: &AppHandle, settings: &Settings) {
     }
 }
 
-#[derive(Default)]
-pub struct AppState {
-    pub settings: Mutex<Settings>,
-}
+pub struct AppState(pub Mutex<AppCore>);
 
-fn snapshot(settings: &Settings) -> Snapshot {
-    Snapshot {
-        settings: settings.clone(),
-        library: Library::default(),
-        disk: DiskState::default(),
-        changed_outside: false,
-        recovered: None,
-        hash_index: HashIndexInfo::default(),
-        configured: settings.is_configured(),
+impl AppState {
+    fn lock(&self) -> AppResult<MutexGuard<'_, AppCore>> {
+        self.0.lock().map_err(|_| AppError::new("state", "Internal state is unavailable; restart the app."))
     }
 }
 
 #[tauri::command]
 pub fn load(state: State<'_, AppState>) -> AppResult<Snapshot> {
-    let s = state.settings.lock().map_err(|_| AppError::new("state", "state poisoned"))?;
-    Ok(snapshot(&s))
+    state.lock()?.load()
 }
 
 #[tauri::command]
 pub fn rescan(state: State<'_, AppState>) -> AppResult<Snapshot> {
-    load(state)
+    state.lock()?.rescan()
 }
 
 #[tauri::command]
 pub fn save_settings(app: AppHandle, state: State<'_, AppState>, settings: Settings) -> AppResult<Snapshot> {
-    let mut s = state.settings.lock().map_err(|_| AppError::new("state", "state poisoned"))?;
-    sync_asset_scope(&app, &settings);
-    *s = settings;
-    Ok(snapshot(&s))
+    let snap = state.lock()?.save_settings(settings)?;
+    sync_asset_scope(&app, &snap.settings);
+    Ok(snap)
+}
+
+#[tauri::command]
+pub fn first_run_defaults() -> FirstRunDefaults {
+    settings::first_run_defaults()
 }
 
 #[derive(Debug, Deserialize)]
@@ -62,6 +59,19 @@ pub enum OpenTarget {
 }
 
 #[tauri::command]
-pub fn open_folder(_target: OpenTarget) -> AppResult<()> {
-    Err(AppError::new("not_ready", "Opening folders arrives with the Settings milestone."))
+pub fn open_folder(app: AppHandle, state: State<'_, AppState>, target: OpenTarget) -> AppResult<()> {
+    let path = {
+        let core = state.lock()?;
+        let s = core.settings();
+        match target {
+            OpenTarget::Mods => s.mods_path().map(str::to_string),
+            OpenTarget::Library => Some(s.library_path.clone()).filter(|p| !p.trim().is_empty()),
+            OpenTarget::Skin { .. } | OpenTarget::Entity { .. } => None,
+        }
+    };
+    let path = path.ok_or_else(|| AppError::new("no_path", "That folder isn't set yet."))?;
+    if !std::path::Path::new(&path).exists() {
+        return Err(AppError::new("missing", format!("{path} doesn't exist.")));
+    }
+    app.opener().open_path(path, None::<&str>).map_err(|e| AppError::new("open_failed", e.to_string()))
 }

@@ -310,6 +310,8 @@ pub struct Snapshot {
     pub recovered: Option<RecoveryInfo>,
     pub hash_index: HashIndexInfo,
     pub configured: bool,
+    /// Library and Mods on the same drive (moves are instant renames). None when unknown.
+    pub same_drive: Option<bool>,
 }
 
 #[cfg(test)]
