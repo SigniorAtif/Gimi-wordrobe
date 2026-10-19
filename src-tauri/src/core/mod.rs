@@ -2,6 +2,7 @@
 
 pub mod app;
 pub mod apply;
+pub mod archive;
 pub mod error;
 pub mod fsutil;
 pub mod hashindex;
