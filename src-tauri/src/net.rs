@@ -125,6 +125,17 @@ pub fn update_hash_index(dest: &Path) -> AppResult<(Option<String>, usize)> {
         let _ = w.join();
     }
     let results = Arc::try_unwrap(results).map(|m| m.into_inner().unwrap_or_default()).unwrap_or_default();
+    if results.len() != paths.len() {
+        // all or nothing: a partial index (newer date) would replace the fuller bundled one
+        return Err(AppError::new(
+            "network",
+            format!(
+                "{} of {} hash files failed to download; kept the current index.",
+                paths.len() - results.len(),
+                paths.len()
+            ),
+        ));
+    }
 
     let char_keys: BTreeSet<String> = paths
         .iter()

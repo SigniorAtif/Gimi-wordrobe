@@ -132,14 +132,14 @@ async function build() {
   const paths = tree.tree.map((t) => t.path).filter((p) => p.endsWith("/hash.json") && GROUPS[p.split("/")[0]]);
   log(`fetching ${paths.length} hash.json files at ${sha.slice(0, 7)} (${date})`);
 
-  const files = await mapLimit(paths, CONCURRENCY, async (p) => {
-    try {
-      return await getJson(`https://raw.githubusercontent.com/${REPO}/${sha}/${p.split("/").map(encodeURIComponent).join("/")}`);
-    } catch (e) {
-      log(`skip ${p}: ${e.message}`);
-      return null;
-    }
-  });
+  const files = await mapLimit(paths, CONCURRENCY, (p) =>
+    getJson(`https://raw.githubusercontent.com/${REPO}/${sha}/${p.split("/").map(encodeURIComponent).join("/")}`).catch(() => null),
+  );
+  const missing = paths.filter((_, i) => !files[i]);
+  if (missing.length) {
+    // all or nothing: a partial index stamped with this commit would hide entities until upstream changes
+    throw new Error(`${missing.length} of ${paths.length} hash.json files failed to download (${missing.slice(0, 3).join(", ")}...)`);
+  }
 
   const charKeys = new Set(paths.filter((p) => p.startsWith("PlayerCharacterData/")).map((p) => p.split("/").at(-2)));
   const entities = [];
