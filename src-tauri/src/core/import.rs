@@ -4,6 +4,9 @@ use super::model::{Category, Hotkey, Library, Skin};
 use super::names;
 use super::scanner::{Candidate, Guess, GuessReason, ScanResult};
 
+/// Small words that never start or end a skin name.
+const FILLER: &[&str] = &["of", "the", "a", "an", "and", "by", "in", "on"];
+
 const NOISE: &[&str] =
     &["mod", "mods", "release", "updated", "update", "skin", "upscale", "recolorupscale", "final", "fixed"];
 
@@ -86,16 +89,42 @@ pub fn suggest_name(
     child_hint: Option<&str>,
 ) -> (String, Option<String>) {
     let ent_tokens = names::tokens(entity_name);
+    // Single-word entity names are removed anywhere ("CasualFurina" -> "Casual"); longer ones only as a leading or
+    // trailing run, so "Blood Flow" keeps its "Flow" while "Tome of Eternal Blood Flow" -> "Blood Flow".
     let strip_entity = |ws: Vec<String>| -> Vec<String> {
-        ws.into_iter()
-            .filter(|w| {
-                let t = w.to_lowercase();
-                !is_number(w)
-                    && !NOISE.contains(&t.as_str())
-                    && !ent_tokens.iter().any(|e| names::token_close(&t, e))
-                    && !names::tokens(w).is_empty()
-            })
-            .collect()
+        let is_ent = |w: &str| {
+            let t = w.to_lowercase();
+            ent_tokens.iter().any(|e| names::token_close(&t, e))
+        };
+        let filler = |w: &str| FILLER.contains(&w.to_lowercase().as_str());
+        let mut ws: Vec<String> =
+            ws.into_iter().filter(|w| !is_number(w) && !NOISE.contains(&w.to_lowercase().as_str())).collect();
+        if ent_tokens.len() <= 1 {
+            ws.retain(|w| !is_ent(w));
+        } else {
+            // a run counts when it covers half the name or its first word ("Yae", "Tome of Eternal"; not "Flow")
+            let counts = |run: &[String]| {
+                let hits = run.iter().filter(|w| is_ent(w)).count();
+                hits * 2 >= ent_tokens.len()
+                    || run.iter().any(|w| names::token_close(&w.to_lowercase(), &ent_tokens[0]))
+            };
+            let lead = ws.iter().take_while(|w| is_ent(w) || filler(w)).count();
+            if lead > 0 && counts(&ws[..lead]) {
+                ws.drain(..lead);
+            }
+            let trail = ws.iter().rev().take_while(|w| is_ent(w) || filler(w)).count();
+            if trail > 0 && counts(&ws[ws.len() - trail..]) {
+                let keep = ws.len() - trail;
+                ws.truncate(keep);
+            }
+        }
+        while ws.first().map(|w| filler(w)).unwrap_or(false) {
+            ws.remove(0);
+        }
+        while ws.last().map(|w| filler(w)).unwrap_or(false) {
+            ws.pop();
+        }
+        ws
     };
     // candidate texts, most specific first
     let mut texts: Vec<String> = vec![];
@@ -275,6 +304,16 @@ mod tests {
             ("Remembrance".into(), Some("kaichume".into()))
         );
         assert_eq!(suggest_name(&f(&["Kazuha/Multi"]), "Kazuha", None, None).0, "Multi");
+        let tome = "Tome of the Eternal Flow";
+        assert_eq!(suggest_name(&f(&["Tome of the Eternal Flow/Blood Flow"]), tome, None, None).0, "Blood Flow");
+        assert_eq!(suggest_name(&f(&["Tome of Eternal Blood Flow"]), tome, None, None).0, "Blood Flow");
+        assert_eq!(suggest_name(&f(&["TomeOfTheEternalFlowGoldRecolor"]), tome, None, None).0, "Gold Recolor");
+        assert_eq!(suggest_name(&f(&["Starry Witch Mona recolorupscale"]), "Mona", None, None).0, "Starry Witch");
+        assert_eq!(suggest_name(&f(&["SakuraKimonoYae"]), "Yae Miko", None, None).0, "Sakura Kimono");
+        assert_eq!(suggest_name(&f(&["miko - lunar grace"]), "Yae Miko", None, None).0, "Lunar Grace");
+        assert_eq!(suggest_name(&f(&["Black Swan - Odette V2"]), "Odette", None, None).0, "Black Swan");
+        assert_eq!(suggest_name(&f(&["ArlecchinoElegantMod"]), "Arlecchino", None, None).0, "Elegant");
+        assert_eq!(suggest_name(&f(&["BearCharlotte"]), "Charlotte", None, None).0, "Bear");
     }
 
     #[test]
