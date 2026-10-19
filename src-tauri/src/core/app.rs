@@ -7,6 +7,9 @@ use super::settings;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+/// Library sub-folders the webview may load images from (asset protocol scope).
+pub const IMAGE_DIRS: [&str; 2] = ["previews", "portraits"];
+
 pub struct AppCore {
     config_dir: PathBuf,
     settings: Settings,
@@ -48,11 +51,14 @@ impl AppCore {
         Ok(self.snapshot())
     }
 
-    /// Settings save instantly (SPEC §6). Creates the Library folder when one is set.
+    /// Settings save instantly (SPEC §6). Creates the Library folder (and its image folders) when one is set.
     pub fn save_settings(&mut self, next: Settings) -> AppResult<Snapshot> {
         settings::validate(&next)?;
-        if !next.library_path.trim().is_empty() {
-            fs::create_dir_all(next.library_path.trim())?;
+        let lib = next.library_path.trim();
+        if !lib.is_empty() {
+            for sub in IMAGE_DIRS {
+                fs::create_dir_all(Path::new(lib).join(sub))?;
+            }
         }
         settings::save(&self.config_dir, &next)?;
         self.settings = next;

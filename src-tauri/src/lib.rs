@@ -2,7 +2,7 @@ pub mod commands;
 pub mod core;
 
 use std::path::PathBuf;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -19,7 +19,7 @@ pub fn run() {
             std::fs::create_dir_all(&config_dir)?;
             let core = core::app::AppCore::open(&config_dir);
             commands::sync_asset_scope(app.handle(), core.settings());
-            app.manage(commands::AppState(Mutex::new(core)));
+            app.manage(commands::AppState(Arc::new(Mutex::new(core))));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
