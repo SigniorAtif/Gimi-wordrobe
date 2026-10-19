@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>A3 Skin detail</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&amp;family=IBM+Plex+Sans:wght@400;600&amp;display=swap">
+<style>
+body{margin:0;background:#0e0e0e}
+*{box-sizing:border-box}
+.ab{width:1600px;height:800px;display:flex;font-family:'IBM Plex Sans',system-ui,sans-serif;color:#d8d8d8;font-size:13px;background:#0e0e0e}
+.win{width:1280px;height:800px;flex:none;background:#181818;border:1px solid #555;display:flex;flex-direction:column;position:relative;overflow:hidden}
+.tbar{height:30px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 10px;border-bottom:1px solid #3a3a3a;background:#111;font:11px 'IBM Plex Mono',monospace;color:#a0a0a0}
+.wc{display:flex;gap:6px}.wc i{width:26px;height:16px;border:1px solid #555;display:block}
+.notes{width:320px;flex:none;padding:20px 18px;display:flex;flex-direction:column;gap:10px;border-left:1px dashed #555;overflow:hidden}
+.vt{font:600 11px 'IBM Plex Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:#a0a0a0}
+.n{font-size:12px;line-height:1.45;color:#e9c46a;border:1px dashed #8a7233;padding:8px 10px;border-radius:4px;display:flex;gap:8px}
+.pin{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#e9c46a;color:#111;font:700 10px 'IBM Plex Mono',monospace;flex:none}
+.img{background:#2a2a2a linear-gradient(to top right,transparent calc(50% - .5px),#454545 50%,transparent calc(50% + .5px)),linear-gradient(to top left,transparent calc(50% - .5px),#454545 50%,transparent calc(50% + .5px));border:1px solid #454545;border-radius:3px}
+.btn{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;border:1px solid #666;background:#262626;color:#e0e0e0;border-radius:4px;font:inherit;font-size:12px;white-space:nowrap}
+.btn.p{background:#e6e6e6;color:#111;border-color:#e6e6e6;font-weight:600}
+.lbl{font:10px 'IBM Plex Mono',monospace;color:#9a9a9a;text-transform:uppercase;letter-spacing:.06em}
+.mut{color:#9a9a9a}
+.tag{font:600 9px 'IBM Plex Mono',monospace;padding:2px 5px;border:1px solid #777;border-radius:3px;color:#cfcfcf;letter-spacing:.05em}
+.act{font:700 9px 'IBM Plex Mono',monospace;background:#fff;color:#111;padding:2px 6px;border-radius:3px;letter-spacing:.05em}
+.kbd{font:600 11px 'IBM Plex Mono',monospace;border:1px solid #888;border-bottom-width:2px;border-radius:3px;padding:1px 6px;color:#eee}
+.hk{display:grid;grid-template-columns:110px 1fr 80px;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid #333;font-size:12px}
+.warn{border:1px solid #bbb;background:#2b2b2b;border-radius:4px;padding:8px 10px;font-size:12px;display:flex;gap:8px;align-items:center}
+.ta{border:1px solid #555;background:#141414;border-radius:4px;padding:8px 10px;color:#8a8a8a;font-size:12px;height:64px}
+</style>
+</helmet>
+<div class="ab">
+<div class="win">
+  <div class="tbar"><span>Skin Switcher — Variant A · Kazuha › Multi</span><span class="wc"><i></i><i></i><i></i></span></div>
+  <div style="display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid #333">
+    <button class="btn">← Kazuha</button>
+    <span class="mut">All characters › Kazuha › </span><span style="font-weight:600">Multi</span>
+    <div style="flex:1"></div>
+    <button class="btn" aria-label="Previous skin">‹ Prev</button><button class="btn" aria-label="Next skin">Next ›</button>
+  </div>
+  <div style="flex:1;display:flex;gap:24px;padding:20px;min-height:0">
+    <div style="width:640px;flex:none;display:flex;flex-direction:column;gap:10px">
+      <div class="img" style="height:440px;position:relative"><span class="pin" style="position:absolute;top:8px;left:8px">1</span><span class="lbl" style="position:absolute;bottom:8px;right:10px">image 1 / 5</span></div>
+      <div style="display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px">
+        <div class="img" style="height:72px;outline:2px solid #fff"></div><div class="img" style="height:72px"></div><div class="img" style="height:72px"></div><div class="img" style="height:72px"></div><div class="img" style="height:72px"></div>
+        <div style="height:72px;border:1.5px dashed #666;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:11px;color:#9a9a9a;text-align:center">+ drop / paste</div>
+      </div>
+      <div class="mut" style="font-size:11px">Sources: 3 from GameBanana · 2 found in archive · drag to reorder · first = card cover</div>
+    </div>
+    <div style="flex:1;display:flex;flex-direction:column;gap:12px;min-width:0">
+      <div style="display:flex;align-items:center;gap:10px"><span style="font-size:22px;font-weight:600">Multi</span><span class="act">ACTIVE</span></div>
+      <div class="mut">by [author] · v[x] · added [date] · Mods/Kazuha/Multi/</div>
+      <div style="display:flex;gap:8px"><button class="btn">Set as Original (turn off)</button><button class="btn">Open folder</button><button class="btn">GameBanana page ↗</button><span class="pin">2</span></div>
+      <div class="lbl" style="margin-top:6px">In-game hotkeys · read from the mod's .ini <span class="pin">3</span></div>
+      <div>
+        <div class="hk"><span><span class="kbd">6</span></span><span>Hair (cycle 3)</span><span class="mut">toggle</span></div>
+        <div class="hk"><span><span class="kbd">7</span></span><span>Hand accessory</span><span class="mut">toggle</span></div>
+        <div class="hk"><span><span class="kbd">Alt</span> + <span class="kbd">8</span></span><span>Color variant (cycle 4)</span><span class="mut">cycle</span></div>
+        <div class="hk"><span><span class="kbd">9</span></span><span>[more toggles from config…]</span><span class="mut">toggle</span></div>
+      </div>
+      <div class="warn"><span style="font-weight:700">!</span><span>Key <span class="kbd">6</span> is also used by <b>Furina · Remembrance</b> (active). Both toggle at once in game.</span><span class="pin">4</span></div>
+      <div class="lbl">Notes</div>
+      <div class="ta">Your own notes, e.g. "use with dark hair variant"…</div>
+    </div>
+  </div>
+  <div style="position:absolute;left:50%;bottom:20px;transform:translateX(-50%);background:#e6e6e6;color:#111;padding:10px 16px;border-radius:6px;display:flex;gap:12px;align-items:center;font-size:13px"><b>Applied.</b><span>Press <span class="kbd" style="color:#111;border-color:#111">F10</span> in game to reload.</span><span class="pin">5</span></div>
+</div>
+<div class="notes">
+  <div class="vt">A3 · Skin detail (full page)</div>
+  <div class="n"><span class="pin">1</span><span>Gallery: click thumb to swap; ←/→ keys step images; drop or Ctrl+V an image onto the strip to add one.</span></div>
+  <div class="n"><span class="pin">2</span><span>Primary action changes with state: "Set active" when off, "Turn off" when on.</span></div>
+  <div class="n"><span class="pin">3</span><span>Hotkeys parsed from the mod's config (key → label). Labels can be renamed by hand; edits saved as app metadata, never in the mod.</span></div>
+  <div class="n"><span class="pin">4</span><span>Conflict warning appears whenever two ACTIVE mods share a key. Same warning shows as "!" on both character cards in A1.</span></div>
+  <div class="n"><span class="pin">5</span><span>Toast after Apply (any screen). Stays ~6s; also mirrored in the window title.</span></div>
+  <div class="n"><span class="pin">6</span><span>Prev / Next steps through this character's skins without going back.</span></div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1600,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

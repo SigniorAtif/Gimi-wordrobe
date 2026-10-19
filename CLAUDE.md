@@ -2,7 +2,7 @@
 
 Tauri 2 (Rust) + React/TS/Vite desktop app that switches the active Genshin mod skin for each character (XXMI / 3DMigoto).
 
-**Read `SPEC.md` first.** It is the full build spec. Follow its milestone order (§15), starting with §0 prerequisites (the MSVC Build Tools and Rust are not installed yet on either OS).
+**Read `SPEC.md` first.** It is the full build spec. The UI wireframes are rendered in `design/wireframes/*.png` (where they differ, SPEC wins; see the README there). Follow its milestone order (§15), starting with §0 prerequisites (the MSVC Build Tools and Rust are not installed yet on either OS).
 
 Key facts:
 - The app is used on **Windows only**. The machine dual-boots; Linux gets only the bare minimum to run `tauri dev` / `cargo test` against fixtures (SPEC §0). No Linux packaging or polish.

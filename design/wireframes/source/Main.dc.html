@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>A1 Home grid</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&amp;family=IBM+Plex+Sans:wght@400;600&amp;display=swap">
+<style>
+body{margin:0;background:#0e0e0e}
+*{box-sizing:border-box}
+.ab{width:1600px;height:800px;display:flex;font-family:'IBM Plex Sans',system-ui,sans-serif;color:#d8d8d8;font-size:13px;background:#0e0e0e}
+.win{width:1280px;height:800px;flex:none;background:#181818;border:1px solid #555;display:flex;flex-direction:column;position:relative;overflow:hidden}
+.tbar{height:30px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 10px;border-bottom:1px solid #3a3a3a;background:#111;font:11px 'IBM Plex Mono',monospace;color:#a0a0a0}
+.wc{display:flex;gap:6px}.wc i{width:26px;height:16px;border:1px solid #555;display:block}
+.notes{width:320px;flex:none;padding:20px 18px;display:flex;flex-direction:column;gap:10px;border-left:1px dashed #555;overflow:hidden}
+.vt{font:600 11px 'IBM Plex Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:#a0a0a0}
+.n{font-size:12px;line-height:1.45;color:#e9c46a;border:1px dashed #8a7233;padding:8px 10px;border-radius:4px;display:flex;gap:8px}
+.pin{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#e9c46a;color:#111;font:700 10px 'IBM Plex Mono',monospace;flex:none}
+.box{border:1px solid #4a4a4a;background:#222;border-radius:4px}
+.img{background:#2a2a2a linear-gradient(to top right,transparent calc(50% - .5px),#454545 50%,transparent calc(50% + .5px)),linear-gradient(to top left,transparent calc(50% - .5px),#454545 50%,transparent calc(50% + .5px));border:1px solid #454545;border-radius:3px}
+.btn{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;border:1px solid #666;background:#262626;color:#e0e0e0;border-radius:4px;font:inherit;font-size:12px;white-space:nowrap}
+.btn.p{background:#e6e6e6;color:#111;border-color:#e6e6e6;font-weight:600}
+.in{height:30px;border:1px solid #555;background:#141414;border-radius:4px;padding:0 10px;color:#d8d8d8;font:inherit;font-size:12px}
+.in::placeholder{color:#8a8a8a}
+.lbl{font:10px 'IBM Plex Mono',monospace;color:#9a9a9a;text-transform:uppercase;letter-spacing:.06em}
+.mut{color:#9a9a9a}
+.tag{font:600 9px 'IBM Plex Mono',monospace;padding:2px 5px;border:1px solid #777;border-radius:3px;color:#cfcfcf;letter-spacing:.05em}
+.act{font:700 9px 'IBM Plex Mono',monospace;background:#fff;color:#111;padding:2px 6px;border-radius:3px;letter-spacing:.05em}
+.dash{border:1.5px dashed #666;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px;color:#9a9a9a;text-align:center}
+.tab{padding:8px 12px;border:0;border-bottom:2px solid transparent;color:#9a9a9a;background:none;font:inherit;font-size:12px}
+.tab.s{border-color:#fff;color:#fff}
+.card{display:flex;flex-direction:column;gap:6px;padding:8px;border:1px solid #444;background:#202020;border-radius:6px;text-align:left;color:inherit;font:inherit;position:relative}
+.card.on{border:2px solid #fff}
+.card[data-b]:not([data-b=""])::after{content:attr(data-b);position:absolute;top:12px;left:12px;font:700 9px 'IBM Plex Mono',monospace;background:#e9c46a;color:#111;padding:2px 5px;border-radius:3px}
+.warn{border:1px solid #b0b0b0;background:#2b2b2b;border-radius:4px;padding:8px 10px;font-size:12px;display:flex;gap:8px;align-items:center}
+</style>
+</helmet>
+<div class="ab">
+<div class="win">
+  <div class="tbar"><span>Skin Switcher (working name) — Variant A</span><span class="wc"><i></i><i></i><i></i></span></div>
+  <div style="display:flex;align-items:center;gap:12px;padding:10px 20px;border-bottom:1px solid #333">
+    <input class="in" style="width:300px" placeholder="Search characters, skins, authors…" aria-label="Search">
+    <div style="display:flex"><button class="tab s">Characters 16</button><button class="tab">Weapons 2</button><button class="tab">Extras 1</button></div>
+    <span class="pin">1</span>
+    <div style="flex:1"></div>
+    <span class="tag">18+ HIDDEN · CTRL+H</span><span class="pin">4</span>
+    <button class="btn">+ Add mod</button>
+    <button class="btn">Settings</button>
+  </div>
+  <div style="flex:1;padding:16px 20px;display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:12px;align-content:start">
+    <sc-for list="{{chars}}" as="c" hint-placeholder-count="16">
+      <button class="card {{c.cls}}" data-b="{{c.b}}">
+        <div class="img" style="height:150px"></div>
+        <div style="font-weight:600;font-size:13px">{{c.n}}</div>
+        <div class="mut" style="font-size:11px">{{c.s}}</div>
+        <div class="lbl">{{c.k}}</div>
+      </button>
+    </sc-for>
+  </div>
+  <div style="position:absolute;left:20px;top:110px"><span class="pin">2</span></div>
+  <div style="height:56px;flex:none;border-top:1px solid #555;background:#202020;display:flex;align-items:center;gap:12px;padding:0 20px">
+    <span class="act">2 PENDING</span>
+    <span class="mut">Arlecchino: Elegant → Magical · Neuvillette: Wedding → Vampire</span>
+    <span class="pin">3</span>
+    <div style="flex:1"></div>
+    <button class="btn">Discard</button>
+    <button class="btn p">Apply changes</button>
+  </div>
+</div>
+<div class="notes">
+  <div class="vt">A1 · Home / overview</div>
+  <div class="n"><span class="pin">1</span><span>Tabs switch category. Search filters across character names, skin names and authors.</span></div>
+  <div class="n"><span class="pin">2</span><span>Card = portrait + active skin + skin count. Click → A2 character page. Hover → raise + skin count dots. Right-click → quick-switch menu (skip the page).</span></div>
+  <div class="n"><span class="pin">3</span><span>Pending bar slides up only when something changed. Apply renames folders (DISABLED prefix) then shows "Press F10 in game".</span></div>
+  <div class="n"><span class="pin">4</span><span>NSFW approach (a): hidden everywhere, Ctrl+H reveals. Chip is small and neutral.</span></div>
+  <div class="n"><span class="pin">5</span><span>Drag a .zip / .rar / .7z anywhere on the window → A4 Add dialog.</span></div>
+  <div class="n"><span class="pin">6</span><span>At 1000×700: grid drops to 6 columns, tabs become a dropdown.</span></div>
+  <div class="mut" style="font-size:11px">Ganyu = "no skins yet" example. Yellow badge = card has a pending change.</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1600,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const C = [
+      ['Alyosha','[skin name]',1],['Arlecchino','Elegant',2,'PENDING'],['Bennett','Beach Day',1],['Charlotte','Bear',1],
+      ['Diluc','In White',1],['Fischl','Hexenzirkel + Oz',1],['Furina','Remembrance',2],['Ganyu','Original · no skins yet',0],
+      ['Kazuha','Multi (toggles)',1],['Mona','Starry Witch',2],['Neuvillette','Wedding',2,'PENDING'],['Odette','Black Swan',1],
+      ['Varesa','[SFW skin]',1],['Yae Miko','Sakura Kimono',2],['Paimon','[skin name]',1],['Sandrone','Marionette',1]
+    ];
+    return { chars: C.map(function (c) { return { n: c[0], s: '● ' + c[1], k: c[2] + (c[2] === 1 ? ' skin' : ' skins'), b: c[3] || '', cls: '' }; }) };
+  }
+}
+</script>
+</body>
+</html>

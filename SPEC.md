@@ -7,7 +7,9 @@ After applying, the user presses **F10** in game to reload. The app never sends 
 
 Design source: wireframes A and C on the "Skin Switcher — Wireframes" Claude Design canvas.
 The user liked **both**, so both ship as two layout modes that can be switched in Settings (§6).
-This spec is self-contained: every screen is described below.
+**Look at `design/wireframes/*.png` before building any screen** (all 10 boards, rendered; the board markup is in
+`design/wireframes/source/`). Use them for layout, structure and copy. Where they disagree with this spec, this spec
+wins; `design/wireframes/README.md` lists the differences.
 
 > Revision notes (compared with the original Claude Design hand-off):
 > - A and C are no longer merged. They are two separate layout modes with a Settings toggle.
@@ -154,6 +156,7 @@ interface Skin {
   entityId: string;
   name: string;               // "Remembrance"
   author?: string;
+  version?: string;           // from GameBanana or the user, shown in A3
   folders: string[];          // one or more mod roots, relative to Mods (a skin can span several, e.g. Face/ + Outfit/)
   nsfw: boolean;
   gameBananaUrl?: string;
@@ -262,13 +265,13 @@ Both modes share the toolbar, the pending bar, toasts, Settings, the A3 skin det
 
 **Global pending bar** (bottom, only when there are pending changes):
 `2 PENDING · Arlecchino: Elegant → Magical · Neuvillette: Wedding → Vampire   [Discard] [Apply]`.
-After Apply, a toast: **"Applied. Press F10 in game to reload."** (about 6s).
+After Apply, a toast: **"Applied. Press F10 in game to reload."** (about 6s, bottom-right). For the same 6s the window title also reads "Applied — press F10", so it shows in the taskbar while the game is focused.
 
 ### Mode C — Shelves (default)
 - **C1 Home:** one scrolling page with sections (Characters · 16, Weapons · 3, Extras · 1), each with a header. 6-column grid of compact cards (4 columns at 1000px). Each card has a round portrait, the name, the active skin name, and a row of dots (one per skin, filled = active; NSFW skins aren't counted while hidden). Badges: "PENDING" (yellow) and "!" (conflict). Right-click a card for a quick-switch context menu (skins as radio items).
 - Click a card to open its **C2 shelf**. Click again or press Esc to close. Only one shelf is open at a time.
 - **C2 Shelf:** opens under the clicked card's row at full width and pushes the rows below down. The card gets an attached "tab" look.
-  - Header: entity name · hint · "Open folder" · "Open full page" (goes to A2) · close ×.
+  - Header: entity name · hint ("click a skin to make it active · double-click for details") · "Open folder" · "Open full page" (goes to A2) · close ×. The open card's name gets a "▴".
   - A horizontal strip of skin cards: **Original / no mod** first, then each skin (cover, radio dot, name, author, "⋯"), then a dashed **"+ Drop archive"** card.
   - Clicking a skin card makes it the pending active skin. Radio behaviour covers the whole entity, including Original.
   - When NSFW is hidden, a small dashed **"+3 · CTRL+H"** stub shows instead. Revealing expands the NSFW cards into the strip with an "18+" tag.
@@ -279,13 +282,13 @@ After Apply, a toast: **"Applied. Press F10 in game to reload."** (about 6s).
   - right: name + ACTIVE tag, author and links, hotkey table, conflict warning, notes, and "▴ Less"
   
   Below about 1100px, open A3 instead.
-- **C4 Drop on card:** while an archive is dragged over the window, every entity card becomes a drop target, and two tiles appear: "+ New character" and "+ New weapon / extra". Dropping on a card opens a popover anchored to it: "Add to Mona", archive summary, Skin name, GameBanana link, NSFW toggle, preview source, Cancel / **Add**. After adding, that entity's shelf opens with the new skin. Dropping anywhere else opens A4.
+- **C4 Drop on card:** while an archive is dragged over the window, every entity card becomes a drop target, and two tiles appear: "+ New character" and "+ New weapon / extra". The hovered card gets a dashed outline, and a small chip with the archive's file name (`Mona_[skin].zip ⤓`) follows the cursor. Dropping on a card opens a popover anchored to it: "Add to Mona", archive summary ("1 mod · 2 images"), Skin name, GameBanana link, NSFW toggle, preview source (GameBanana · Archive (n) · Own image · Later), Cancel / **Add**. Dropping on "+ New character" opens the same popover, which also asks for a name and a portrait (drop an image on the circle). After adding, that entity's shelf opens with the new skin. Dropping anywhere else opens A4.
 
 ### Mode A — Pages
 - **A1 Home:** the same sectioned grid, but with larger portrait cards (5 columns, 4 at 1000px). Each shows the active skin's cover as a backdrop and the dots and badges. Click a card to go to **A2**. There are no shelves.
-- **A2 Character page:** header with "← All characters", portrait, name, "1 of 5 skins shown · 3 hidden (18+) · Mods/Varesa/", NSFW chip, "+ Add skin to <name>", and "⋯". Below it, a 5-column grid (4 at 1000px) of large skin cards:
-  - the Original card
-  - skin cards (radio + ACTIVE tag, author, image count, hotkey count, ⋯ menu)
+- **A2 Character page:** header with "← All characters", portrait, name, "1 of 4 skins shown · 3 hidden (18+) · Mods/Varesa/", NSFW chip, "+ Add skin to <name>", and "⋯". Below it, a 5-column grid (4 at 1000px) of large skin cards:
+  - the Original card ("Original / no mod", subtitle "Disables every Varesa skin")
+  - skin cards (radio + ACTIVE tag, "by [author] · 3 images · 2 hotkeys", ⋯ menu)
   - a dashed "Drop archive here" card
   
   When NSFW is hidden, show one placeholder card "3 skins hidden · Press Ctrl+H to reveal", or nothing if set to invisible. Esc/Backspace goes back home.
@@ -294,7 +297,7 @@ After Apply, a toast: **"Applied. Press F10 in game to reload."** (about 6s).
 ### Shared pages
 - **A3 Skin detail** (both modes; double-click a skin card): breadcrumb "All characters › Kazuha › Multi", "← Kazuha", and Prev/Next skin buttons.
   - Left (about 640px): big preview + 6 thumbnails (the last tile is "+ drop / paste") and a caption with image sources ("3 from GameBanana · 2 from archive"). Drag to reorder; the first image is the cover. ←/→ steps through images.
-  - Right: name + ACTIVE tag; author, added date, folder(s); "Set active" / "Turn off (Original)", "Open folder", "GameBanana page ↗"; hotkey table (keycaps, label, kind; labels editable inline); conflict warning; notes textarea (autosave).
+  - Right: name + ACTIVE tag; author, version, added date, folder(s); "Set active" / "Set as Original (turn off)", "Open folder", "GameBanana page ↗"; hotkey table (keycaps, label, kind; labels editable inline and saved in library.json, never written to the mod); conflict warning ("Key 6 is also used by Furina · Remembrance (active). Both toggle at once in game."); notes textarea (autosave).
 - **A4 Add skin dialog** (modal):
   - Left: archive summary (name, size, counts, "Choose another…") and a tree of its contents. If the archive holds several mod roots, show a checkbox list with grouping: roots in one skin vs. split into separate entities (§5 extras).
   - Right: Character (auto-guessed, dropdown) · "+ New character…" (sub-dialog: name, category, drop a portrait) · Skin name · GameBanana link (pasting fills name/author and fetches previews) · NSFW toggle · Preview source · "Make it the active skin after adding".

@@ -1,0 +1,116 @@
+{
+  "v": 3,
+  "attachments": {},
+  "boards": {
+    "A2-Character.dc.html": {
+      "h": 800,
+      "title": "A2 · Character page",
+      "w": 1600,
+      "x": 1680,
+      "y": 0
+    },
+    "A3-Detail.dc.html": {
+      "h": 800,
+      "title": "A3 · Skin detail",
+      "w": 1600,
+      "x": 3360,
+      "y": 0
+    },
+    "A4-Add.dc.html": {
+      "h": 800,
+      "title": "A4 · Add skin",
+      "w": 1600,
+      "x": 5040,
+      "y": 0
+    },
+    "A5-Settings.dc.html": {
+      "h": 800,
+      "title": "A5 · Settings",
+      "w": 1600,
+      "x": 6720,
+      "y": 0
+    },
+    "C1-Home.dc.html": {
+      "h": 800,
+      "title": "C1 · Home (shelf grid)",
+      "w": 1600,
+      "x": 0,
+      "y": 1240
+    },
+    "C2-Shelf.dc.html": {
+      "h": 800,
+      "title": "C2 · Shelf expanded",
+      "w": 1600,
+      "x": 1680,
+      "y": 1240
+    },
+    "C3-Detail.dc.html": {
+      "h": 800,
+      "title": "C3 · Shelf detail",
+      "w": 1600,
+      "x": 3360,
+      "y": 1240
+    },
+    "C4-Add.dc.html": {
+      "h": 800,
+      "title": "C4 · Add (drop on card)",
+      "w": 1600,
+      "x": 5040,
+      "y": 1240
+    },
+    "C5-Settings.dc.html": {
+      "h": 800,
+      "title": "C5 · Settings (full page)",
+      "w": 1600,
+      "x": 6720,
+      "y": 1240
+    },
+    "Main.dc.html": {
+      "h": 800,
+      "title": "A1 · Home (grid)",
+      "w": 1600,
+      "x": 0,
+      "y": 0
+    }
+  },
+  "createdOnFiles": {
+    "at": "2026-10-19T01:09:53.677Z",
+    "v": 1
+  },
+  "designSystems": [],
+  "launch": {
+    "view": "canvas"
+  },
+  "notes": {
+    "tA": {
+      "kind": "title1",
+      "maxW": 8000,
+      "text": "A — Grid → full character page (back button)",
+      "w": 240,
+      "x": 0,
+      "y": -260
+    },
+    "tC": {
+      "kind": "title1",
+      "maxW": 8000,
+      "text": "C — Grid with inline expanding shelf",
+      "w": 240,
+      "x": 0,
+      "y": 980
+    }
+  },
+  "order": [
+    "Main.dc.html",
+    "A2-Character.dc.html",
+    "A3-Detail.dc.html",
+    "A4-Add.dc.html",
+    "A5-Settings.dc.html",
+    "C1-Home.dc.html",
+    "C2-Shelf.dc.html",
+    "C3-Detail.dc.html",
+    "C4-Add.dc.html",
+    "C5-Settings.dc.html"
+  ],
+  "pages": [],
+  "title": "Skin Switcher — Wireframes"
+}

@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>C4 Add by dropping on a card</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&amp;family=IBM+Plex+Sans:wght@400;600&amp;display=swap">
+<style>
+body{margin:0;background:#0e0e0e}
+*{box-sizing:border-box}
+.ab{width:1600px;height:800px;display:flex;font-family:'IBM Plex Sans',system-ui,sans-serif;color:#d8d8d8;font-size:13px;background:#0e0e0e}
+.win{width:1280px;height:800px;flex:none;background:#181818;border:1px solid #555;display:flex;flex-direction:column;position:relative;overflow:hidden}
+.tbar{height:30px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 10px;border-bottom:1px solid #3a3a3a;background:#111;font:11px 'IBM Plex Mono',monospace;color:#a0a0a0}
+.wc{display:flex;gap:6px}.wc i{width:26px;height:16px;border:1px solid #555;display:block}
+.notes{width:320px;flex:none;padding:20px 18px;display:flex;flex-direction:column;gap:10px;border-left:1px dashed #555;overflow:hidden}
+.vt{font:600 11px 'IBM Plex Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:#a0a0a0}
+.n{font-size:12px;line-height:1.45;color:#e9c46a;border:1px dashed #8a7233;padding:8px 10px;border-radius:4px;display:flex;gap:8px}
+.pin{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#e9c46a;color:#111;font:700 10px 'IBM Plex Mono',monospace;flex:none}
+.img{background:#2a2a2a linear-gradient(to top right,transparent calc(50% - .5px),#454545 50%,transparent calc(50% + .5px)),linear-gradient(to top left,transparent calc(50% - .5px),#454545 50%,transparent calc(50% + .5px));border:1px solid #454545;border-radius:3px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:30px;padding:0 12px;border:1px solid #666;background:#262626;color:#e0e0e0;border-radius:4px;font:inherit;font-size:12px;white-space:nowrap}
+.btn.p{background:#e6e6e6;color:#111;border-color:#e6e6e6;font-weight:600}
+.in{height:30px;border:1px solid #555;background:#141414;border-radius:4px;padding:0 10px;color:#d8d8d8;font:inherit;font-size:12px;width:100%}
+.in::placeholder{color:#8a8a8a}
+.lbl{font:10px 'IBM Plex Mono',monospace;color:#9a9a9a;text-transform:uppercase;letter-spacing:.06em}
+.mut{color:#9a9a9a}
+.tag{font:600 9px 'IBM Plex Mono',monospace;padding:2px 5px;border:1px solid #777;border-radius:3px;color:#cfcfcf;letter-spacing:.05em}
+.chip{padding:5px 12px;border:1px solid #666;border-radius:14px;font-size:12px;color:#bbb;background:none;font-family:inherit}
+.chip.s{background:#e6e6e6;color:#111;border-color:#e6e6e6;font-weight:600}
+.cc{display:flex;gap:10px;align-items:center;padding:8px;border:1px solid #444;border-radius:6px;background:#202020;text-align:left;color:inherit;font:inherit;position:relative;height:66px}
+.cc.drop{outline:2px dashed #fff;outline-offset:2px;background:#2e2e2e}
+.grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}
+.dash{border:1.5px dashed #777;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px;color:#9a9a9a;text-align:center}
+.tg{width:34px;height:18px;border-radius:9px;border:1px solid #888;position:relative;flex:none}
+.tg::after{content:"";position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:#888}
+.opt{display:flex;flex-direction:column;gap:3px;padding:5px;border:1px solid #444;border-radius:4px;font-size:10px}
+.opt.s{border:2px solid #fff}
+</style>
+</helmet>
+<div class="ab">
+<div class="win">
+  <div class="tbar"><span>Skin Switcher — Variant C · Adding</span><span class="wc"><i></i><i></i><i></i></span></div>
+  <div style="display:flex;align-items:center;gap:10px;padding:10px 20px;border-bottom:1px solid #333">
+    <input class="in" style="width:280px" placeholder="Search…" aria-label="Search">
+    <button class="chip s">All</button><button class="chip">Characters</button><button class="chip">Weapons</button><button class="chip">Extras</button>
+    <div style="flex:1"></div><button class="btn">+ Add</button><button class="btn">Settings</button>
+  </div>
+  <div style="flex:1;padding:14px 20px;display:flex;flex-direction:column;gap:10px;position:relative">
+    <div class="lbl">Drop on a character to add a skin to it — or on "+ New" to create one</div>
+    <div class="grid">
+      <sc-for list="{{chars}}" as="c" hint-placeholder-count="16">
+        <div class="cc {{c.cls}}"><div class="img" style="width:44px;height:44px;border-radius:50%;flex:none"></div><div style="display:flex;flex-direction:column;gap:2px;min-width:0"><b style="font-size:12px">{{c.n}}</b><span class="mut" style="font-size:11px">{{c.s}}</span></div></div>
+      </sc-for>
+      <div class="dash" style="height:66px"><span style="font-size:12px">+ New character</span><span style="font-size:10px">drop here</span></div>
+      <div class="dash" style="height:66px"><span style="font-size:12px">+ New weapon / extra</span></div>
+    </div>
+    <div style="position:absolute;left:700px;top:150px;background:#e6e6e6;color:#111;font:600 11px 'IBM Plex Mono',monospace;padding:4px 8px;border-radius:3px">Mona_[skin].zip  ⤓</div>
+    <div style="position:absolute;left:560px;top:196px;width:520px;background:#1f1f1f;border:1px solid #aaa;border-radius:8px;padding:14px;display:flex;flex-direction:column;gap:10px;box-shadow:0 10px 30px rgba(0,0,0,.6)">
+      <div style="display:flex;align-items:center;gap:8px"><b>Add to Mona</b><span class="pin">2</span><div style="flex:1"></div><span class="mut" style="font-size:11px">Mona_[skin].zip · 1 mod · 2 images</span></div>
+      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px">
+        <div style="display:flex;flex-direction:column;gap:4px"><label class="lbl" for="c4n">Skin name</label><input class="in" id="c4n" value="[skin name]"></div>
+        <div style="display:flex;flex-direction:column;gap:4px"><label class="lbl" for="c4g">GameBanana link</label><input class="in" id="c4g" placeholder="optional"></div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center"><span class="tg"></span><span style="font-size:12px">NSFW</span><div style="flex:1"></div><span class="lbl">Preview</span></div>
+      <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px">
+        <div class="opt"><div class="dash" style="height:40px;font-size:9px">Fetching…</div>GameBanana</div>
+        <div class="opt s"><div class="img" style="height:40px"></div>Archive (2)</div>
+        <div class="opt"><div class="dash" style="height:40px;font-size:9px">Drop / paste</div>Own image</div>
+        <div class="opt"><div class="dash" style="height:40px;font-size:9px">+</div>Later</div>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn">Cancel</button><button class="btn p">Add</button></div>
+    </div>
+  </div>
+  <div style="position:absolute;left:650px;top:186px"><span class="pin">1</span></div>
+</div>
+<div class="notes">
+  <div class="vt">C4 · Add (drop onto a card)</div>
+  <div class="n"><span class="pin">1</span><span>While an archive is dragged over the window, every card is a drop target; hovered card gets a dashed outline + filename ghost. Two "+ New" tiles appear at the end.</span></div>
+  <div class="n"><span class="pin">2</span><span>Drop → small popover anchored to that card. Character already known, so it's 1 field + Add in the common case.</span></div>
+  <div class="n"><span class="pin">3</span><span>Dropped on "+ New character": popover also asks for a name + portrait (drop an image on the circle).</span></div>
+  <div class="n"><span class="pin">4</span><span>After Add, the new skin's shelf opens so you can activate it.</span></div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1600,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const C = [['Alyosha','[skin name]'],['Arlecchino','Magical'],['Bennett','Beach Day'],['Charlotte','Bear'],['Diluc','In White'],['Fischl','Hexenzirkel'],['Furina','Remembrance'],['Ganyu','Original'],['Kazuha','Multi'],['Mona','Starry Witch'],['Neuvillette','Vampire'],['Odette','Black Swan'],['Varesa','[SFW skin]'],['Yae Miko','Sakura Kimono'],['Paimon','[skin name]'],['Sandrone','Marionette']];
+    return { chars: C.map(function (c) { return { n: c[0], s: c[1], cls: c[0] === 'Mona' ? 'drop' : '' }; }) };
+  }
+}
+</script>
+</body>
+</html>
