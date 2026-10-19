@@ -51,6 +51,7 @@ function snapshot(): Snapshot {
     hashIndex,
     configured,
     sameDrive: true,
+    notice: null,
   };
 }
 

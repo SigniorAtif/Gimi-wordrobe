@@ -1,7 +1,7 @@
 //! `AppCore` owns the app's state and implements every operation the commands expose.
 //! Tauri-free, so integration tests can drive it directly against fixtures.
 
-use super::error::AppResult;
+use super::error::{AppError, AppResult};
 use super::hashindex::HashIndex;
 use super::import;
 use super::library;
@@ -25,6 +25,10 @@ pub struct AppCore {
     library: Library,
     index: HashIndex,
     last_scan: Option<ScanResult>,
+    /// library.json exists but can't be read: nothing is adopted or saved until it's fixed.
+    library_error: Option<String>,
+    /// settings.json on disk fails validation (hand-edited): treated as not configured.
+    settings_error: Option<String>,
 }
 
 impl AppCore {
@@ -41,7 +45,14 @@ impl AppCore {
             library: Library::default(),
             index: HashIndex::empty(),
             last_scan: None,
+            library_error: None,
+            settings_error: None,
         };
+        if core.settings.is_configured()
+            && let Err(e) = settings::validate(&core.settings)
+        {
+            core.settings_error = Some(format!("Your saved settings need fixing: {}", e.message));
+        }
         core.index = core.load_index();
         core.reload_library();
         core
@@ -92,11 +103,11 @@ impl AppCore {
 
     pub fn library_dir(&self) -> Option<PathBuf> {
         let p = self.settings.library_path.trim();
-        (!p.is_empty()).then(|| PathBuf::from(p))
+        (!p.is_empty() && self.settings_error.is_none()).then(|| PathBuf::from(p))
     }
 
     pub fn mods_dir(&self) -> Option<PathBuf> {
-        self.settings.mods_path().map(PathBuf::from)
+        self.settings.mods_path().filter(|_| self.settings_error.is_none()).map(PathBuf::from)
     }
 
     pub fn stash_dir(&self) -> Option<PathBuf> {
@@ -104,10 +115,24 @@ impl AppCore {
     }
 
     fn reload_library(&mut self) {
-        self.library = self.library_dir().and_then(|d| library::load(&d).ok()).unwrap_or_default();
+        self.library_error = None;
+        self.library = match self.library_dir().map(|d| library::load(&d)) {
+            Some(Ok(l)) => l,
+            Some(Err(e)) => {
+                self.library_error = Some(format!(
+                    "library.json in the Library folder can't be read ({}). Nothing will be changed until it's fixed or removed.",
+                    e.message
+                ));
+                Library::default()
+            }
+            None => Library::default(),
+        };
     }
 
     pub fn save_library(&self) -> AppResult<()> {
+        if self.library_error.is_some() {
+            return Err(AppError::new("library_unreadable", self.library_error.clone().unwrap_or_default()));
+        }
         if let Some(d) = self.library_dir() {
             library::save(&d, &self.library)?;
         }
@@ -135,7 +160,8 @@ impl AppCore {
             changed_outside: false,
             recovered: None,
             hash_index: self.index.info(),
-            configured: self.settings.is_configured(),
+            configured: self.settings.is_configured() && self.settings_error.is_none(),
+            notice: self.settings_error.clone().or_else(|| self.library_error.clone()),
             same_drive: settings::same_drive(&self.settings),
         }
     }
@@ -155,6 +181,11 @@ impl AppCore {
             let ctx = ScanContext::new(&self.index, &self.library);
             scanner::scan(&mods, &ctx)
         };
+        if self.library_error.is_some() {
+            // never adopt into, or save over, a library.json we couldn't read
+            self.last_scan = Some(scan);
+            return Ok(self.snapshot());
+        }
         let mut changed = false;
         if self.library.skins.is_empty() && !scan.candidates.is_empty() {
             changed |= import::adopt_unowned(&mut self.library, &scan) > 0;
@@ -198,9 +229,10 @@ impl AppCore {
             }
         }
         settings::save(&self.config_dir, &next)?;
-        let library_moved = next.library_path != self.settings.library_path;
+        let library_moved = next.library_path != self.settings.library_path || self.settings_error.is_some();
         self.settings = next;
-        if library_moved {
+        self.settings_error = None;
+        if library_moved || self.library_error.is_some() {
             self.reload_library();
         }
         self.rescan()
@@ -324,6 +356,34 @@ pub mod tests {
     }
 
     #[test]
+    fn an_unreadable_library_json_is_never_overwritten() {
+        let cfg = tempfile::tempdir().unwrap();
+        let (_t, mods, lib) = fixture_world();
+        drop(configured_core(cfg.path(), &mods, &lib));
+        let file = lib.join("library.json");
+        fs::write(&file, b"\xff\xfe{ not json").unwrap();
+        let _ = fs::remove_file(lib.join("library.json.bak"));
+        let mut core = AppCore::open(cfg.path());
+        core.set_index(test_index());
+        let snap = core.rescan().unwrap();
+        assert!(snap.notice.unwrap().contains("library.json"));
+        assert!(snap.library.skins.is_empty());
+        assert_eq!(fs::read(&file).unwrap(), b"\xff\xfe{ not json", "left untouched");
+    }
+
+    #[test]
+    fn invalid_settings_on_disk_count_as_not_configured() {
+        let cfg = tempfile::tempdir().unwrap();
+        fs::write(settings::path(cfg.path()), r#"{"modsPath":{"3dmigoto":"/x/Mods"},"libraryPath":"/x/Mods/Lib"}"#)
+            .unwrap();
+        let core = AppCore::open(cfg.path());
+        let snap = core.snapshot();
+        assert!(!snap.configured);
+        assert!(snap.notice.unwrap().contains("settings"));
+        assert!(core.library_dir().is_none(), "no writes land inside Mods");
+    }
+
+    #[test]
     fn new_folders_after_the_first_import_are_reported_not_adopted() {
         let cfg = tempfile::tempdir().unwrap();
         let (_t, mods, lib) = fixture_world();
@@ -332,6 +392,10 @@ pub mod tests {
         copy_dir(&mods.join("Odette"), &mods.join("Ganyu"));
         let snap = core.rescan().unwrap();
         assert_eq!(snap.library.skins.len(), before);
-        assert_eq!(snap.disk.unknown_roots, vec!["Ganyu/Black Swan".to_string()]);
+        assert_eq!(snap.disk.unknown_roots, vec!["Ganyu".to_string()]);
+        // a new mod root next to an imported skin is reported too, not hidden by its parent
+        copy_dir(&mods.join("Furina/Casual"), &mods.join("Furina/Party"));
+        let snap = core.rescan().unwrap();
+        assert!(snap.disk.unknown_roots.contains(&"Furina/Party".to_string()), "{:?}", snap.disk.unknown_roots);
     }
 }

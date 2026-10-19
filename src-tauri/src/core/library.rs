@@ -39,9 +39,15 @@ impl Library {
         self.skins.iter_mut().find(|s| s.id == id)
     }
 
-    /// The skin that owns a folder (relative to Mods), case-insensitively. A folder inside a skin folder counts.
+    /// The skin whose folder list contains exactly this folder (relative to Mods), case-insensitively.
+    /// A new mod root inside an imported skin's folder is *not* owned, so re-scan can report it (SPEC §5 step 6).
     pub fn owner_of(&self, rel: &str) -> Option<&Skin> {
-        self.skins.iter().find(|s| s.folders.iter().any(|f| paths::is_within(rel, f) || paths::is_within(f, rel)))
+        self.skins.iter().find(|s| s.folders.iter().any(|f| paths::same_path(f, rel)))
+    }
+
+    /// The skin whose folders contain this path (for "open folder" and path lookups).
+    pub fn owner_containing(&self, rel: &str) -> Option<&Skin> {
+        self.skins.iter().find(|s| s.folders.iter().any(|f| paths::is_within(rel, f)))
     }
 
     pub fn find_entity_by_name(&self, name: &str) -> Option<&Entity> {
@@ -117,7 +123,9 @@ mod tests {
         let back = load(dir.path()).unwrap();
         assert_eq!(back, lib);
         assert_eq!(back.entity("furina").unwrap().skin_ids, vec!["furina--remembrance".to_string()]);
-        assert_eq!(back.owner_of("furina/REMEMBRANCE/sub").unwrap().name, "Remembrance");
+        assert_eq!(back.owner_of("furina/REMEMBRANCE").unwrap().name, "Remembrance");
+        assert!(back.owner_of("furina/REMEMBRANCE/sub").is_none());
+        assert_eq!(back.owner_containing("furina/REMEMBRANCE/sub").unwrap().name, "Remembrance");
         assert_eq!(lib.ensure_entity("furina", Category::Character, None), "furina");
         assert_eq!(lib.unique_skin_id("furina", "Remembrance"), "furina--remembrance-2");
     }

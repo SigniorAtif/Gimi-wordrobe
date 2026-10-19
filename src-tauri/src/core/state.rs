@@ -37,20 +37,34 @@ pub fn strip_disabled(name: &str) -> Option<&str> {
     Some(rest.strip_prefix(['_', ' ', '-']).unwrap_or(rest))
 }
 
-/// The DISABLED-prefixed sibling of a relative path, if one exists on disk (`Furina/DISABLED_Casual`).
+/// Find a skin folder that is switched off with a DISABLED prefix on itself or on any parent folder
+/// (`Furina/DISABLED_Casual`, `DISABLED_Furina/Casual`). Returns the real path and its relative form.
 pub fn find_disabled(mods: &Path, rel: &str) -> Option<(PathBuf, String)> {
-    let (parent_rel, last) = match rel.rsplit_once('/') {
-        Some((p, l)) => (p, l),
-        None => ("", rel),
-    };
-    let parent = if parent_rel.is_empty() { mods.to_path_buf() } else { resolve_ci(mods, parent_rel)? };
-    let hit = fs::read_dir(&parent).ok()?.filter_map(Result::ok).find(|e| {
-        let n = e.file_name().to_string_lossy().into_owned();
-        strip_disabled(&n).map(|s| s.eq_ignore_ascii_case(last)).unwrap_or(false)
-    })?;
-    let name = hit.file_name().to_string_lossy().into_owned();
-    let rel_disabled = if parent_rel.is_empty() { name } else { format!("{parent_rel}/{name}") };
-    Some((hit.path(), rel_disabled))
+    let parts: Vec<&str> = rel.split(['/', '\\']).filter(|s| !s.is_empty()).collect();
+    let mut cur = mods.to_path_buf();
+    let mut rel_parts: Vec<String> = vec![];
+    let mut any_disabled = false;
+    for part in parts {
+        if part == ".." || part.contains(':') {
+            return None;
+        }
+        let mut next: Option<(PathBuf, String, bool)> = None;
+        for e in fs::read_dir(&cur).ok()?.filter_map(Result::ok) {
+            let n = e.file_name().to_string_lossy().into_owned();
+            if n.eq_ignore_ascii_case(part) {
+                next = Some((e.path(), n, false));
+                break;
+            }
+            if strip_disabled(&n).map(|s| s.eq_ignore_ascii_case(part)).unwrap_or(false) {
+                next = Some((e.path(), n, true));
+            }
+        }
+        let (p, n, disabled) = next?;
+        any_disabled |= disabled;
+        cur = p;
+        rel_parts.push(n);
+    }
+    any_disabled.then(|| (cur, rel_parts.join("/")))
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -158,5 +172,9 @@ mod tests {
         assert_eq!(strip_disabled("disabled Casual"), Some("Casual"));
         assert_eq!(strip_disabled("DISABLEDVaresa.ini"), Some("Varesa.ini"));
         assert!(resolve_ci(&mods, "../x").is_none());
+        // a disabled parent folder switches the skin off too
+        fs::create_dir_all(mods.join("DISABLED_Kazuha/Multi")).unwrap();
+        assert_eq!(locate(&skin(&["Kazuha/Multi"]), &mods, st).location, SkinLocation::Disabled);
+        assert_eq!(find_disabled(&mods, "kazuha/multi").unwrap().1, "DISABLED_Kazuha/Multi");
     }
 }

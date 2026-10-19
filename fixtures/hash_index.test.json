@@ -1,6 +1,6 @@
 {
  "version": 1,
- "source": "test subset of SilentNightSound/GI-Model-Importer-Assets",
+ "source": "hashes quoted by the fixture inis (see fixtures/Mods); not the full index",
  "commit": "test",
  "date": "2026-08-03",
  "entities": [
@@ -12,39 +12,11 @@
    "path": "PlayerCharacterData/Furina"
   },
   {
-   "key": "KaedeharaKazuha",
-   "name": "Kazuha",
-   "group": "character",
-   "base": null,
-   "path": "PlayerCharacterData/KaedeharaKazuha"
-  },
-  {
-   "key": "Mona",
-   "name": "Mona",
-   "group": "character",
-   "base": null,
-   "path": "PlayerCharacterData/Mona"
-  },
-  {
-   "key": "MonaCN",
-   "name": "Mona CN",
-   "group": "character",
-   "base": "Mona",
-   "path": "PlayerCharacterData/MonaCN"
-  },
-  {
    "key": "Varesa",
    "name": "Varesa",
    "group": "character",
    "base": null,
    "path": "PlayerCharacterData/Varesa"
-  },
-  {
-   "key": "Paimon",
-   "name": "Paimon",
-   "group": "npc",
-   "base": null,
-   "path": "NPCData/Paimon"
   },
   {
    "key": "Sandrone",
@@ -54,32 +26,25 @@
    "path": "PlayerCharacterData/Sandrone"
   },
   {
-   "key": "Bennett",
-   "name": "Bennett",
-   "group": "character",
-   "base": null,
-   "path": "PlayerCharacterData/Bennett"
-  },
-  {
-   "key": "Fischl",
-   "name": "Fischl",
-   "group": "character",
-   "base": null,
-   "path": "PlayerCharacterData/Fischl"
-  },
-  {
-   "key": "Oz",
-   "name": "Oz",
+   "key": "Paimon",
+   "name": "Paimon",
    "group": "npc",
    "base": null,
-   "path": "NPCData/Oz"
+   "path": "NPCData/Paimon"
   },
   {
-   "key": "SkywardBlade",
-   "name": "Skyward Blade",
-   "group": "weapon",
+   "key": "KaedeharaKazuha",
+   "name": "Kazuha",
+   "group": "character",
    "base": null,
-   "path": "WeaponData/Swords/5Star/SkywardBlade"
+   "path": "PlayerCharacterData/KaedeharaKazuha"
+  },
+  {
+   "key": "MonaCN",
+   "name": "Mona CN",
+   "group": "character",
+   "base": "Mona",
+   "path": "PlayerCharacterData/MonaCN"
   },
   {
    "key": "TomeofEternalFlow",
@@ -89,446 +54,149 @@
    "path": "WeaponData/Catalysts/5Star/TomeofEternalFlow"
   },
   {
-   "key": "Neuvillette",
-   "name": "Neuvillette",
+   "key": "GaMing",
+   "name": "Ga Ming",
    "group": "character",
    "base": null,
-   "path": "PlayerCharacterData/Neuvillette"
+   "path": "PlayerCharacterData/GaMing"
   },
   {
-   "key": "Charlotte",
-   "name": "Charlotte",
+   "key": "Mona",
+   "name": "Mona",
    "group": "character",
    "base": null,
-   "path": "PlayerCharacterData/Charlotte"
+   "path": "PlayerCharacterData/Mona"
   },
   {
-   "key": "Diluc",
-   "name": "Diluc",
-   "group": "character",
+   "key": "Oz",
+   "name": "Oz",
+   "group": "npc",
    "base": null,
-   "path": "PlayerCharacterData/Diluc"
-  },
-  {
-   "key": "Arlecchino",
-   "name": "Arlecchino",
-   "group": "character",
-   "base": null,
-   "path": "PlayerCharacterData/Arlecchino"
-  },
-  {
-   "key": "YaeMiko",
-   "name": "Yae Miko",
-   "group": "character",
-   "base": null,
-   "path": "PlayerCharacterData/YaeMiko"
-  },
-  {
-   "key": "Ganyu",
-   "name": "Ganyu",
-   "group": "character",
-   "base": null,
-   "path": "PlayerCharacterData/Ganyu"
+   "path": "NPCData/Oz"
   }
  ],
  "hashes": {
   "47590010": [
    [
-    4,
+    1,
     "texture:Diffuse",
     "NatlanFX"
    ]
   ],
   "65475558": [
    [
-    6,
+    2,
     "blend_vb",
     "Bangs"
-   ]
-  ],
-  "65914967": [
-   [
-    10,
-    "position_vb",
-    ""
-   ]
-  ],
-  "83096447": [
-   [
-    15,
-    "texture:Diffuse",
-    ""
-   ],
-   [
-    15,
-    "texture:Diffuse",
-    ""
-   ]
-  ],
-  "5e4f8d68": [
-   [
-    0,
-    "ib",
-    "Ponytail"
-   ]
-  ],
-  "6e612626": [
-   [
-    0,
-    "texture:Diffuse",
-    "Ponytail"
-   ]
-  ],
-  "39ff38df": [
-   [
-    0,
-    "texture:Diffuse",
-    ""
-   ],
-   [
-    0,
-    "texture:Diffuse",
-    ""
-   ]
-  ],
-  "597f12da": [
-   [
-    9,
-    "ib",
-    ""
-   ]
-  ],
-  "d5adb4b4": [
-   [
-    9,
-    "position_vb",
-    ""
-   ]
-  ],
-  "019fdd61": [
-   [
-    9,
-    "blend_vb",
-    ""
-   ]
-  ],
-  "8234461e": [
-   [
-    9,
-    "texcoord_vb",
-    ""
-   ]
-  ],
-  "0d800fa7": [
-   [
-    9,
-    "texture:Diffuse",
-    ""
-   ]
-  ],
-  "5b4cdc9c": [
-   [
-    5,
-    "ib",
-    ""
-   ]
-  ],
-  "1f7f0600": [
-   [
-    5,
-    "position_vb",
-    ""
-   ]
-  ],
-  "e70695e0": [
-   [
-    5,
-    "blend_vb",
-    ""
-   ]
-  ],
-  "ce8cbdfb": [
-   [
-    5,
-    "texcoord_vb",
-    ""
-   ]
-  ],
-  "c813be68": [
-   [
-    5,
-    "texture:Diffuse",
-    ""
-   ]
-  ],
-  "5b5c1efa": [
-   [
-    5,
-    "texture:Diffuse",
-    ""
-   ]
-  ],
-  "cacc905d": [
-   [
-    5,
-    "ib",
-    "Cloak"
-   ]
-  ],
-  "1a09e6cd": [
-   [
-    5,
-    "position_vb",
-    "Cloak"
-   ]
-  ],
-  "e811d2a1": [
-   [
-    15,
-    "ib",
-    ""
-   ]
-  ],
-  "6895f405": [
-   [
-    15,
-    "position_vb",
-    ""
-   ]
-  ],
-  "e211de60": [
-   [
-    15,
-    "blend_vb",
-    ""
-   ]
-  ],
-  "8b17a419": [
-   [
-    15,
-    "texcoord_vb",
-    ""
-   ]
-  ],
-  "53cb2c4c": [
-   [
-    15,
-    "texture:Diffuse",
-    ""
-   ]
-  ],
-  "a44625da": [
-   [
-    15,
-    "texture:Diffuse",
-    "Face"
-   ]
-  ],
-  "cdc66323": [
-   [
-    7,
-    "ib",
-    ""
-   ]
-  ],
-  "6cff51b4": [
-   [
-    7,
-    "position_vb",
-    ""
-   ]
-  ],
-  "d4acf3f7": [
-   [
-    7,
-    "blend_vb",
-    ""
-   ]
-  ],
-  "acde80a4": [
-   [
-    7,
-    "texcoord_vb",
-    ""
-   ]
-  ],
-  "49d07d1f": [
-   [
-    7,
-    "texture:Diffuse",
-    ""
-   ]
-  ],
-  "156dc5d5": [
-   [
-    7,
-    "texture:Diffuse",
-    ""
-   ]
-  ],
-  "50f7dc9a": [
-   [
-    7,
-    "texture:Diffuse",
-    "Face"
-   ]
-  ],
-  "ff554aca": [
-   [
-    13,
-    "ib",
-    ""
-   ]
-  ],
-  "c5a6d98e": [
-   [
-    13,
-    "position_vb",
-    ""
-   ]
-  ],
-  "c195ab20": [
-   [
-    13,
-    "blend_vb",
-    ""
-   ]
-  ],
-  "54841c9b": [
-   [
-    13,
-    "texcoord_vb",
-    ""
-   ]
-  ],
-  "5579adce": [
-   [
-    13,
-    "texture:Diffuse",
-    ""
-   ]
-  ],
-  "69b8ca31": [
-   [
-    13,
-    "texture:Diffuse",
-    ""
-   ]
-  ],
-  "58d9859b": [
-   [
-    13,
-    "texture:Diffuse",
-    "Face"
-   ]
-  ],
-  "e16fa548": [
-   [
-    14,
-    "ib",
-    ""
-   ]
-  ],
-  "71625c4d": [
-   [
-    14,
-    "position_vb",
-    ""
-   ]
-  ],
-  "afb527f6": [
-   [
-    14,
-    "blend_vb",
-    ""
-   ]
-  ],
-  "6d0e22f0": [
-   [
-    14,
-    "texcoord_vb",
-    ""
-   ]
-  ],
-  "575af152": [
-   [
-    14,
-    "texture:Diffuse",
-    ""
-   ]
-  ],
-  "6e2d28e9": [
-   [
-    14,
-    "texture:Diffuse",
-    ""
-   ]
-  ],
-  "e698735e": [
-   [
-    14,
-    "texture:Diffuse",
-    "Face"
-   ]
-  ],
-  "6428104d": [
-   [
-    8,
-    "ib",
-    ""
-   ]
-  ],
-  "bf6aef4d": [
-   [
-    8,
-    "position_vb",
-    ""
-   ]
-  ],
-  "0d1c1932": [
-   [
-    8,
-    "blend_vb",
-    ""
-   ]
-  ],
-  "d451d8d8": [
-   [
-    8,
-    "texcoord_vb",
-    ""
-   ]
-  ],
-  "8b7f4637": [
-   [
-    8,
-    "texture:Diffuse",
-    ""
-   ]
-  ],
-  "9f758879": [
-   [
-    8,
-    "texture:Diffuse",
-    ""
-   ],
-   [
-    8,
-    "texture:Diffuse",
-    ""
-   ]
-  ],
-  "0cd456af": [
-   [
-    8,
-    "texture:Diffuse",
-    "Face"
    ]
   ],
   "045e580b": [
    [
     0,
     "ib",
+    ""
+   ]
+  ],
+  "0fa7f23f": [
+   [
+    1,
+    "texcoord_vb",
+    ""
+   ]
+  ],
+  "1aeb272b": [
+   [
+    2,
+    "draw_vb",
+    "Bangs"
+   ]
+  ],
+  "1bedd6d1": [
+   [
+    2,
+    "position_vb",
+    "Body"
+   ]
+  ],
+  "1f7f0600": [
+   [
+    3,
+    "position_vb",
+    ""
+   ]
+  ],
+  "28a1fab0": [
+   [
+    4,
+    "blend_vb",
+    ""
+   ]
+  ],
+  "356cdbde": [
+   [
+    4,
+    "ib",
+    ""
+   ]
+  ],
+  "488fceb4": [
+   [
+    1,
+    "ib",
+    ""
+   ]
+  ],
+  "515f3ce6": [
+   [
+    5,
+    "position_vb",
+    ""
+   ]
+  ],
+  "5b4cdc9c": [
+   [
+    3,
+    "ib",
+    ""
+   ]
+  ],
+  "5f7534b6": [
+   [
+    4,
+    "texcoord_vb",
+    ""
+   ]
+  ],
+  "65a4831f": [
+   [
+    2,
+    "position_vb",
+    "Bangs"
+   ]
+  ],
+  "73c8cae2": [
+   [
+    2,
+    "ib",
+    "Body"
+   ]
+  ],
+  "788a5c69": [
+   [
+    6,
+    "texture:Diffuse",
+    ""
+   ],
+   [
+    6,
+    "texture:Diffuse",
+    ""
+   ]
+  ],
+  "7c0c47b3": [
+   [
+    4,
+    "position_vb",
     ""
    ]
   ],
@@ -539,10 +207,24 @@
     ""
    ]
   ],
-  "d8c43862": [
+  "87ecca6f": [
    [
-    0,
-    "blend_vb",
+    2,
+    "texture:Diffuse",
+    "Face"
+   ]
+  ],
+  "8b5fc47d": [
+   [
+    7,
+    "draw_vb",
+    ""
+   ]
+  ],
+  "9784dbe3": [
+   [
+    1,
+    "position_vb",
     ""
    ]
   ],
@@ -553,471 +235,95 @@
     ""
    ]
   ],
-  "1575ec63": [
+  "bad2731b": [
    [
-    17,
-    "ib",
-    ""
-   ]
-  ],
-  "a5169f1d": [
-   [
-    17,
-    "position_vb",
-    ""
-   ]
-  ],
-  "6f47a39d": [
-   [
-    17,
+    5,
     "blend_vb",
     ""
    ]
   ],
-  "cf27251f": [
+  "c6358586": [
    [
-    17,
+    2,
+    "blend_vb",
+    "Body"
+   ]
+  ],
+  "ce8cbdfb": [
+   [
+    3,
     "texcoord_vb",
     ""
    ]
   ],
-  "6d78ac96": [
+  "d33c21da": [
    [
-    17,
-    "texture:Diffuse",
-    ""
+    2,
+    "texcoord_vb",
+    "Body"
    ]
   ],
-  "8a151913": [
+  "d5ad8084": [
    [
-    17,
-    "texture:Diffuse",
-    ""
-   ],
-   [
-    17,
-    "texture:Diffuse",
-    ""
-   ]
-  ],
-  "b2657593": [
-   [
-    17,
-    "texture:Diffuse",
-    "Face"
-   ]
-  ],
-  "356cdbde": [
-   [
-    1,
+    5,
     "ib",
     ""
    ]
   ],
-  "7c0c47b3": [
+  "d8c43862": [
    [
-    1,
-    "position_vb",
-    ""
-   ]
-  ],
-  "28a1fab0": [
-   [
-    1,
+    0,
     "blend_vb",
-    ""
-   ]
-  ],
-  "5f7534b6": [
-   [
-    1,
-    "texcoord_vb",
     ""
    ]
   ],
   "df022de9": [
    [
-    1,
+    4,
     "texture:Diffuse",
     ""
-   ]
-  ],
-  "f297375f": [
-   [
-    1,
-    "texture:Diffuse",
-    ""
-   ],
-   [
-    1,
-    "texture:Diffuse",
-    ""
-   ]
-  ],
-  "986b4815": [
-   [
-    1,
-    "texture:Diffuse",
-    "Face"
-   ]
-  ],
-  "d75308d8": [
-   [
-    2,
-    "ib",
-    ""
-   ]
-  ],
-  "7a1dc890": [
-   [
-    2,
-    "position_vb",
-    ""
-   ]
-  ],
-  "b043715a": [
-   [
-    2,
-    "blend_vb",
-    ""
-   ]
-  ],
-  "a8191396": [
-   [
-    2,
-    "texcoord_vb",
-    ""
-   ]
-  ],
-  "b518c5a5": [
-   [
-    2,
-    "texture:Diffuse",
-    ""
-   ]
-  ],
-  "5f873d89": [
-   [
-    2,
-    "texture:Diffuse",
-    ""
-   ]
-  ],
-  "8e116301": [
-   [
-    2,
-    "texture:Diffuse",
-    "Face"
-   ],
-   [
-    3,
-    "texture:Diffuse",
-    "Face"
-   ]
-  ],
-  "d5ad8084": [
-   [
-    3,
-    "ib",
-    ""
-   ]
-  ],
-  "515f3ce6": [
-   [
-    3,
-    "position_vb",
-    ""
-   ]
-  ],
-  "bad2731b": [
-   [
-    3,
-    "blend_vb",
-    ""
-   ]
-  ],
-  "e543af5d": [
-   [
-    3,
-    "texcoord_vb",
-    ""
-   ]
-  ],
-  "0320a4d2": [
-   [
-    3,
-    "texture:Diffuse",
-    ""
-   ]
-  ],
-  "c043f913": [
-   [
-    3,
-    "texture:Diffuse",
-    ""
-   ]
-  ],
-  "f055eadd": [
-   [
-    12,
-    "ib",
-    ""
-   ]
-  ],
-  "cad3a022": [
-   [
-    12,
-    "position_vb",
-    ""
-   ]
-  ],
-  "f060f732": [
-   [
-    12,
-    "blend_vb",
-    ""
-   ]
-  ],
-  "ea5c17ee": [
-   [
-    12,
-    "texcoord_vb",
-    ""
-   ]
-  ],
-  "359d45a8": [
-   [
-    12,
-    "texture:Diffuse",
-    ""
-   ]
-  ],
-  "48c325bb": [
-   [
-    12,
-    "texture:Diffuse",
-    ""
-   ],
-   [
-    12,
-    "texture:Diffuse",
-    ""
-   ]
-  ],
-  "81e80510": [
-   [
-    12,
-    "texture:Diffuse",
-    "Face"
    ]
   ],
   "e4924b14": [
    [
-    6,
+    2,
     "ib",
     "Bangs"
    ]
   ],
-  "65a4831f": [
+  "e543af5d": [
    [
-    6,
-    "position_vb",
-    "Bangs"
-   ]
-  ],
-  "f8d59976": [
-   [
-    6,
+    5,
     "texcoord_vb",
-    "Bangs"
-   ]
-  ],
-  "8068d5dd": [
-   [
-    6,
-    "texture:Diffuse",
-    "Bangs"
-   ],
-   [
-    6,
-    "texture:Diffuse",
-    "Body"
-   ]
-  ],
-  "78c51b47": [
-   [
-    6,
-    "texture:Diffuse",
-    "Eyes"
-   ]
-  ],
-  "73c8cae2": [
-   [
-    6,
-    "ib",
-    "Body"
-   ]
-  ],
-  "488fceb4": [
-   [
-    4,
-    "ib",
     ""
    ]
   ],
-  "9784dbe3": [
+  "e70695e0": [
    [
-    4,
-    "position_vb",
-    ""
-   ]
-  ],
-  "ef26783e": [
-   [
-    4,
+    3,
     "blend_vb",
-    ""
-   ]
-  ],
-  "0fa7f23f": [
-   [
-    4,
-    "texcoord_vb",
     ""
    ]
   ],
   "edae63e5": [
    [
-    4,
+    1,
     "texture:Diffuse",
     ""
    ]
   ],
-  "4c6ace0e": [
+  "ef26783e": [
    [
-    4,
-    "texture:Diffuse",
-    ""
-   ]
-  ],
-  "9a534567": [
-   [
-    4,
-    "texture:Diffuse",
-    "Face"
-   ]
-  ],
-  "5d09aa00": [
-   [
-    16,
-    "ib",
-    ""
-   ]
-  ],
-  "3a7f71f5": [
-   [
-    16,
-    "position_vb",
-    ""
-   ]
-  ],
-  "d9ee433a": [
-   [
-    16,
+    1,
     "blend_vb",
     ""
    ]
   ],
-  "4aebeee0": [
+  "f8d59976": [
    [
-    16,
+    2,
     "texcoord_vb",
-    ""
-   ]
-  ],
-  "8457036e": [
-   [
-    16,
-    "texture:Diffuse",
-    ""
-   ]
-  ],
-  "28dba6c4": [
-   [
-    16,
-    "texture:Diffuse",
-    ""
-   ],
-   [
-    16,
-    "texture:Diffuse",
-    ""
-   ]
-  ],
-  "267091ab": [
-   [
-    16,
-    "texture:Diffuse",
-    "Face"
-   ]
-  ],
-  "289f745c": [
-   [
-    11,
-    "ib",
-    ""
-   ]
-  ],
-  "8703a6f7": [
-   [
-    11,
-    "position_vb",
-    ""
-   ]
-  ],
-  "58c5081d": [
-   [
-    11,
-    "blend_vb",
-    ""
-   ]
-  ],
-  "41cbfe39": [
-   [
-    11,
-    "texcoord_vb",
-    ""
-   ]
-  ],
-  "788a5c69": [
-   [
-    11,
-    "texture:Diffuse",
-    ""
-   ],
-   [
-    11,
-    "texture:Diffuse",
-    ""
-   ]
-  ],
-  "4035c5d6": [
-   [
-    10,
-    "ib",
-    ""
-   ]
-  ],
-  "437a46a7": [
-   [
-    10,
-    "texture:Diffuse",
-    ""
-   ],
-   [
-    10,
-    "texture:Diffuse",
-    ""
+    "Bangs"
    ]
   ]
  }

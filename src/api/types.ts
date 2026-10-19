@@ -131,6 +131,8 @@ export interface Snapshot {
   configured: boolean;
   /** Library and Mods on the same drive, so moves are instant renames. null = unknown. */
   sameDrive: boolean | null;
+  /** Something the user must fix first (unreadable library.json, invalid settings file). */
+  notice: string | null;
 }
 
 export interface FirstRunDefaults {

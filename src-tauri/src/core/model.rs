@@ -312,6 +312,8 @@ pub struct Snapshot {
     pub configured: bool,
     /// Library and Mods on the same drive (moves are instant renames). None when unknown.
     pub same_drive: Option<bool>,
+    /// Something the user must fix before the app can do its job (unreadable library.json, bad settings file).
+    pub notice: Option<String>,
 }
 
 #[cfg(test)]

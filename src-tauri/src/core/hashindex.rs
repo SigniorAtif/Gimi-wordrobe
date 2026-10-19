@@ -158,6 +158,6 @@ pub mod tests {
         let oz = idx.entities.iter().position(|e| e.name == "Oz").unwrap();
         assert_eq!(idx.category(oz), Category::Extra);
         assert_eq!(idx.parent_name(oz), Some("Fischl"));
-        assert!(idx.info().entries > 50);
+        assert!(idx.info().entries > 20);
     }
 }

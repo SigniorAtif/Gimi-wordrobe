@@ -14,9 +14,15 @@ pub fn path(config_dir: &Path) -> PathBuf {
 }
 
 pub fn load(config_dir: &Path) -> Settings {
-    match fsutil::read_json_or_bak::<Settings>(&path(config_dir)) {
+    let p = path(config_dir);
+    match fsutil::read_json_or_bak::<Settings>(&p) {
         Ok(Some(s)) => s,
-        _ => Settings::default(),
+        Ok(None) => Settings::default(),
+        Err(_) => {
+            // keep the unreadable file for the user before defaults get saved over it
+            let _ = std::fs::copy(&p, fsutil::with_suffix(&p, ".corrupt"));
+            Settings::default()
+        }
     }
 }
 

@@ -8,7 +8,7 @@
 //! - Roots left side by side under one parent are merged into one multi-folder skin when they are parts of the same
 //!   entity (face + outfit) rather than alternatives (two bodies overriding the same hashes).
 
-use super::hashindex::HashIndex;
+use super::hashindex::{HashIndex, IndexGroup};
 use super::hotkeys;
 use super::ini::Ini;
 use super::model::{Category, Hotkey, Library, LibraryMod, LibraryReason};
@@ -150,6 +150,15 @@ fn library_display(name: &str) -> String {
     s
 }
 
+/// A TextureOverride hash as 3DMigoto reads it (hex, optional `0x`, stops at the first non-hex character such as a
+/// trailing `;comment`), normalised to 8 lowercase digits.
+pub fn parse_hash(v: &str) -> Option<String> {
+    let t = v.trim();
+    let t = t.strip_prefix("0x").or_else(|| t.strip_prefix("0X")).unwrap_or(t);
+    let hex: String = t.chars().take_while(|c| c.is_ascii_hexdigit()).collect();
+    (1..=8).contains(&hex.len()).then(|| format!("{:0>8}", hex.to_ascii_lowercase()))
+}
+
 /// Parse one ini into the facts the scanner needs.
 pub fn ini_facts(ini: &Ini, rel: &str) -> IniFacts {
     let mut hashes = BTreeSet::new();
@@ -157,8 +166,7 @@ pub fn ini_facts(ini: &Ini, rel: &str) -> IniFacts {
     for s in ini.sections_with_prefix("textureoverride") {
         for (k, v) in &s.entries {
             if k == "hash" {
-                let h = v.trim().to_ascii_lowercase();
-                if h.len() == 8 && h.chars().all(|c| c.is_ascii_hexdigit()) {
+                if let Some(h) = parse_hash(v) {
                     hashes.insert(h);
                 }
             } else if k == "ib"
@@ -439,7 +447,16 @@ impl<'a> Detector<'a> {
                 v.1 |= hit.is_geometry();
             }
         }
-        if let Some((&ent, &(_, geo))) = votes.iter().max_by(|a, b| a.1.0.total_cmp(&b.1.0).then(b.0.cmp(a.0))) {
+        // ties go to playable characters and weapons over NPC/enemy copies that share hashes
+        // ("Furina(NPC) pre 4-2" shares Furina's ib), then to the lower index for stability
+        let rank = |i: usize| match self.ctx.index.entity(i).group {
+            IndexGroup::Character | IndexGroup::Weapon => 2,
+            IndexGroup::Npc => 1,
+            _ => 0,
+        };
+        if let Some((&ent, &(_, geo))) =
+            votes.iter().max_by(|a, b| a.1.0.total_cmp(&b.1.0).then(rank(*a.0).cmp(&rank(*b.0))).then(b.0.cmp(a.0)))
+        {
             let ie = self.ctx.index.entity(ent);
             return Some(Guess {
                 entity_id: self.library_id_for(&ie.name),
@@ -452,12 +469,13 @@ impl<'a> Detector<'a> {
         }
 
         // (b) hashes of skins the user already confirmed
-        let mut lv: HashMap<&str, usize> = HashMap::new();
+        let mut lv: BTreeMap<&str, usize> = BTreeMap::new();
         for h in &hashes {
             if let Some(e) = self.learned.get(*h) {
                 *lv.entry(e.as_str()).or_default() += 1;
             }
         }
+        // BTreeMap + max_by_key keeps the last maximum in id order: deterministic between runs
         if let Some((eid, _)) = lv.into_iter().max_by_key(|(_, n)| *n)
             && let Some(e) = self.ctx.library.entity(eid)
         {
@@ -543,6 +561,9 @@ struct Grouper<'a> {
     inis: &'a [IniFacts],
     dirs: &'a HashMap<String, DirNode>,
     containers: BTreeSet<String>,
+    /// Folders the library already knows as skin folders (lowercase): always roots, so re-scans group them the
+    /// same way the import did.
+    known_roots: BTreeSet<String>,
     out: Vec<Vec<Group>>,
 }
 
@@ -575,9 +596,11 @@ impl Grouper<'_> {
             return Up::Blocked;
         }
 
-        if !own.is_empty() {
-            // a mod root: everything below loads with it
-            let base = self.make(rel, own.clone(), vec![]);
+        // a known skin folder is a root even without inis of its own (e.g. Mods/Odette holding Black Swan/)
+        if !own.is_empty() || self.known_roots.contains(&lower(rel)) {
+            // a mod root: everything below loads with it. Its own inis identify it; a known root without inis
+            // of its own is identified by everything below.
+            let base = if own.is_empty() { None } else { self.make(rel, own.clone(), vec![]).guess };
             let mut inis = own;
             let mut nested = vec![];
             let mut below: Vec<Group> = vec![];
@@ -588,7 +611,7 @@ impl Grouper<'_> {
             }
             self.collect_nested_below(rel, &mut below);
             for g in below {
-                let foreign = matches!((&g.guess, &base.guess), (Some(x), Some(y)) if x.key() != y.key()
+                let foreign = matches!((&g.guess, &base), (Some(x), Some(y)) if x.key() != y.key()
                     && x.reason >= GuessReason::Name);
                 if foreign {
                     nested.push(NestedRoot {
@@ -598,12 +621,13 @@ impl Grouper<'_> {
                         guess: g.guess.clone(),
                     });
                 }
+                nested.extend(g.nested.iter().cloned());
                 inis.extend(g.inis);
             }
             let mut g = self.make(rel, inis, nested);
             // identify the root by its own inis, not by nested foreign ones
-            if base.guess.is_some() {
-                g.guess = base.guess;
+            if base.is_some() {
+                g.guess = base;
             }
             return Up::Groups(vec![g]);
         }
@@ -749,7 +773,8 @@ pub fn scan(root: &Path, ctx: &ScanContext) -> ScanResult {
     if let Some(top) = dirs.get("") {
         for c in &top.children {
             let node = &dirs[c];
-            if node.inis.is_empty() && !node.children.is_empty() && det.is_container_name(c) {
+            let known = ctx.library.skins.iter().any(|s| s.folders.iter().any(|f| paths::same_path(f, c)));
+            if node.inis.is_empty() && !node.children.is_empty() && !known && det.is_container_name(c) {
                 containers.insert(lower(c));
             }
         }
@@ -765,7 +790,9 @@ pub fn scan(root: &Path, ctx: &ScanContext) -> ScanResult {
         }
     }
 
-    let mut g = Grouper { det, inis: &res.inis, dirs: &dirs, containers, out: vec![] };
+    let known_roots: BTreeSet<String> =
+        ctx.library.skins.iter().flat_map(|s| s.folders.iter().map(|f| lower(&f.replace('\\', "/")))).collect();
+    let mut g = Grouper { det, inis: &res.inis, dirs: &dirs, containers, known_roots, out: vec![] };
     g.visit("");
     let batches = std::mem::take(&mut g.out);
     let mut candidates: Vec<Candidate> = batches.into_iter().flat_map(merge_parts).collect();
@@ -914,6 +941,35 @@ mod tests {
         let b = by_folder(&r, "Odette/Black Swan");
         assert_eq!(b.guess.as_ref().unwrap().name, "Odette");
         assert_eq!(b.guess.as_ref().unwrap().reason, GuessReason::Name);
+    }
+
+    #[test]
+    fn hash_ties_prefer_the_playable_character_over_an_npc_copy() {
+        let idx = HashIndex::from_json(
+            r#"{"entities":[{"key":"FurinaNPC","name":"Furina(NPC) pre 4-2","group":"npc"},{"key":"Furina","name":"Furina","group":"character"}],
+                "hashes":{"aaaa0001":[[0,"ib",""],[1,"ib",""]],"aaaa0002":[[0,"position_vb",""],[1,"position_vb",""]]}}"#,
+        )
+        .unwrap();
+        let t = tempfile::tempdir().unwrap();
+        fs::create_dir_all(t.path().join("SomeMod")).unwrap();
+        fs::write(
+            t.path().join("SomeMod/x.ini"),
+            "[TextureOverrideA]\nhash = aaaa0001\nib = R\n[TextureOverrideB]\nhash = aaaa0002\n",
+        )
+        .unwrap();
+        let lib = Library::default();
+        let r = scan(t.path(), &ScanContext::new(&idx, &lib));
+        assert_eq!(r.candidates[0].guess.as_ref().unwrap().name, "Furina");
+    }
+
+    #[test]
+    fn hashes_parse_like_3dmigoto() {
+        assert_eq!(parse_hash("65A4831F").as_deref(), Some("65a4831f"));
+        assert_eq!(parse_hash("0x65a4831f").as_deref(), Some("65a4831f"));
+        assert_eq!(parse_hash("65a4831f;note").as_deref(), Some("65a4831f"));
+        assert_eq!(parse_hash("1f").as_deref(), Some("0000001f"));
+        assert_eq!(parse_hash("6d514558fc6b35bb"), None);
+        assert_eq!(parse_hash("zz"), None);
     }
 
     #[test]
