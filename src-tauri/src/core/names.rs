@@ -92,8 +92,10 @@ pub const GENERIC_PARTS: &[&str] = &[
     "weapon",
 ];
 
+/// Drop accents from common Latin letters, keeping case (CamelCase splitting runs afterwards).
 fn fold_char(c: char) -> char {
-    match c {
+    let lower = c.to_lowercase().next().unwrap_or(c);
+    let folded = match lower {
         'à' | 'á' | 'â' | 'ã' | 'ä' | 'å' => 'a',
         'è' | 'é' | 'ê' | 'ë' => 'e',
         'ì' | 'í' | 'î' | 'ï' => 'i',
@@ -101,8 +103,9 @@ fn fold_char(c: char) -> char {
         'ù' | 'ú' | 'û' | 'ü' => 'u',
         'ç' => 'c',
         'ñ' => 'n',
-        _ => c,
-    }
+        _ => return c,
+    };
+    if c.is_uppercase() { folded.to_ascii_uppercase() } else { folded }
 }
 
 /// Split CamelCase: "TomeOfTheEternalFlow" -> "Tome Of The Eternal Flow", "BearCharlotte" -> "Bear Charlotte".
@@ -160,8 +163,10 @@ pub fn tokens(s: &str) -> Vec<String> {
 
 fn strip_ext(s: &str) -> &str {
     for ext in [".ini", ".zip", ".rar", ".7z"] {
-        if s.len() > ext.len() && s[s.len() - ext.len()..].eq_ignore_ascii_case(ext) {
-            return &s[..s.len() - ext.len()];
+        // byte slicing must land on a char boundary ("Éva" is 4 bytes)
+        let cut = s.len().wrapping_sub(ext.len());
+        if s.len() > ext.len() && s.get(cut..).is_some_and(|t| t.eq_ignore_ascii_case(ext)) {
+            return &s[..cut];
         }
     }
     s
@@ -363,6 +368,10 @@ mod tests {
     fn slugs_and_display_names() {
         assert_eq!(slug("Tome of the Eternal Flow"), "tome-of-the-eternal-flow");
         assert_eq!(slug("Culottée à mort"), "culottee-a-mort");
+        // multi-byte names never panic, and capital accents fold too
+        assert_eq!(tokens("Éva"), vec!["eva"]);
+        assert_eq!(tokens("Léabc.zip"), vec!["leabc"]);
+        assert_eq!(name_score("Éclair", "Eclair", &[]), 1.0);
         assert_eq!(display_name("sandrone_marionette"), "Sandrone Marionette");
         assert_eq!(display_name("BearCharlotte"), "Bear Charlotte");
         assert_eq!(display_name("A Teaspoon of Transcendence"), "A Teaspoon of Transcendence");
