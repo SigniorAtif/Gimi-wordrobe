@@ -1,11 +1,12 @@
 // Real backend: thin typed wrappers around Tauri commands (src-tauri/src/commands.rs).
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { openUrl as openExternal } from "@tauri-apps/plugin-opener";
 import { toFailure, type Api } from "./api";
-import type { ApplyProgress, ApplyResult, FirstRunDefaults, Settings, Snapshot } from "./types";
+import type { AddProgress, AddSkinResult, ApplyProgress, ApplyResult, ArchiveSummary, FirstRunDefaults, Settings, Snapshot } from "./types";
 
 async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
   try {
@@ -48,6 +49,33 @@ export const api: Api = {
   removeSkin: (skinId) => snap("remove_skin", { skinId }),
   updateSkin: (skinId, patch) => snap("update_skin", { skinId, patch }),
   updateEntity: (entityId, patch) => snap("update_entity", { entityId, patch }),
+  // file pickers run in Rust so debug builds can answer them for the e2e tests
+  pickArchive: () => call<string | null>("pick_archive"),
+  pickImage: () => call<string | null>("pick_image"),
+  analyzeArchive: (path) => call<ArchiveSummary>("analyze_archive", { path }),
+  async addSkin(request, onProgress) {
+    const unlisten = onProgress ? await listen<AddProgress>("add-progress", (e) => onProgress(e.payload)) : null;
+    try {
+      const r = await call<AddSkinResult>("add_skin", { request });
+      libraryRoot = r.snapshot.settings.libraryPath;
+      return r;
+    } finally {
+      unlisten?.();
+    }
+  },
+  async onFileDrop(handler) {
+    // positions arrive in physical pixels; elementFromPoint wants CSS pixels
+    const dpr = () => window.devicePixelRatio || 1;
+    return getCurrentWebview().onDragDropEvent((ev) => {
+      const p = ev.payload;
+      if (p.type === "leave") return handler({ type: "leave" });
+      const x = p.position.x / dpr();
+      const y = p.position.y / dpr();
+      if (p.type === "enter") handler({ type: "enter", paths: p.paths, x, y });
+      else if (p.type === "over") handler({ type: "over", x, y });
+      else if (p.type === "drop") handler({ type: "drop", paths: p.paths, x, y });
+    });
+  },
   openFolder: (target) => call<void>("open_folder", { target }),
   openUrl: (url) => openExternal(url),
   async setWindowTitle(title) {

@@ -1,8 +1,8 @@
 // In-memory fixture backend for the browser test harness (SPEC §0). Enabled with VITE_MOCK=1, never in release builds.
 // URL flags: ?firstrun=1 starts unconfigured; ?pages=1 starts in Pages layout; ?reduced=1 forces reduced motion.
 import { ApiFailure, type Api } from "./api";
-import { buildMockWorld, MOCK_LIBRARIES, MOCK_SETTINGS, type MockWorld } from "./mockData";
-import type { DiskState, Settings, Snapshot } from "./types";
+import { buildMockWorld, coverArt, MOCK_LIBRARIES, MOCK_SETTINGS, type MockWorld } from "./mockData";
+import type { AddTarget, ArchiveSummary, DiskState, FileDropEvent, Settings, Snapshot } from "./types";
 
 const params = new URLSearchParams(typeof location !== "undefined" ? location.search : "");
 
@@ -14,7 +14,16 @@ if (params.get("pages") === "1") settings.layout = "pages";
 if (params.get("reduced") === "1") settings.reduceMotion = "on";
 
 /** Test controls, reachable from agent-browser via `window.__mock`. */
+const dropHandlers = new Set<(e: FileDropEvent) => void>();
+
 export const mockControls = {
+  /** Simulate an OS file drag: phase enter/over/drop/leave at CSS pixel x/y. */
+  drag(phase: FileDropEvent["type"], name = "Mona_[skin].zip", x = 0, y = 0) {
+    const path = `C:\\Users\\you\\Downloads\\${name}`;
+    const e: FileDropEvent =
+      phase === "enter" ? { type: "enter", paths: [path], x, y } : phase === "drop" ? { type: "drop", paths: [path], x, y } : phase === "over" ? { type: "over", x, y } : { type: "leave" };
+    dropHandlers.forEach((h) => h(e));
+  },
   latencyMs: 120,
   /** Next Apply fails after some progress and "rolls back". */
   failNextApply: false,
@@ -169,6 +178,115 @@ export const api: Api = {
     if (patch.parentId !== undefined) e.parentId = patch.parentId || undefined;
     if (patch.aliases) e.aliases = patch.aliases.map((a) => a.trim()).filter(Boolean);
     return snapshot();
+  },
+  async pickArchive() {
+    await wait(60);
+    return "C:\\Users\\you\\Downloads\\Mona_[skin].zip";
+  },
+  async pickImage() {
+    await wait(60);
+    return "C:\\Users\\you\\Pictures\\portrait.png";
+  },
+  async analyzeArchive(path) {
+    await wait(260);
+    const fileName = path.split(/[\\/]/).pop() ?? path;
+    if (/evil/i.test(fileName)) throw new ApiFailure("unsafe_archive", `It contains an unsafe entry (../evil.ini). Nothing was extracted.`);
+    const lower = fileName.toLowerCase();
+    const ent = world.library.entities.find((e) => lower.includes(e.name.toLowerCase().split(" ")[0])) ?? null;
+    const guess = ent ? { entityId: ent.id, name: ent.name, category: ent.category, confidence: 0.9, reason: "hash" as const } : null;
+    const roots: ArchiveSummary["roots"] = [{ path: "", folders: [""], inis: ["Skin.ini"], hotkeys: 2, hashes: ["7a1dc890"], guess, nested: false }];
+    if (lower.includes("bennett")) {
+      roots.push({ path: "TravelerHandySword", folders: ["TravelerHandySword"], inis: ["TravelerHandySword/SkywardBlade.ini"], hotkeys: 0, hashes: ["65914967"], guess: { entityId: "skyward-blade", name: "Skyward Blade", category: "weapon", confidence: 0.95, reason: "hash" }, nested: true });
+    }
+    const wrapper = fileName.replace(/\.(zip|rar|7z)$/i, "");
+    const suggested = wrapper.replace(new RegExp(ent?.name ?? "^$", "i"), "").replace(/[_\-[\]]+/g, " ").trim() || "New skin";
+    return {
+      path,
+      fileName,
+      size: 48_213_000,
+      fileCount: 31,
+      iniCount: roots.length,
+      images: ["preview1.png", "preview2.jpg"],
+      entries: [
+        { path: `${wrapper}/`, size: 0, isDir: true },
+        { path: `${wrapper}/merged.ini`, size: 12000, isDir: false },
+        { path: `${wrapper}/preview1.png`, size: 900000, isDir: false },
+        { path: `${wrapper}/preview2.jpg`, size: 700000, isDir: false },
+        { path: `${wrapper}/textures/`, size: 0, isDir: true },
+      ],
+      roots,
+      skipped: ["desktop.ini"],
+      suggestedName: suggested.replace(/\b\w/g, (c) => c.toUpperCase()),
+      nsfwGuess: /nsfw|lewd|nude/.test(lower),
+      wrapper: `${wrapper}/`,
+    };
+  },
+  async addSkin(req, onProgress) {
+    for (let i = 0; i <= 10; i++) {
+      onProgress?.({ done: i, total: 10, label: "Extracting" });
+      await wait(90);
+    }
+    const ids: string[] = [];
+    const place = (t: AddTarget, nsfw: boolean) => {
+      let entity = t.entityId ? world.library.entities.find((e) => e.id === t.entityId) : undefined;
+      if (!entity && t.newEntity) {
+        const id = t.newEntity.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+        entity = world.library.entities.find((e) => e.id === id) ?? { id, name: t.newEntity.name, category: t.newEntity.category, parentId: t.newEntity.parentId, skinIds: [] };
+        if (!world.library.entities.includes(entity)) world.library.entities.push(entity);
+      }
+      if (!entity) throw new ApiFailure("no_entity", "Pick a character, weapon or extra.");
+      const id = `${entity.id}--${t.skinName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now() % 10000}`;
+      const previews = req.previewSource === "archive" ? [1, 2].map((n) => {
+        const file = `previews/${id}/${n}.svg`;
+        world.images.set(file, coverArt(id, n));
+        return { file, source: "archive" as const };
+      }) : [];
+      world.library.skins.push({ id, entityId: entity.id, name: t.skinName, folders: [`${entity.name}/${t.skinName}`], nsfw, previews, hotkeys: [], hashes: [], addedAt: new Date().toISOString(), gameBananaUrl: req.gameBananaUrl, sourceArchive: req.archivePath.split(/[\\/]/).pop() });
+      entity.skinIds.push(id);
+      ids.push(id);
+      return entity.id;
+    };
+    for (const sp of req.splits) place(sp, false);
+    const entityId = place(req.main, req.nsfw);
+    if (req.makeActive) {
+      for (const k of world.library.skins.filter((x) => x.entityId === entityId)) world.active.delete(k.id);
+      world.active.add(ids[ids.length - 1]);
+    }
+    return { snapshot: snapshot(), skinIds: ids, warnings: [] };
+  },
+  async onFileDrop(handler) {
+    dropHandlers.add(handler);
+    // real browser file drags work too (names only)
+    const name = (e: DragEvent) => [...(e.dataTransfer?.files ?? [])].map((f) => `C:\\Users\\you\\Downloads\\${f.name}`);
+    const onEnter = (e: DragEvent) => {
+      if (!e.dataTransfer?.types.includes("Files")) return;
+      e.preventDefault();
+      handler({ type: "enter", paths: name(e), x: e.clientX, y: e.clientY });
+    };
+    const onOver = (e: DragEvent) => {
+      if (!e.dataTransfer?.types.includes("Files")) return;
+      e.preventDefault();
+      handler({ type: "over", x: e.clientX, y: e.clientY });
+    };
+    const onDrop = (e: DragEvent) => {
+      if (!e.dataTransfer?.types.includes("Files")) return;
+      e.preventDefault();
+      handler({ type: "drop", paths: name(e), x: e.clientX, y: e.clientY });
+    };
+    const onLeave = (e: DragEvent) => {
+      if (e.relatedTarget === null) handler({ type: "leave" });
+    };
+    window.addEventListener("dragenter", onEnter);
+    window.addEventListener("dragover", onOver);
+    window.addEventListener("drop", onDrop);
+    window.addEventListener("dragleave", onLeave);
+    return () => {
+      dropHandlers.delete(handler);
+      window.removeEventListener("dragenter", onEnter);
+      window.removeEventListener("dragover", onOver);
+      window.removeEventListener("drop", onDrop);
+      window.removeEventListener("dragleave", onLeave);
+    };
   },
   async firstRunDefaults() {
     await wait(40);
