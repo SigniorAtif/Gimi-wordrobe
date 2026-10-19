@@ -1,19 +1,32 @@
 // Writes fixtures/Mods (SPEC §14): tiny dummy mods with real hashes from the hash index, so scanning, entity
 // detection, hotkey conflicts, Apply and persist backup can be tested without any real mod files.
 //
-//   node scripts/make-fixtures.mjs        rewrite fixtures/Mods and fixtures/d3dx_user.ini
+//   node scripts/make-fixtures.mjs             rewrite fixtures/Mods and fixtures/d3dx_user.ini
+//   node scripts/make-fixtures.mjs --archives  also rebuild the binary archives (they embed timestamps, so they
+//                                              are kept as committed unless asked)
 //
 // Never point this at a real Mods folder: 3DMigoto loads every .ini under Mods.
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, utimesSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const FIX = join(root, "fixtures");
+const REBUILD_ARCHIVES = process.argv.includes("--archives");
 const MODS = join(FIX, "Mods");
 
 const HEADER = "; fixture: dummy mod for Skin Switcher tests, not a real mod\n";
+const FIXED = new Date("2026-01-01T00:00:00Z");
+
+/** Pin every mtime under a folder so the archives built from it are byte-for-byte reproducible. */
+function pinTimes(dir) {
+  for (const n of readdirSync(dir)) {
+    const p = join(dir, n);
+    if (statSync(p).isDirectory()) pinTimes(p);
+    utimesSync(p, FIXED, FIXED);
+  }
+}
 
 function write(rel, text) {
   const p = join(MODS, rel);
@@ -49,6 +62,11 @@ function textureIni({ name, hashes, keys = [], persist = [] }) {
   return `${HEADER}\n${consts}${keyText}\n${ov}\n${res}`;
 }
 
+// zips embed access/change times; keep the committed bytes unless asked to rebuild them
+const keptZips = {};
+for (const z of ["paimon_cc116.zip", "sandrone_marionette_by_neyori.zip"]) {
+  if (!REBUILD_ARCHIVES && existsSync(join(MODS, z))) keptZips[z] = readFileSync(join(MODS, z));
+}
 rmSync(MODS, { recursive: true, force: true });
 mkdirSync(MODS, { recursive: true });
 
@@ -155,10 +173,15 @@ write("Tome of the Eternal Flow/Blood Flow/TomeOfTheEternalFlow.ini", textureIni
 
 // ----- stray archives in the Mods root (tiny zips) -----
 for (const z of ["paimon_cc116.zip", "sandrone_marionette_by_neyori.zip"]) {
+  if (keptZips[z]) {
+    writeFileSync(join(MODS, z), keptZips[z]);
+    continue;
+  }
   const tmp = join(FIX, ".tmp-zip");
   rmSync(tmp, { recursive: true, force: true });
   mkdirSync(tmp, { recursive: true });
   writeFileSync(join(tmp, "readme.txt"), "fixture archive\n");
+  pinTimes(tmp);
   execFileSync("bsdtar", ["--format", "zip", "-cf", join(MODS, z), "-C", tmp, "readme.txt"]);
   rmSync(tmp, { recursive: true, force: true });
 }
@@ -185,4 +208,64 @@ writeFileSync(
   ].join("\r\n"),
 );
 
-console.log(`fixtures written to ${MODS}`);
+// ----- sample archives (SPEC §14): zip, 7z, nested weapon, files at the root, junk, a bundled library, malicious -----
+const ARCH = join(FIX, "archives");
+const ARCHIVE_NAMES = ["mona_starry_skin.zip", "bennett_beach.zip", "varesa_root_files.7z", "evil_traversal.zip", "evil_absolute.zip"];
+const haveArchives = ARCHIVE_NAMES.every((n) => existsSync(join(ARCH, n)));
+if (REBUILD_ARCHIVES || !haveArchives) {
+rmSync(ARCH, { recursive: true, force: true });
+mkdirSync(ARCH, { recursive: true });
+const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==", "base64");
+function tree(files) {
+  const dir = join(FIX, ".tmp-arch");
+  rmSync(dir, { recursive: true, force: true });
+  for (const [rel, body] of Object.entries(files)) {
+    const p = join(dir, rel);
+    mkdirSync(dirname(p), { recursive: true });
+    writeFileSync(p, typeof body === "string" ? body.replace(/\n/g, "\r\n") : body);
+  }
+  pinTimes(dir);
+  return dir;
+}
+function pack(name, format, files, extra = []) {
+  const dir = tree(files);
+  execFileSync("bsdtar", ["--format", format, ...extra, "-cf", join(ARCH, name), "-C", dir, ...Object.keys(files).map((k) => k.split("/")[0]).filter((v, i, a) => a.indexOf(v) === i)]);
+  rmSync(dir, { recursive: true, force: true });
+}
+
+// a plain skin in a wrapper folder, with a real preview, a texture png, desktop.ini and __MACOSX junk
+pack("mona_starry_skin.zip", "zip", {
+  "MonaStarrySkin/MonaStarry.ini": modelIni({ name: "MonaStarry", hashes: ["7a1dc890", "b043715a", "a8191396", "d75308d8"], keys: [{ label: "Cape", key: "no_modifiers 5" }], extra: "\n[ResourceTex]\nfilename = MonaBodyDiffuse.png\n" }),
+  "MonaStarrySkin/MonaBodyDiffuse.png": PNG,
+  "MonaStarrySkin/preview1.png": PNG,
+  "MonaStarrySkin/desktop.ini": "[.ShellClassInfo]\n",
+  "__MACOSX/MonaStarrySkin/._preview1.png": "junk",
+});
+
+// Bennett's case: a weapon nested inside the character root, plus a bundled BufferValues/ORFix.ini
+pack("bennett_beach.zip", "zip", {
+  "BennettBeachDay/BennettAdventure.ini": modelIni({ name: "Bennett", hashes: ["6cff51b4", "d4acf3f7", "acde80a4", "cdc66323"], keys: [{ label: "Goggles", key: "no_modifiers 6" }] }),
+  "BennettBeachDay/Face/Face.ini": textureIni({ name: "BennettFace", hashes: ["b3e7f001"] }),
+  "BennettBeachDay/TravelerHandySword/SkywardBlade.ini": modelIni({ name: "SkywardBlade", hashes: ["65914967", "4035c5d6"] }),
+  "BennettBeachDay/TravelerHandySword/desktop.ini": "[.ShellClassInfo]\n",
+  "BennettBeachDay/prev (1).png": PNG,
+  "BufferValues/ORFix.ini": `namespace = global\\ORFix\n${HEADER}\n[TextureOverrideGaming]\nhash = 8b5fc47d\n`,
+});
+
+// files at the archive root with no wrapper folder (7z)
+pack("varesa_root_files.7z", "7zip", {
+  "Varesa.ini": modelIni({ name: "VaresaCow", hashes: ["9784dbe3", "ef26783e", "0fa7f23f", "488fceb4"], keys: [{ label: "Bell", key: "no_modifiers 3" }] }),
+  "help.ini": `${HEADER}\n[Constants]\nglobal $help = 0\n`,
+  "help.txt": "press 3\n",
+});
+
+// malicious: a ../ entry and an absolute path; both must be rejected with nothing written
+{
+  const dir = tree({ "evil.ini": textureIni({ name: "Evil", hashes: ["e0000001"] }) });
+  execFileSync("bsdtar", ["--format", "zip", "-s", ",^,../,", "-cf", join(ARCH, "evil_traversal.zip"), "-C", dir, "evil.ini"]);
+  execFileSync("bsdtar", ["--format", "zip", "-P", "-s", ",^,/tmp/skin-switcher-evil/,", "-cf", join(ARCH, "evil_absolute.zip"), "-C", dir, "evil.ini"]);
+  rmSync(dir, { recursive: true, force: true });
+}
+}
+
+console.log(`fixtures written to ${MODS} and ${ARCH}`);

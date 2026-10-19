@@ -15,6 +15,7 @@ export function EntityCard({
   open,
   conflict,
   reduced,
+  dropHover,
   onToggle,
   onContextMenu,
 }: {
@@ -22,6 +23,8 @@ export function EntityCard({
   open: boolean;
   conflict?: boolean;
   reduced: boolean;
+  /** an archive is dragged over this card (C4) */
+  dropHover?: boolean;
   onToggle: () => void;
   onContextMenu: (e: MouseEvent) => void;
 }) {
@@ -31,8 +34,9 @@ export function EntityCard({
     <motion.button
       layout="position"
       type="button"
-      className={`ecard ecard--${entity.category} ${open ? "is-open" : ""} ${pending ? "is-pending" : ""}`}
+      className={`ecard ecard--${entity.category} ${open ? "is-open" : ""} ${pending ? "is-pending" : ""} ${dropHover ? "is-drop-hover" : ""}`}
       data-entity={entity.id}
+      data-drop={`entity:${entity.id}`}
       aria-expanded={open}
       aria-label={`${entity.name}, ${subtitle}${pending ? ", pending" : ""}`}
       variants={riseIn(reduced)}

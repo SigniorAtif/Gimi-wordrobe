@@ -194,24 +194,25 @@ export interface ArchiveEntry {
   isDir: boolean;
 }
 
-export interface ArchiveRoot {
-  /** Path inside the archive (after wrapper strip) of the mod root folder. */
-  path: string;
-  inis: string[];
-  hotkeys: number;
-  hashes: string[];
-  guess: EntityGuess | null;
-  /** Nested inside another root and must be moved out on import (Bennett's sword, Oz). */
-  nested: boolean;
-}
-
 export interface EntityGuess {
   entityId: string | null; // existing entity id, if any
   name: string;
   category: Category;
-  parentId?: string;
+  parentName?: string;
   confidence: number; // 0..1
   reason: "hash" | "learned" | "name" | "folder";
+}
+
+export interface ArchiveRoot {
+  /** First folder of the root inside the archive ("" = the whole archive). */
+  path: string;
+  folders: string[];
+  inis: string[];
+  hotkeys: number;
+  hashes: string[];
+  guess: EntityGuess | null;
+  /** Nested inside another root (Bennett's sword, Oz): split it out to toggle it on its own. */
+  nested: boolean;
 }
 
 export interface ArchiveSummary {
@@ -226,6 +227,7 @@ export interface ArchiveSummary {
   skipped: string[]; // junk and bundled library copies that will not be extracted
   suggestedName: string;
   nsfwGuess: boolean;
+  wrapper: string | null;
 }
 
 export interface NewEntity {
@@ -235,19 +237,23 @@ export interface NewEntity {
   portraitPath?: string;
 }
 
-export interface AddSkinPart {
-  rootPath: string; // ArchiveRoot.path
-  entityId: string | null;
+export interface AddTarget {
+  entityId?: string | null;
   newEntity?: NewEntity;
   skinName: string;
 }
 
+export type PreviewChoice = "gamebanana" | "archive" | "user" | "later";
+
 export interface AddSkinRequest {
   archivePath: string;
-  parts: AddSkinPart[]; // first part is the main skin; others are split-out skins
+  main: AddTarget;
+  /** `folders` lists every folder of a root that has several (Face + Outfit) */
+  splits: (AddTarget & { rootPath: string; folders?: string[] })[];
+  exclude: string[];
   nsfw: boolean;
   gameBananaUrl?: string;
-  previewSource: "gamebanana" | "archive" | "user" | "later";
+  previewSource: PreviewChoice;
   userImagePath?: string;
   makeActive: boolean;
 }
@@ -255,7 +261,21 @@ export interface AddSkinRequest {
 export interface AddSkinResult {
   snapshot: Snapshot;
   skinIds: string[];
+  warnings: string[];
 }
+
+export interface AddProgress {
+  done: number;
+  total: number;
+  label: string;
+}
+
+/** OS file drag over the window (Tauri drag-drop events; positions in CSS pixels). */
+export type FileDropEvent =
+  | { type: "enter"; paths: string[]; x: number; y: number }
+  | { type: "over"; x: number; y: number }
+  | { type: "drop"; paths: string[]; x: number; y: number }
+  | { type: "leave" };
 
 export interface GameBananaInfo {
   id: number;

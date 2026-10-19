@@ -1,6 +1,20 @@
 // The one typed interface every component goes through (SPEC §13). Two implementations:
 // tauri.ts (real backend) and mock.ts (in-memory fixtures for the browser test harness, VITE_MOCK=1).
-import type { ApplyProgress, ApplyResult, EntityPatch, FirstRunDefaults, Picks, Settings, SkinPatch, Snapshot } from "./types";
+import type {
+  AddProgress,
+  AddSkinRequest,
+  AddSkinResult,
+  ApplyProgress,
+  ApplyResult,
+  ArchiveSummary,
+  EntityPatch,
+  FileDropEvent,
+  FirstRunDefaults,
+  Picks,
+  Settings,
+  SkinPatch,
+  Snapshot,
+} from "./types";
 
 export type OpenTarget =
   | { kind: "mods" }
@@ -33,6 +47,15 @@ export interface Api {
   /** Edit a skin's metadata (library.json only; the mod's files are never changed). */
   updateSkin(skinId: string, patch: SkinPatch): Promise<Snapshot>;
   updateEntity(entityId: string, patch: EntityPatch): Promise<Snapshot>;
+  /** Pick an archive (.zip / .rar / .7z) or an image with the system dialog. */
+  pickArchive(): Promise<string | null>;
+  pickImage(): Promise<string | null>;
+  /** List and analyse an archive for the add dialogs (refuses unsafe archives). */
+  analyzeArchive(path: string): Promise<ArchiveSummary>;
+  /** Extract & add; skins land inactive unless makeActive. */
+  addSkin(req: AddSkinRequest, onProgress?: (p: AddProgress) => void): Promise<AddSkinResult>;
+  /** OS file drags over the window (SPEC §13: Tauri intercepts drops, so DOM drop events carry no paths). */
+  onFileDrop(handler: (e: FileDropEvent) => void): Promise<() => void>;
   openFolder(target: OpenTarget): Promise<void>;
   openUrl(url: string): Promise<void>;
   setWindowTitle(title: string): Promise<void>;

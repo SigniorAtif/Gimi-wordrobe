@@ -1,6 +1,6 @@
 {
  "version": 1,
- "source": "hashes quoted by the fixture inis (see fixtures/Mods); not the full index",
+ "source": "hashes quoted by the fixture inis (see fixtures/); not the full index",
  "commit": "test",
  "date": "2026-08-03",
  "entities": [
@@ -40,11 +40,25 @@
    "path": "PlayerCharacterData/KaedeharaKazuha"
   },
   {
+   "key": "SkywardBlade",
+   "name": "Skyward Blade",
+   "group": "weapon",
+   "base": null,
+   "path": "WeaponData/Swords/5Star/SkywardBlade"
+  },
+  {
    "key": "MonaCN",
    "name": "Mona CN",
    "group": "character",
    "base": "Mona",
    "path": "PlayerCharacterData/MonaCN"
+  },
+  {
+   "key": "Bennett",
+   "name": "Bennett",
+   "group": "character",
+   "base": null,
+   "path": "PlayerCharacterData/Bennett"
   },
   {
    "key": "TomeofEternalFlow",
@@ -54,18 +68,18 @@
    "path": "WeaponData/Catalysts/5Star/TomeofEternalFlow"
   },
   {
-   "key": "GaMing",
-   "name": "Ga Ming",
-   "group": "character",
-   "base": null,
-   "path": "PlayerCharacterData/GaMing"
-  },
-  {
    "key": "Mona",
    "name": "Mona",
    "group": "character",
    "base": null,
    "path": "PlayerCharacterData/Mona"
+  },
+  {
+   "key": "GaMing",
+   "name": "Ga Ming",
+   "group": "character",
+   "base": null,
+   "path": "PlayerCharacterData/GaMing"
   },
   {
    "key": "Oz",
@@ -88,6 +102,18 @@
     2,
     "blend_vb",
     "Bangs"
+   ]
+  ],
+  "65914967": [
+   [
+    5,
+    "position_vb",
+    ""
+   ],
+   [
+    5,
+    "draw_vb",
+    ""
    ]
   ],
   "045e580b": [
@@ -139,6 +165,13 @@
     ""
    ]
   ],
+  "4035c5d6": [
+   [
+    5,
+    "ib",
+    ""
+   ]
+  ],
   "488fceb4": [
    [
     1,
@@ -148,7 +181,7 @@
   ],
   "515f3ce6": [
    [
-    5,
+    6,
     "position_vb",
     ""
    ]
@@ -174,6 +207,13 @@
     "Bangs"
    ]
   ],
+  "6cff51b4": [
+   [
+    7,
+    "position_vb",
+    ""
+   ]
+  ],
   "73c8cae2": [
    [
     2,
@@ -183,13 +223,20 @@
   ],
   "788a5c69": [
    [
-    6,
+    8,
     "texture:Diffuse",
     ""
    ],
    [
-    6,
+    8,
     "texture:Diffuse",
+    ""
+   ]
+  ],
+  "7a1dc890": [
+   [
+    9,
+    "position_vb",
     ""
    ]
   ],
@@ -216,7 +263,7 @@
   ],
   "8b5fc47d": [
    [
-    7,
+    10,
     "draw_vb",
     ""
    ]
@@ -235,9 +282,30 @@
     ""
    ]
   ],
+  "a8191396": [
+   [
+    9,
+    "texcoord_vb",
+    ""
+   ]
+  ],
+  "acde80a4": [
+   [
+    7,
+    "texcoord_vb",
+    ""
+   ]
+  ],
+  "b043715a": [
+   [
+    9,
+    "blend_vb",
+    ""
+   ]
+  ],
   "bad2731b": [
    [
-    5,
+    6,
     "blend_vb",
     ""
    ]
@@ -247,6 +315,13 @@
     2,
     "blend_vb",
     "Body"
+   ]
+  ],
+  "cdc66323": [
+   [
+    7,
+    "ib",
+    ""
    ]
   ],
   "ce8cbdfb": [
@@ -263,9 +338,23 @@
     "Body"
    ]
   ],
+  "d4acf3f7": [
+   [
+    7,
+    "blend_vb",
+    ""
+   ]
+  ],
   "d5ad8084": [
    [
-    5,
+    6,
+    "ib",
+    ""
+   ]
+  ],
+  "d75308d8": [
+   [
+    9,
     "ib",
     ""
    ]
@@ -293,7 +382,7 @@
   ],
   "e543af5d": [
    [
-    5,
+    6,
     "texcoord_vb",
     ""
    ]

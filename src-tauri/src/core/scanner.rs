@@ -110,11 +110,13 @@ pub struct ScanContext<'a> {
     pub library: &'a Library,
     /// More entity names to match against, e.g. the archive library's character folders.
     pub extra_names: Vec<String>,
+    /// Scanning an extracted archive: inis at the top mean the whole archive is one mod root (folder "").
+    pub archive_root: bool,
 }
 
 impl<'a> ScanContext<'a> {
     pub fn new(index: &'a HashIndex, library: &'a Library) -> Self {
-        ScanContext { index, library, extra_names: vec![] }
+        ScanContext { index, library, extra_names: vec![], archive_root: false }
     }
 }
 
@@ -558,6 +560,7 @@ enum Up {
 
 struct Grouper<'a> {
     det: Detector<'a>,
+    archive_root: bool,
     inis: &'a [IniFacts],
     dirs: &'a HashMap<String, DirNode>,
     containers: BTreeSet<String>,
@@ -581,7 +584,7 @@ impl Grouper<'_> {
         let own = node.inis.clone();
         let results: Vec<Up> = children.iter().map(|c| self.visit(c)).collect();
 
-        if rel.is_empty() {
+        if rel.is_empty() && !(self.archive_root && !own.is_empty()) {
             // Mods root: loose inis are their own roots; children are final
             let mut batch = vec![];
             for i in own {
@@ -659,7 +662,8 @@ impl Grouper<'_> {
     /// Groups below an ini-holding root were returned as candidates; Blocked subtrees already emitted their
     /// groups into `out`, so pull those back in as nested parts of this root.
     fn collect_nested_below(&mut self, rel: &str, below: &mut Vec<Group>) {
-        let prefix = format!("{}/", lower(rel));
+        // the archive root owns everything below it
+        let prefix = if rel.is_empty() { String::new() } else { format!("{}/", lower(rel)) };
         let mut keep = vec![];
         for batch in self.out.drain(..) {
             let (inside, outside): (Vec<Group>, Vec<Group>) =
@@ -792,8 +796,19 @@ pub fn scan(root: &Path, ctx: &ScanContext) -> ScanResult {
 
     let known_roots: BTreeSet<String> =
         ctx.library.skins.iter().flat_map(|s| s.folders.iter().map(|f| lower(&f.replace('\\', "/")))).collect();
-    let mut g = Grouper { det, inis: &res.inis, dirs: &dirs, containers, known_roots, out: vec![] };
-    g.visit("");
+    let mut g = Grouper {
+        det,
+        archive_root: ctx.archive_root,
+        inis: &res.inis,
+        dirs: &dirs,
+        containers,
+        known_roots,
+        out: vec![],
+    };
+    if let Up::Groups(gs) = g.visit("") {
+        // archive root holding inis: one root for the whole archive
+        g.out.push(gs);
+    }
     let batches = std::mem::take(&mut g.out);
     let mut candidates: Vec<Candidate> = batches.into_iter().flat_map(merge_parts).collect();
     for c in &mut candidates {

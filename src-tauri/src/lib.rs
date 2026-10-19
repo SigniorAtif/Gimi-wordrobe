@@ -34,6 +34,10 @@ pub fn run() {
             commands::remove_skin,
             commands::update_skin,
             commands::update_entity,
+            commands::pick_archive,
+            commands::pick_image,
+            commands::analyze_archive,
+            commands::add_skin,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

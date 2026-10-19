@@ -93,10 +93,10 @@ pub struct AppCore {
     config_dir: PathBuf,
     /// Bundled resources (hash_index.json); None in tests.
     resource_dir: Option<PathBuf>,
-    settings: Settings,
-    library: Library,
-    index: HashIndex,
-    last_scan: Option<ScanResult>,
+    pub(super) settings: Settings,
+    pub(super) library: Library,
+    pub(super) index: HashIndex,
+    pub(super) last_scan: Option<ScanResult>,
     /// library.json exists but can't be read: nothing is adopted or saved until it's fixed.
     library_error: Option<String>,
     /// settings.json on disk fails validation (hand-edited): treated as not configured.
@@ -244,19 +244,23 @@ impl AppCore {
     }
 
     /// Hand a snapshot to the UI and remember what the disk looked like.
-    fn publish(&mut self) -> Snapshot {
+    pub(super) fn publish(&mut self) -> Snapshot {
         let s = self.snapshot();
         self.last_sig = Some(signature(&s));
         s
     }
 
-    fn journal_path(&self) -> Option<PathBuf> {
+    pub(super) fn journal_path(&self) -> Option<PathBuf> {
         self.library_dir().map(|d| d.join(apply::JOURNAL_FILE))
     }
 
     /// Startup: roll back an interrupted Apply (SPEC §3 journal), then scan.
     pub fn load(&mut self) -> AppResult<Snapshot> {
         self.recovered = None;
+        // extracted copies a crashed add left behind belong to nobody
+        if let Some(lib) = self.library_dir() {
+            super::add::sweep_staging(&lib);
+        }
         if let Some(j) = self.journal_path() {
             self.recovered = match apply::recover(&j) {
                 Ok(Some(n)) => Some(RecoveryInfo {
@@ -320,7 +324,7 @@ impl AppCore {
     }
 
     /// Undo an unfinished batch before starting a new one, so its journal (the only undo record) is never lost.
-    fn recover_pending(&mut self) -> AppResult<()> {
+    pub(super) fn recover_pending(&mut self) -> AppResult<()> {
         if let Some(j) = self.journal_path().filter(|j| j.exists()) {
             apply::recover(&j).map_err(|e| {
                 AppError::new(
@@ -332,7 +336,7 @@ impl AppCore {
         Ok(())
     }
 
-    fn roots(&self) -> AppResult<(PathBuf, PathBuf)> {
+    pub(super) fn roots(&self) -> AppResult<(PathBuf, PathBuf)> {
         let mods = self
             .mods_dir()
             .filter(|m| m.is_dir())
@@ -376,7 +380,7 @@ impl AppCore {
         };
         let journal = self.journal_path();
         match apply::execute_verified(&plan, &mods, journal.as_deref(), fault, progress, &verify) {
-            Ok(_) => {}
+            Ok(_) => apply::tidy_stash(&plan, &stash),
             Err(ExecError::Crashed) => return Err(AppError::new("crashed", "Apply was interrupted.")),
             Err(e) => {
                 let _ = self.rescan();
@@ -956,6 +960,19 @@ pub mod tests {
     }
 
     #[test]
+    fn activating_a_skin_leaves_no_empty_folders_in_the_stash() {
+        let cfg = tempfile::tempdir().unwrap();
+        let (_t, mods, lib) = fixture_world();
+        let mut core = configured_core(cfg.path(), &mods, &lib);
+        core.apply(&picks(&[("kazuha", None)]), Fault::None, &mut noop).unwrap();
+        assert!(lib.join("stash/Kazuha/Multi").is_dir());
+        core.apply(&picks(&[("kazuha", Some("kazuha--multi"))]), Fault::None, &mut noop).unwrap();
+        assert!(mods.join("Kazuha/Multi").is_dir());
+        assert!(!lib.join("stash/Kazuha").exists(), "the emptied container is gone");
+        assert!(lib.join("stash").is_dir(), "the stash itself stays");
+    }
+
+    #[test]
     fn switching_the_disable_method_migrates_inactive_skins() {
         let cfg = tempfile::tempdir().unwrap();
         let (_t, mods, lib) = fixture_world();
@@ -1060,7 +1077,8 @@ pub mod tests {
         let (_t, mods, lib) = fixture_world();
         let mut core = configured_core(cfg.path(), &mods, &lib);
         // enabled skins can't move (their folder would stay on under the old name)
-        let e = core.update_skin("furina--casual", SkinPatch { entity_id: Some("kazuha".into()), ..SkinPatch::default() });
+        let e =
+            core.update_skin("furina--casual", SkinPatch { entity_id: Some("kazuha".into()), ..SkinPatch::default() });
         assert_eq!(e.unwrap_err().code, "skin_enabled");
         core.apply(&picks(&[("furina", Some("furina--remembrance"))]), Fault::None, &mut noop).unwrap();
         let snap = core

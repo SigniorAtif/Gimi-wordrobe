@@ -1,5 +1,6 @@
 //! Thin `#[tauri::command]` wrappers over `core::app::AppCore` (SPEC §13). No disk logic lives here.
 
+use crate::core::add::{AddRequest, AddResult, ArchiveSummary};
 use crate::core::app::{AppCore, ApplyOutcome, EntityPatch, IMAGE_DIRS, Picks, SkinPatch};
 use crate::core::apply::Fault;
 use crate::core::error::{AppError, AppResult};
@@ -23,8 +24,10 @@ pub fn sync_asset_scope(app: &AppHandle, settings: &Settings) {
 
 pub struct AppState(pub Arc<Mutex<AppCore>>);
 
+/// Disk work is serialised on purpose (an add and an Apply must never interleave). A panic in one command poisons the
+/// lock; the core's state is still consistent (each operation undoes itself on error), so carry on with it.
 fn lock(core: &Mutex<AppCore>) -> AppResult<MutexGuard<'_, AppCore>> {
-    core.lock().map_err(|_| AppError::new("state", "Internal state is unavailable; restart the app."))
+    Ok(core.lock().unwrap_or_else(|poisoned| poisoned.into_inner()))
 }
 
 impl AppState {
@@ -125,6 +128,83 @@ pub async fn update_skin(state: State<'_, AppState>, skin_id: String, patch: Ski
 #[tauri::command]
 pub async fn update_entity(state: State<'_, AppState>, entity_id: String, patch: EntityPatch) -> AppResult<Snapshot> {
     state.run(move |c| c.update_entity(&entity_id, patch)).await
+}
+
+/// Debug builds only: `SKIN_SWITCHER_E2E_PICK_<WHAT>` answers a file dialog without showing it, so the e2e tests can
+/// drive "+ Add" (WebDriver can't operate native dialogs or OS file drags).
+fn e2e_pick(what: &str) -> Option<Option<String>> {
+    #[cfg(debug_assertions)]
+    if let Ok(v) = std::env::var(format!("SKIN_SWITCHER_E2E_PICK_{what}")) {
+        return Some(Some(v).filter(|v| !v.is_empty()));
+    }
+    let _ = what;
+    None
+}
+
+/// Native "open file" dialog, run off the main thread. None = cancelled.
+async fn pick_file(
+    app: AppHandle,
+    title: &'static str,
+    filter: &'static str,
+    exts: &'static [&'static str],
+) -> AppResult<Option<String>> {
+    use tauri_plugin_dialog::DialogExt;
+    tauri::async_runtime::spawn_blocking(move || {
+        app.dialog()
+            .file()
+            .set_title(title)
+            .add_filter(filter, exts)
+            .blocking_pick_file()
+            .and_then(|f| f.into_path().ok())
+            .map(|p| p.to_string_lossy().into_owned())
+    })
+    .await
+    .map_err(|e| AppError::new("dialog_failed", e.to_string()))
+}
+
+/// "+ Add" / "Choose another…": pick a mod archive.
+#[tauri::command]
+pub async fn pick_archive(app: AppHandle) -> AppResult<Option<String>> {
+    if let Some(p) = e2e_pick("ARCHIVE") {
+        return Ok(p);
+    }
+    pick_file(app, "Choose a mod archive", "Mod archives", &["zip", "rar", "7z"]).await
+}
+
+/// A portrait or preview image.
+#[tauri::command]
+pub async fn pick_image(app: AppHandle) -> AppResult<Option<String>> {
+    if let Some(p) = e2e_pick("IMAGE") {
+        return Ok(p);
+    }
+    pick_file(app, "Choose an image", "Images", &["png", "jpg", "jpeg", "webp"]).await
+}
+
+/// A4 / C4 summary of an archive (SPEC §9: list first, refuse unsafe archives).
+#[tauri::command]
+pub async fn analyze_archive(state: State<'_, AppState>, path: String) -> AppResult<ArchiveSummary> {
+    state.run(move |c| c.analyze_archive(std::path::Path::new(&path))).await
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AddProgress {
+    done: u64,
+    total: u64,
+    label: String,
+}
+
+/// Extract & add (SPEC §6 A4/C4). Emits `add-progress` while extracting.
+#[tauri::command]
+pub async fn add_skin(app: AppHandle, state: State<'_, AppState>, request: AddRequest) -> AppResult<AddResult> {
+    let emitter = app.clone();
+    state
+        .run(move |c| {
+            c.add_skin(request, &mut |done, total, label| {
+                let _ = emitter.emit("add-progress", AddProgress { done, total, label: label.to_string() });
+            })
+        })
+        .await
 }
 
 /// Remove a skin: folders and previews go to the Recycle Bin (SPEC §1).

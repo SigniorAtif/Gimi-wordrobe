@@ -148,3 +148,14 @@
 .ecard--extra .ecard__portrait {
   border-radius: 12px;
 }
+.ecard.is-drop-hover {
+  scale: 1.03;
+  box-shadow: var(--shadow-3);
+}
+.ecard {
+  transition:
+    border-color 160ms var(--ease-out),
+    box-shadow 200ms var(--ease-out),
+    background-color 160ms var(--ease-out),
+    scale 200ms var(--ease-out);
+}

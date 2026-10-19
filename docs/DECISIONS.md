@@ -127,3 +127,37 @@ these fill gaps or record where something had to be interpreted.
   A failed library save restores the in-memory library, so the UI never shows an edit that isn't on disk.
 - **Pages that are leaving ignore keys.** The outgoing page stays mounted during its exit animation, so A2/A3 key
   handlers check that the route still points at them; otherwise one Escape went back twice.
+
+## M5 Add flow
+
+- **Archives are read with bsdtar** (`bsdtar` on Linux, `C:\Windows\System32\tar.exe` on Windows), with 7-Zip and
+  then UnRAR as Windows-only fallbacks. A .rar fixture can't be made on Linux without the non-free `rar` tool, so .rar
+  is covered by the Windows testing guide instead of a fixture.
+- **Analysis extracts only the .ini files** into a staging folder under the Library to find mod roots, entities and
+  preview candidates; it is deleted afterwards. Nothing touches Mods until "Extract & add".
+- **Mod folders in one archive**: the first root is the main skin and can't be unticked. A nested root (Bennett's
+  sword, Oz) or one detected as another entity defaults to "its own skin", named after the main skin
+  ("Bennett Beach Day"); unticked roots are left out entirely.
+- **New skins land inactive** (stash or DISABLED_, per the disable method) unless "Make it the active skin" is on.
+  A4 defaults it on, matching the wireframe; C4 leaves it off and opens the entity's shelf so the user picks it there.
+- **C4 asks only for what it must** (name, link, NSFW, preview source; plus name, category and portrait for "+ New").
+  When the archive holds more than one mod, it says so and "More options…" opens A4 on the same archive.
+- **File pickers are Rust commands**, so debug builds can answer them with `SKIN_SWITCHER_E2E_PICK_ARCHIVE` /
+  `_IMAGE` (like the Apply fault hook); WebDriver can't drive native dialogs or OS file drags.
+- **A portrait picked from outside the Library isn't previewed**: the asset protocol is scoped to the Library, so the
+  circle shows a check mark and the file name until the image is copied in.
+- **The drag chip sits exactly on the cursor.** A spring only made it trail the OS drag image, and it got stuck when
+  a drag started and moved within one frame.
+- **The "From GameBanana link" preview tile is shown but disabled** until M7 fetches images; the pasted link is saved
+  with the skin either way.
+- **A committed Apply tidies the stash folders its moves emptied** (only empty folders, so there is nothing to undo).
+- **Disk work stays serialised behind one lock**, adds included: an add and an Apply must never interleave. The window
+  stays responsive because commands run off the main thread; a panicked command no longer poisons the lock for good.
+- **Untrusted archive limits**: refused before extraction when the listing can't be parsed, a component is a Windows
+  device name or would be trimmed to `..`, or the archive unpacks to more than 8 GB or 50,000 entries. There is no
+  free-space check; a full disk fails the extraction and the staging folder is removed.
+- **Staging folders** (`<Library>/tmp/<tag>-<pid>-<time>-<n>`) are created with `create_dir`, which fails if the name
+  exists, and `<Library>/tmp` is swept at startup.
+- **Split skins keep the archive's NSFW flag**: hiding a weapon by mistake is better than showing one.
+- **`check:windows-core`** type-checks `src-tauri/src/core` for `x86_64-pc-windows-gnu` from Linux. The whole app
+  can't be checked that way (ring needs a MinGW C compiler), so `commands.rs` Windows paths wait for the Windows run.

@@ -23,6 +23,7 @@ import { useReduced } from "../lib/useReduced";
 import { riseIn, spring, staggerContainer, tween } from "../motion";
 import { useApp } from "../store/app";
 import { useHome } from "../store/home";
+import { useAdd } from "../store/add";
 import "./Home.css";
 
 /** Mode C home (C1 + C2): one scrolling page of sections; a card's shelf opens under its row (SPEC §6). */
@@ -43,6 +44,9 @@ export function Home({ snapshot }: { snapshot: Snapshot }) {
   const navigate = useApp((s) => s.navigate);
   const layout = snapshot.settings.layout;
   const clashes = useClashes();
+  const dragging = useAdd((s) => s.drag.active && s.drag.kind === "archive");
+  const browse = useAdd((s) => s.browse);
+  const dropOver = useAdd((s) => (s.drag.over?.kind === "entity" ? s.drag.over.id : s.drag.over?.kind === "new" ? `new:${s.drag.over.category}` : null));
   const shelfCols = useColumns(6, 4);
   const pageCols = useColumns(5, 4);
   const cols = layout === "pages" ? pageCols : shelfCols;
@@ -89,7 +93,7 @@ export function Home({ snapshot }: { snapshot: Snapshot }) {
 
   return (
     <>
-      <Toolbar ref={searchRef} animateIn={replay} onToggleNsfw={() => setNsfwVisible(!nsfwVisible)} />
+      <Toolbar ref={searchRef} animateIn={replay} onAdd={() => void browse()} onToggleNsfw={() => setNsfwVisible(!nsfwVisible)} />
       <motion.div className="home" variants={staggerContainer(total, reduced, 0.12)} initial={replay ? "hidden" : false} animate="show">
         {empty ? (
           <motion.div className="home__empty" variants={riseIn(reduced)}>
@@ -130,6 +134,8 @@ export function Home({ snapshot }: { snapshot: Snapshot }) {
                   ) : (
                     <SectionGrid
                       cat={cat}
+                      newTiles={dragging && cat === "character"}
+                      dropOver={dropOver}
                       views={views}
                       cols={cols}
                       openShelf={openShelf}
@@ -139,6 +145,7 @@ export function Home({ snapshot }: { snapshot: Snapshot }) {
                       onToggle={toggleShelf}
                       onOpenPage={openEntity}
                       onDetails={openSkin}
+                      onAdd={(id) => void browse(id)}
                       onMenu={(view, anchor) => setMenu({ view, anchor })}
                     />
                   )}
@@ -201,6 +208,8 @@ function PagesGrid({
 
 function SectionGrid({
   views,
+  newTiles,
+  dropOver,
   cols,
   openShelf,
   reduced,
@@ -209,10 +218,14 @@ function SectionGrid({
   onToggle,
   onOpenPage,
   onDetails,
+  onAdd,
   onMenu,
 }: {
   cat: Category;
   views: EntityView[];
+  /** "+ New character" and "+ New weapon / extra" tiles while an archive is dragged (C4) */
+  newTiles: boolean;
+  dropOver: string | null;
   cols: number;
   openShelf: string | null;
   reduced: boolean;
@@ -221,6 +234,7 @@ function SectionGrid({
   onToggle: (id: string) => void;
   onOpenPage: (id: string) => void;
   onDetails: (skinId: string) => void;
+  onAdd: (entityId: string) => void;
   onMenu: (v: EntityView, anchor: Anchor) => void;
 }) {
   // the shelf goes after the last card in the open card's row
@@ -235,6 +249,7 @@ function SectionGrid({
         open={v.entity.id === openShelf}
         reduced={reduced}
         conflict={conflicts.has(v.entity.id)}
+        dropHover={dropOver === v.entity.id}
         onToggle={() => onToggle(v.entity.id)}
         onContextMenu={(e) => onMenu(v, { x: e.clientX, y: e.clientY })}
       />,
@@ -250,10 +265,30 @@ function SectionGrid({
           whenHidden={whenHidden}
           onOpenPage={() => onOpenPage(ov.entity.id)}
           onDetails={onDetails}
+          onAdd={() => onAdd(ov.entity.id)}
         />,
       );
     }
   });
+  if (newTiles) {
+    for (const [key, label] of [
+      ["new:character", "+ New character"],
+      ["new:other", "+ New weapon / extra"],
+    ] as const) {
+      children.push(
+        <motion.div
+          key={key}
+          className={`home__newtile ${dropOver === key ? "is-drop-hover" : ""}`}
+          data-drop={key}
+          initial={reduced ? { opacity: 0 } : { opacity: 0, x: -14 }}
+          animate={{ opacity: 1, x: 0, transition: spring.smooth }}
+          exit={{ opacity: 0, transition: tween.micro }}
+        >
+          {label}
+        </motion.div>,
+      );
+    }
+  }
   return (
     <div className="home__grid" style={{ ["--cols" as string]: cols }}>
       <AnimatePresence initial={false}>{children}</AnimatePresence>
