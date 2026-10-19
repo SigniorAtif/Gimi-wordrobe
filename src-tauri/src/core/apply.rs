@@ -637,6 +637,22 @@ pub fn execute_verified(
     Ok(total)
 }
 
+/// After a committed batch, remove stash folders the moves left empty (e.g. `stash/Kazuha` once Multi is back in
+/// Mods). Best effort: the stash is ours, `remove_dir` only ever removes empty folders, and there is nothing to undo.
+pub fn tidy_stash(plan: &Plan, stash: &Path) {
+    for op in &plan.ops {
+        if let Op::Move { from, .. } = op {
+            let mut cur = from.parent();
+            while let Some(dir) = cur {
+                if dir == stash || !dir.starts_with(stash) || fs::remove_dir(dir).is_err() {
+                    break;
+                }
+                cur = dir.parent();
+            }
+        }
+    }
+}
+
 /// Roll back an interrupted Apply found at startup. Returns Some(undone) when a journal existed.
 pub fn recover(journal_path: &Path) -> AppResult<Option<usize>> {
     let Some(journal) = fsutil::read_json_or_bak::<Journal>(journal_path)? else { return Ok(None) };

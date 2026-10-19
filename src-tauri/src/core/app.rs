@@ -376,7 +376,7 @@ impl AppCore {
         };
         let journal = self.journal_path();
         match apply::execute_verified(&plan, &mods, journal.as_deref(), fault, progress, &verify) {
-            Ok(_) => {}
+            Ok(_) => apply::tidy_stash(&plan, &stash),
             Err(ExecError::Crashed) => return Err(AppError::new("crashed", "Apply was interrupted.")),
             Err(e) => {
                 let _ = self.rescan();
@@ -953,6 +953,19 @@ pub mod tests {
         let text = fs::read_to_string(&user_ini).unwrap();
         assert!(text.contains("$\\mods\\sandrone_marionette_by_neyori\\outfit\\sandrone.ini\\hat = 2"), "{text}");
         assert!(text.contains("$\\global\\healthbar\\health = -1"));
+    }
+
+    #[test]
+    fn activating_a_skin_leaves_no_empty_folders_in_the_stash() {
+        let cfg = tempfile::tempdir().unwrap();
+        let (_t, mods, lib) = fixture_world();
+        let mut core = configured_core(cfg.path(), &mods, &lib);
+        core.apply(&picks(&[("kazuha", None)]), Fault::None, &mut noop).unwrap();
+        assert!(lib.join("stash/Kazuha/Multi").is_dir());
+        core.apply(&picks(&[("kazuha", Some("kazuha--multi"))]), Fault::None, &mut noop).unwrap();
+        assert!(mods.join("Kazuha/Multi").is_dir());
+        assert!(!lib.join("stash/Kazuha").exists(), "the emptied container is gone");
+        assert!(lib.join("stash").is_dir(), "the stash itself stays");
     }
 
     #[test]
