@@ -37,7 +37,10 @@ export function SkinDetail({ skinId }: { skinId: string }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement;
-      if (t.closest("input, textarea") || e.defaultPrevented) return;
+      if (t.closest("input, textarea, select") || e.defaultPrevented) return;
+      // the outgoing page stays mounted during its exit animation; only the current one handles keys
+      const r = useApp.getState().route;
+      if (r.name !== "skin" || r.skinId !== skinId) return;
       if (e.key === "Escape" || e.key === "Backspace") {
         e.preventDefault();
         back();
@@ -45,7 +48,7 @@ export function SkinDetail({ skinId }: { skinId: string }) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [back]);
+  }, [back, skinId]);
 
   if (!skin || !entity || (skin.nsfw && !nsfwVisible)) {
     return (
