@@ -74,9 +74,9 @@ export function EntityCard({
                     {on && (
                       <motion.span
                         className="ecard__dot-fill"
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1, transition: { type: "spring", stiffness: 600, damping: 22 } }}
-                        exit={{ scale: 0, transition: tween.micro }}
+                        initial={{ scale: 0, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1, transition: { type: "spring", stiffness: 600, damping: 22, opacity: tween.micro } }}
+                        exit={{ scale: 0, opacity: 0, transition: tween.micro }}
                       />
                     )}
                   </AnimatePresence>

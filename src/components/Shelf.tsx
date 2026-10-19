@@ -1,4 +1,4 @@
-import { motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { useState, type MouseEvent } from "react";
 import { api, toFailure } from "../api";
 import type { Skin } from "../api/types";
@@ -101,7 +101,7 @@ export function Shelf({
         )}
         <div className="shelf__strip" role="radiogroup" aria-label={`${entity.name} skins`}>
           <motion.div className="shelf__cell" {...enter(0)}>
-            <OriginalCard entityId={entity.id} selected={effective === null} pending={pending} name={entity.name} onPick={() => pick(entity.id, null)} />
+            <OriginalCard entityId={entity.id} selected={effective === null} pending={pending} name={entity.name} reduced={reduced} onPick={() => pick(entity.id, null)} />
           </motion.div>
           {skins.map((s, i) => (
             <motion.div key={s.id} className="shelf__cell" {...enter(i + 1)}>
@@ -111,6 +111,7 @@ export function Shelf({
                 selected={effective === s.id}
                 pending={pending && effective === s.id}
                 onNow={onDisk.includes(s.id)}
+                reduced={reduced}
                 onPick={() => pick(entity.id, s.id)}
                 onDetails={onDetails ? () => onDetails(s.id) : undefined}
                 onMenu={(e) => setMenu({ skin: s, anchor: (e.currentTarget as HTMLElement).getBoundingClientRect() })}
@@ -182,10 +183,21 @@ export function Shelf({
   );
 }
 
-/** The ACTIVE / PENDING tag. One per entity, shared layoutId, so it slides between cards (SPEC §7). */
-export function SelectionTag({ entityId, pending }: { entityId: string; pending: boolean }) {
+/**
+ * The ACTIVE / PENDING tag. One per entity, shared layoutId, so it slides between cards (SPEC §7).
+ * With reduced motion it crossfades in place instead.
+ */
+export function SelectionTag({ entityId, pending, reduced }: { entityId: string; pending: boolean; reduced: boolean }) {
+  const cls = `tag ${pending ? "tag--pending" : "tag--active"}`;
+  if (reduced) {
+    return (
+      <motion.span className={cls} initial={{ opacity: 0 }} animate={{ opacity: 1, transition: tween.small }} exit={{ opacity: 0, transition: tween.micro }}>
+        {pending ? "Pending" : "Active"}
+      </motion.span>
+    );
+  }
   return (
-    <motion.span layoutId={`tag-${entityId}`} className={`tag ${pending ? "tag--pending" : "tag--active"}`} transition={spring.snappy}>
+    <motion.span layoutId={`tag-${entityId}`} className={cls} transition={spring.snappy}>
       {pending ? "Pending" : "Active"}
     </motion.span>
   );
@@ -196,12 +208,14 @@ function OriginalCard({
   name,
   selected,
   pending,
+  reduced,
   onPick,
 }: {
   entityId: string;
   name: string;
   selected: boolean;
   pending: boolean;
+  reduced: boolean;
   onPick: () => void;
 }) {
   return (
@@ -221,7 +235,7 @@ function OriginalCard({
       <div className="skincard__meta">
         <RadioDot checked={selected} pending={selected && pending} />
         <span className="skincard__name">Original</span>
-        {selected && <SelectionTag entityId={entityId} pending={pending} />}
+        <AnimatePresence initial={false}>{selected && <SelectionTag entityId={entityId} pending={pending} reduced={reduced} />}</AnimatePresence>
       </div>
       <div className="skincard__author">default model</div>
     </button>
@@ -234,6 +248,7 @@ function SkinCard({
   selected,
   pending,
   onNow,
+  reduced,
   onPick,
   onDetails,
   onMenu,
@@ -243,6 +258,7 @@ function SkinCard({
   selected: boolean;
   pending: boolean;
   onNow: boolean;
+  reduced: boolean;
   onPick: () => void;
   onDetails?: () => void;
   onMenu: (e: MouseEvent) => void;
@@ -266,7 +282,7 @@ function SkinCard({
       <div className="skincard__meta">
         <RadioDot checked={selected} pending={pending} />
         <span className="skincard__name">{skin.name}</span>
-        {selected && <SelectionTag entityId={entityId} pending={pending} />}
+        <AnimatePresence initial={false}>{selected && <SelectionTag entityId={entityId} pending={pending} reduced={reduced} />}</AnimatePresence>
       </div>
       <div className="skincard__author">
         {onNow && !selected ? "on now · turns off" : skin.author ? `by ${skin.author}` : " "}

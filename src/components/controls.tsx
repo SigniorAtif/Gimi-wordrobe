@@ -79,9 +79,9 @@ export function RadioDot({ checked, pending }: { checked: boolean; pending?: boo
           <motion.span
             key="fill"
             className="radio__fill"
-            initial={{ scale: 0 }}
-            animate={{ scale: 1, transition: { type: "spring", stiffness: 600, damping: 22 } }}
-            exit={{ scale: 0, transition: { duration: 0.12 } }}
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1, transition: { type: "spring", stiffness: 600, damping: 22, opacity: { duration: 0.12 } } }}
+            exit={{ scale: 0, opacity: 0, transition: { duration: 0.12 } }}
           />
         )}
       </AnimatePresence>
