@@ -4,7 +4,15 @@ use crate::core::error::{AppError, AppResult};
 use crate::core::model::{DiskState, HashIndexInfo, Library, Settings, Snapshot};
 use serde::Deserialize;
 use std::sync::Mutex;
-use tauri::State;
+use tauri::{AppHandle, Manager, State};
+
+/// Let the webview load images from the Library only (previews, portraits) via the asset protocol (SPEC §10).
+pub fn sync_asset_scope(app: &AppHandle, settings: &Settings) {
+    let lib = settings.library_path.trim();
+    if !lib.is_empty() {
+        let _ = app.asset_protocol_scope().allow_directory(lib, true);
+    }
+}
 
 #[derive(Default)]
 pub struct AppState {
@@ -35,8 +43,9 @@ pub fn rescan(state: State<'_, AppState>) -> AppResult<Snapshot> {
 }
 
 #[tauri::command]
-pub fn save_settings(state: State<'_, AppState>, settings: Settings) -> AppResult<Snapshot> {
+pub fn save_settings(app: AppHandle, state: State<'_, AppState>, settings: Settings) -> AppResult<Snapshot> {
     let mut s = state.settings.lock().map_err(|_| AppError::new("state", "state poisoned"))?;
+    sync_asset_scope(&app, &settings);
     *s = settings;
     Ok(snapshot(&s))
 }

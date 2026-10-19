@@ -36,6 +36,7 @@ export const api: Api = {
   openUrl: (url) => openExternal(url),
   setWindowTitle: (title) => getCurrentWindow().setTitle(title),
   assetUrl(relPath) {
+    if (!libraryRoot || relPath.split(/[\\/]/).some((p) => p === "..")) return "";
     const sep = libraryRoot.includes("\\") ? "\\" : "/";
     const full = `${libraryRoot.replace(/[\\/]+$/, "")}${sep}${relPath.replace(/[\\/]/g, sep)}`;
     return convertFileSrc(full);
