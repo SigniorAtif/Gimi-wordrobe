@@ -1,0 +1,17 @@
+.settings__header {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  height: var(--toolbar-h);
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  padding: 0 var(--gutter);
+  background: var(--bg);
+  border-bottom: 1px solid var(--border-soft);
+}
+.settings__title {
+  margin: 0;
+  font-size: var(--fs-title);
+  font-weight: 650;
+}
