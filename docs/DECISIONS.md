@@ -19,3 +19,5 @@ these fill gaps or record where something had to be interpreted.
 - **No `fs` plugin.** SPEC §13 lists it, but it also says all disk work runs in Rust. The webview never touches the
   file system directly, so the plugin would only widen the attack surface. Images are served via the asset protocol.
 - **Window:** 1280x800, min 1000x700, `backgroundColor` set to the app's `--bg` so there is no white flash.
+- **PR screenshots** live on an orphan `pr-assets` branch (never merged). Only browser-harness captures with generated
+  art go there, never real mod files, previews or names from the user's disk.
