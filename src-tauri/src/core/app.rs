@@ -1,16 +1,46 @@
 //! `AppCore` owns the app's state and implements every operation the commands expose.
 //! Tauri-free, so integration tests can drive it directly against fixtures.
 
+use super::apply::{self, ExecError, Fault, Roots};
 use super::error::{AppError, AppResult};
 use super::hashindex::HashIndex;
 use super::import;
 use super::library;
-use super::model::{Library, Settings, Snapshot};
+use super::model::{Library, RecoveryInfo, Settings, Skin, Snapshot};
+use super::persist;
 use super::scanner::{self, ScanContext, ScanResult};
 use super::settings;
 use super::state;
+use serde::Serialize;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
+use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
+
+/// entityId -> chosen skin id, or None for "Original / no mod".
+pub type Picks = BTreeMap<String, Option<String>>;
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApplyOutcome {
+    pub snapshot: Snapshot,
+    /// Skins enabled or disabled by this Apply.
+    pub changed: usize,
+    /// The disk changed since the UI last looked: nothing was applied, the UI shows the fresh state.
+    pub changed_outside: bool,
+    pub warnings: Vec<String>,
+}
+
+/// A fingerprint of what's on disk, to notice changes made outside the app (SPEC §3).
+fn signature(s: &Snapshot) -> u64 {
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    for (id, st) in &s.disk.skins {
+        id.hash(&mut h);
+        format!("{:?}", st.location).hash(&mut h);
+    }
+    s.disk.unknown_roots.hash(&mut h);
+    h.finish()
+}
 
 /// Library sub-folders the webview may load images from (asset protocol scope).
 pub const IMAGE_DIRS: [&str; 2] = ["previews", "portraits"];
@@ -29,6 +59,9 @@ pub struct AppCore {
     library_error: Option<String>,
     /// settings.json on disk fails validation (hand-edited): treated as not configured.
     settings_error: Option<String>,
+    /// Disk fingerprint of the last snapshot handed to the UI.
+    last_sig: Option<u64>,
+    recovered: Option<RecoveryInfo>,
 }
 
 impl AppCore {
@@ -47,6 +80,8 @@ impl AppCore {
             last_scan: None,
             library_error: None,
             settings_error: None,
+            last_sig: None,
+            recovered: None,
         };
         if core.settings.is_configured()
             && let Err(e) = settings::validate(&core.settings)
@@ -158,7 +193,7 @@ impl AppCore {
             library: self.library.clone(),
             disk: state::disk_state(&self.library, mods.as_deref(), stash.as_deref(), libraries, unknown),
             changed_outside: false,
-            recovered: None,
+            recovered: self.recovered.clone(),
             hash_index: self.index.info(),
             configured: self.settings.is_configured() && self.settings_error.is_none(),
             notice: self.settings_error.clone().or_else(|| self.library_error.clone()),
@@ -166,8 +201,36 @@ impl AppCore {
         }
     }
 
+    /// Hand a snapshot to the UI and remember what the disk looked like.
+    fn publish(&mut self) -> Snapshot {
+        let s = self.snapshot();
+        self.last_sig = Some(signature(&s));
+        s
+    }
+
+    fn journal_path(&self) -> Option<PathBuf> {
+        self.library_dir().map(|d| d.join(apply::JOURNAL_FILE))
+    }
+
+    /// Startup: roll back an interrupted Apply (SPEC §3 journal), then scan.
     pub fn load(&mut self) -> AppResult<Snapshot> {
-        self.rescan()
+        self.recovered = None;
+        if let Some(j) = self.journal_path() {
+            self.recovered = match apply::recover(&j) {
+                Ok(Some(n)) => Some(RecoveryInfo {
+                    rolled_back: n,
+                    message: "The last Apply was interrupted, so the Mods folder was put back the way it was.".into(),
+                }),
+                Ok(None) => None,
+                Err(e) => Some(RecoveryInfo {
+                    rolled_back: 0,
+                    message: format!("The last Apply was interrupted and couldn't be fully undone: {}", e.message),
+                }),
+            };
+        }
+        let snap = self.rescan();
+        self.recovered = None;
+        snap
     }
 
     /// Re-read the Mods folder. On the very first scan of an empty library every mod root is adopted
@@ -175,7 +238,7 @@ impl AppCore {
     pub fn rescan(&mut self) -> AppResult<Snapshot> {
         let Some(mods) = self.mods_dir().filter(|m| m.is_dir()) else {
             self.last_scan = None;
-            return Ok(self.snapshot());
+            return Ok(self.publish());
         };
         let scan = {
             let ctx = ScanContext::new(&self.index, &self.library);
@@ -191,11 +254,167 @@ impl AppCore {
             changed |= import::adopt_unowned(&mut self.library, &scan) > 0;
         }
         changed |= self.refresh_active_skins(&scan);
+        changed |= self.backup_persist(&mods);
         self.last_scan = Some(scan);
         if changed {
             self.save_library()?;
         }
-        Ok(self.snapshot())
+        Ok(self.publish())
+    }
+
+    /// Copy active skins' d3dx_user.ini lines into the library (SPEC §3).
+    fn backup_persist(&mut self, mods: &Path) -> bool {
+        let Some(user_ini) = persist::user_ini_path(mods) else { return false };
+        let stash = self.stash_dir();
+        let active: BTreeSet<String> = self
+            .library
+            .skins
+            .iter()
+            .filter(|s| state::locate(s, mods, stash.as_deref()).active)
+            .map(|s| s.id.clone())
+            .collect();
+        let mut refs: Vec<&mut Skin> = self.library.skins.iter_mut().filter(|s| active.contains(&s.id)).collect();
+        persist::backup(&user_ini, &mut refs)
+    }
+
+    fn roots(&self) -> AppResult<(PathBuf, PathBuf)> {
+        let mods = self
+            .mods_dir()
+            .filter(|m| m.is_dir())
+            .ok_or_else(|| AppError::new("no_mods", "The Mods folder isn't set or doesn't exist."))?;
+        let stash = self.stash_dir().ok_or_else(|| AppError::new("no_library", "Choose a Library folder first."))?;
+        Ok((mods, stash))
+    }
+
+    /// Apply pending picks as one batch (SPEC §3): re-scan, refuse if the disk changed under the UI, move folders
+    /// with a journal, verify, roll back on any failure, then restore the activated skins' toggles.
+    pub fn apply(
+        &mut self,
+        picks: &Picks,
+        fault: Fault,
+        progress: &mut dyn FnMut(usize, usize, &str),
+    ) -> AppResult<ApplyOutcome> {
+        let (mods, stash) = self.roots()?;
+        let seen = self.last_sig;
+        let fresh = self.rescan()?;
+        if seen.is_some() && seen != Some(signature(&fresh)) {
+            return Ok(ApplyOutcome { snapshot: fresh, changed: 0, changed_outside: true, warnings: vec![] });
+        }
+        let plan =
+            apply::plan(&self.library, picks, Roots { mods: &mods, stash: &stash }, self.settings.disable_method)?;
+        if plan.is_empty() {
+            return Ok(ApplyOutcome { snapshot: fresh, changed: 0, changed_outside: false, warnings: vec![] });
+        }
+        let lib = &self.library;
+        let verify = || -> AppResult<()> {
+            for (entity, target) in picks {
+                for s in lib.skins.iter().filter(|s| &s.entity_id == entity) {
+                    let want = target.as_deref() == Some(s.id.as_str());
+                    if state::locate(s, &mods, Some(&stash)).active != want {
+                        let what = if want { "enabled" } else { "disabled" };
+                        return Err(AppError::new("verify_failed", format!("{} didn't end up {what}.", s.name)));
+                    }
+                }
+            }
+            Ok(())
+        };
+        let journal = self.journal_path();
+        match apply::execute_verified(&plan, &mods, journal.as_deref(), fault, progress, &verify) {
+            Ok(_) => {}
+            Err(ExecError::Crashed) => return Err(AppError::new("crashed", "Apply was interrupted.")),
+            Err(e) => {
+                let _ = self.rescan();
+                return Err(e.into());
+            }
+        }
+        let mut warnings = vec![];
+        let activated: Vec<&Skin> = plan.activate.iter().filter_map(|id| self.library.skin(id)).collect();
+        if let Some(ui) = persist::user_ini_path(&mods)
+            && let Err(e) = persist::restore(&ui, &activated)
+        {
+            warnings.push(format!("Saved in-mod toggles couldn't be restored: {}", e.message));
+        }
+        let changed = plan.activate.len() + plan.deactivate.len();
+        let snapshot = self.rescan()?;
+        Ok(ApplyOutcome { snapshot, changed, changed_outside: false, warnings })
+    }
+
+    /// Move a skin's folders, previews and library entry to the Recycle Bin (SPEC §1 never hard delete).
+    /// `delete` is the trash function (injected so tests don't touch the real Recycle Bin).
+    pub fn remove_skin(&mut self, id: &str, delete: &dyn Fn(&Path) -> std::io::Result<()>) -> AppResult<Snapshot> {
+        let skin = self
+            .library
+            .skin(id)
+            .cloned()
+            .ok_or_else(|| AppError::new("unknown_skin", "That skin no longer exists."))?;
+        let (mods, stash) = self.roots()?;
+        let mut parents = vec![];
+        for f in &skin.folders {
+            let mut found: Vec<PathBuf> = vec![];
+            if let Some(p) = state::resolve_ci(&mods, f) {
+                found.push(p);
+            }
+            if let Some((p, _)) = state::find_disabled(&mods, f) {
+                found.push(p);
+            }
+            if let Some(p) = state::resolve_ci(&stash, f) {
+                found.push(p);
+            }
+            for p in found {
+                if p.starts_with(&mods)
+                    && let Some(parent) = p.parent()
+                {
+                    parents.push(parent.to_path_buf());
+                }
+                delete(&p).map_err(|e| {
+                    AppError::new("trash_failed", format!("Couldn't move {} to the Recycle Bin: {e}", p.display()))
+                })?;
+            }
+        }
+        if let Some(previews) = self.library_dir().map(|l| l.join("previews").join(&skin.id)).filter(|p| p.exists()) {
+            let _ = delete(&previews);
+        }
+        // tidy folders under Mods that are now empty
+        for start in parents {
+            let mut cur = Some(start.as_path());
+            while let Some(dir) = cur {
+                if dir == mods || !dir.starts_with(&mods) || fs::remove_dir(dir).is_err() {
+                    break;
+                }
+                cur = dir.parent();
+            }
+        }
+        self.library.remove_skin(id);
+        self.save_library()?;
+        self.rescan()
+    }
+
+    /// Where a skin's first folder is right now (Mods, DISABLED_ in Mods, or the stash).
+    pub fn skin_path(&self, id: &str) -> Option<PathBuf> {
+        let skin = self.library.skin(id)?;
+        let (mods, stash) = self.roots().ok()?;
+        let f = skin.folders.first()?;
+        state::resolve_ci(&mods, f)
+            .or_else(|| state::find_disabled(&mods, f).map(|(p, _)| p))
+            .or_else(|| state::resolve_ci(&stash, f))
+    }
+
+    /// The folder holding an entity's skins in Mods when they share one, else the Mods folder.
+    pub fn entity_path(&self, id: &str) -> Option<PathBuf> {
+        let mods = self.mods_dir()?;
+        let parents: BTreeSet<String> = self
+            .library
+            .skins
+            .iter()
+            .filter(|s| s.entity_id == id)
+            .flat_map(|s| {
+                s.folders.iter().map(|f| f.rsplit_once('/').map(|(p, _)| p.to_lowercase()).unwrap_or_default())
+            })
+            .collect();
+        match parents.iter().next() {
+            Some(p) if parents.len() == 1 && !p.is_empty() => state::resolve_ci(&mods, p).or(Some(mods)),
+            _ => Some(mods),
+        }
     }
 
     /// Re-parse hotkeys and hashes of skins whose inis are in Mods, keeping user-edited labels.
@@ -222,6 +441,21 @@ impl AppCore {
     /// Settings save instantly (SPEC §6). Creates the Library folder (and its image folders) when one is set.
     pub fn save_settings(&mut self, next: Settings) -> AppResult<Snapshot> {
         settings::validate(&next)?;
+        // switching the disable method migrates every inactive skin in one batch with rollback (SPEC §3)
+        let same_paths =
+            next.mods_path() == self.settings.mods_path() && next.library_path == self.settings.library_path;
+        if same_paths
+            && next.disable_method != self.settings.disable_method
+            && self.settings.is_configured()
+            && let Ok((mods, stash)) = self.roots()
+        {
+            let plan = apply::plan_migration(&self.library, Roots { mods: &mods, stash: &stash }, next.disable_method)?;
+            if !plan.is_empty() {
+                let journal = self.journal_path();
+                apply::execute(&plan, &mods, journal.as_deref(), Fault::None, &mut |_, _, _| {})
+                    .map_err(AppError::from)?;
+            }
+        }
         let lib = next.library_path.trim();
         if !lib.is_empty() {
             for sub in IMAGE_DIRS {
@@ -397,5 +631,129 @@ pub mod tests {
         copy_dir(&mods.join("Furina/Casual"), &mods.join("Furina/Party"));
         let snap = core.rescan().unwrap();
         assert!(snap.disk.unknown_roots.contains(&"Furina/Party".to_string()), "{:?}", snap.disk.unknown_roots);
+    }
+
+    fn picks(v: &[(&str, Option<&str>)]) -> Picks {
+        v.iter().map(|(e, s)| (e.to_string(), s.map(str::to_string))).collect()
+    }
+
+    fn noop(_: usize, _: usize, _: &str) {}
+
+    #[test]
+    fn apply_leaves_exactly_one_enabled_skin_per_entity() {
+        let cfg = tempfile::tempdir().unwrap();
+        let (_t, mods, lib) = fixture_world();
+        let mut core = configured_core(cfg.path(), &mods, &lib);
+        let out = core.apply(&picks(&[("furina", Some("furina--casual"))]), Fault::None, &mut noop).unwrap();
+        assert!(!out.changed_outside);
+        assert_eq!(out.changed, 1, "Casual was already on; only Remembrance moves");
+        assert_eq!(out.snapshot.disk.active["furina"], vec!["furina--casual".to_string()]);
+        let out = core.apply(&picks(&[("furina", None)]), Fault::None, &mut noop).unwrap();
+        assert!(!out.snapshot.disk.active.contains_key("furina"));
+    }
+
+    #[test]
+    fn failed_apply_changes_nothing() {
+        let cfg = tempfile::tempdir().unwrap();
+        let (_t, mods, lib) = fixture_world();
+        let mut core = configured_core(cfg.path(), &mods, &lib);
+        let before = crate::core::apply::tests::tree(&mods);
+        let e = core.apply(&picks(&[("sandrone", None), ("paimon", None)]), Fault::FailAt(2), &mut noop).unwrap_err();
+        assert!(e.message.contains("Nothing was changed"), "{}", e.message);
+        assert_eq!(crate::core::apply::tests::tree(&mods), before);
+    }
+
+    #[test]
+    fn changes_made_outside_the_app_stop_the_apply() {
+        let cfg = tempfile::tempdir().unwrap();
+        let (_t, mods, lib) = fixture_world();
+        let mut core = configured_core(cfg.path(), &mods, &lib);
+        fs::rename(mods.join("Furina/Casual"), mods.join("Furina/DISABLED_Casual")).unwrap();
+        let out = core.apply(&picks(&[("paimon", None)]), Fault::None, &mut noop).unwrap();
+        assert!(out.changed_outside);
+        assert_eq!(out.changed, 0);
+        assert!(mods.join("paimon_cc116").is_dir(), "nothing moved");
+        // the UI now has the fresh state; applying again works
+        let out = core.apply(&picks(&[("paimon", None)]), Fault::None, &mut noop).unwrap();
+        assert!(!out.changed_outside);
+        assert!(!mods.join("paimon_cc116").exists());
+    }
+
+    #[test]
+    fn restart_after_a_killed_apply_restores_the_disk() {
+        let cfg = tempfile::tempdir().unwrap();
+        let (_t, mods, lib) = fixture_world();
+        let before = crate::core::apply::tests::tree(&mods);
+        {
+            let mut core = configured_core(cfg.path(), &mods, &lib);
+            let e =
+                core.apply(&picks(&[("sandrone", None), ("odette", None)]), Fault::CrashAt(3), &mut noop).unwrap_err();
+            assert_eq!(e.code, "crashed");
+        }
+        assert_ne!(crate::core::apply::tests::tree(&mods), before);
+        let mut core = AppCore::open(cfg.path());
+        core.set_index(test_index());
+        let snap = core.load().unwrap();
+        let rec = snap.recovered.expect("recovery reported");
+        assert!(rec.rolled_back > 0);
+        assert_eq!(crate::core::apply::tests::tree(&mods), before);
+        assert!(core.load().unwrap().recovered.is_none(), "reported once");
+    }
+
+    #[test]
+    fn in_mod_toggles_survive_switching_away_and_back() {
+        let cfg = tempfile::tempdir().unwrap();
+        let (t, mods, lib) = fixture_world();
+        let user_ini = t.path().join("d3dx_user.ini");
+        let mut core = configured_core(cfg.path(), &mods, &lib);
+        // the scan backed up Sandrone's hat = 2
+        let s = core.library().skin("sandrone--marionette").unwrap();
+        assert_eq!(
+            s.persist.as_ref().unwrap()["$\\mods\\sandrone_marionette_by_neyori\\outfit\\sandrone.ini\\hat"],
+            2.0
+        );
+        core.apply(&picks(&[("sandrone", None)]), Fault::None, &mut noop).unwrap();
+        // the game exits with Sandrone disabled and rewrites d3dx_user.ini without her lines
+        fs::write(&user_ini, "[Constants]\r\n$version = 7\r\n$\\global\\healthbar\\health = -1\r\n").unwrap();
+        core.rescan().unwrap();
+        core.apply(&picks(&[("sandrone", Some("sandrone--marionette"))]), Fault::None, &mut noop).unwrap();
+        let text = fs::read_to_string(&user_ini).unwrap();
+        assert!(text.contains("$\\mods\\sandrone_marionette_by_neyori\\outfit\\sandrone.ini\\hat = 2"), "{text}");
+        assert!(text.contains("$\\global\\healthbar\\health = -1"));
+    }
+
+    #[test]
+    fn switching_the_disable_method_migrates_inactive_skins() {
+        let cfg = tempfile::tempdir().unwrap();
+        let (_t, mods, lib) = fixture_world();
+        let mut core = configured_core(cfg.path(), &mods, &lib);
+        core.apply(&picks(&[("furina", Some("furina--remembrance"))]), Fault::None, &mut noop).unwrap();
+        assert!(lib.join("stash/Furina/Casual").is_dir());
+        let mut s = core.settings().clone();
+        s.disable_method = crate::core::model::DisableMethod::Prefix;
+        core.save_settings(s.clone()).unwrap();
+        assert!(mods.join("Furina/DISABLED_Casual").is_dir());
+        assert!(!lib.join("stash/Furina/Casual").exists());
+        // and Apply now uses the prefix
+        core.apply(&picks(&[("furina", Some("furina--casual"))]), Fault::None, &mut noop).unwrap();
+        assert!(mods.join("Furina/DISABLED_Remembrance").is_dir());
+        s.disable_method = crate::core::model::DisableMethod::Move;
+        core.save_settings(s).unwrap();
+        assert!(lib.join("stash/Furina/Remembrance").is_dir());
+    }
+
+    #[test]
+    fn removing_a_skin_sends_its_folders_to_the_bin() {
+        let cfg = tempfile::tempdir().unwrap();
+        let (t, mods, lib) = fixture_world();
+        let bin = t.path().join("bin");
+        fs::create_dir_all(&bin).unwrap();
+        let mut core = configured_core(cfg.path(), &mods, &lib);
+        let odette = core.library().skins.iter().find(|s| s.entity_id == "odette").unwrap().id.clone();
+        let to_bin = |p: &Path| fs::rename(p, bin.join(p.file_name().unwrap()));
+        let snap = core.remove_skin(&odette, &to_bin).unwrap();
+        assert!(bin.join("Odette").is_dir());
+        assert!(!mods.join("Odette").exists());
+        assert!(snap.library.skin(&odette).is_none());
     }
 }
