@@ -1,4 +1,4 @@
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, LayoutGroup, motion } from "motion/react";
 import { useState, type MouseEvent } from "react";
 import { api, toFailure } from "../api";
 import type { Skin } from "../api/types";
@@ -6,7 +6,11 @@ import type { EntityView } from "../lib/derive";
 import { spring, staggerDelay, tween } from "../motion";
 import { useApp } from "../store/app";
 import { useHome } from "../store/home";
+import { SkinInfo } from "../screens/SkinDetail";
+import { AutoHeight } from "./AutoHeight";
+import { Gallery } from "./Gallery";
 import { RadioDot } from "./controls";
+import { SelectionTag } from "./SelectionTag";
 import { Cover } from "./Cover";
 import { ConfirmDialog } from "./Modal";
 import { MenuItem, MenuSeparator, Popover, type Anchor } from "./Popover";
@@ -36,7 +40,16 @@ export function Shelf({
   const close = useHome((s) => s.closeShelf);
   const setNsfwVisible = useHome((s) => s.setNsfwVisible);
   const removeSkin = useHome((s) => s.removeSkin);
+  const peek = useHome((s) => s.peek);
+  const setPeek = useHome((s) => s.setPeek);
+  const snapshot = useApp((s) => s.snapshot)!;
   const toast = useApp((s) => s.toast);
+  const peekSkin = peek ? skins.find((s) => s.id === peek) : undefined;
+  /** C3 below ~1100px opens A3 instead (SPEC §6). */
+  const openPeek = (skinId: string) => {
+    if (window.innerWidth < 1100 && onDetails) onDetails(skinId);
+    else setPeek(skinId);
+  };
   const [menu, setMenu] = useState<{ skin: Skin; anchor: Anchor } | null>(null);
   const [confirm, setConfirm] = useState<Skin | null>(null);
   const multiOn = onDisk.length > 1 && !pending;
@@ -99,6 +112,62 @@ export function Shelf({
             {onDisk.length} skins are on at once. Pick the one to keep, then Apply.
           </p>
         )}
+        <AutoHeight reduced={reduced}>
+        {peekSkin ? (
+          <motion.div
+            key="peek"
+            className="peek"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1, transition: tween.small }}
+          >
+            <LayoutGroup id="peek">
+            <div className="peek__list" role="radiogroup" aria-label={`${entity.name} skins`}>
+              <div className="caps peek__list-title">{entity.name}'s skins</div>
+              <button type="button" role="radio" aria-checked={effective === null} className={`peek__row ${effective === null ? "is-selected" : ""}`} data-skin="original" onClick={() => pick(entity.id, null)}>
+                <span className="peek__thumb peek__thumb--orig">orig</span>
+                <span className="peek__row-name">Original</span>
+                <AnimatePresence initial={false}>{effective === null && <SelectionTag entityId={entity.id} pending={pending} reduced={reduced} />}</AnimatePresence>
+              </button>
+              {skins.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={effective === s.id}
+                  className={`peek__row ${effective === s.id ? "is-selected" : ""} ${peek === s.id ? "is-peeked" : ""}`}
+                  data-skin={s.id}
+                  onClick={() => {
+                    pick(entity.id, s.id);
+                    setPeek(s.id);
+                  }}
+                  onDoubleClick={() => onDetails?.(s.id)}
+                >
+                  <span className="peek__thumb">{s.previews[0] && <img src={api.assetUrl(s.previews[0].file)} alt="" loading="lazy" decoding="async" />}</span>
+                  <span className="peek__row-name">{s.name}</span>
+                  <AnimatePresence initial={false}>{effective === s.id && <SelectionTag entityId={entity.id} pending={pending} reduced={reduced} />}</AnimatePresence>
+                </button>
+              ))}
+              <button className="peek__add" onClick={onAdd} disabled={!onAdd}>
+                + Add skin
+              </button>
+            </div>
+            </LayoutGroup>
+            <motion.div className="peek__gallery" initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { ...tween.medium, delay: 0.08 } }}>
+              <Gallery skin={peekSkin} reduced={reduced} compact />
+            </motion.div>
+            <div className="peek__info">
+              <SkinInfo
+                skin={peekSkin}
+                snapshot={snapshot}
+                selected={effective === peekSkin.id}
+                pending={pending && effective === peekSkin.id}
+                reduced={reduced}
+                compact
+                onLess={() => setPeek(null)}
+              />
+            </div>
+          </motion.div>
+        ) : (
         <div className="shelf__strip" role="radiogroup" aria-label={`${entity.name} skins`}>
           <motion.div className="shelf__cell" {...enter(0)}>
             <OriginalCard entityId={entity.id} selected={effective === null} pending={pending} name={entity.name} reduced={reduced} onPick={() => pick(entity.id, null)} />
@@ -114,6 +183,7 @@ export function Shelf({
                 reduced={reduced}
                 onPick={() => pick(entity.id, s.id)}
                 onDetails={onDetails ? () => onDetails(s.id) : undefined}
+                onPeek={() => openPeek(s.id)}
                 onMenu={(e) => setMenu({ skin: s, anchor: (e.currentTarget as HTMLElement).getBoundingClientRect() })}
               />
             </motion.div>
@@ -142,6 +212,8 @@ export function Shelf({
             </motion.div>
           )}
         </div>
+        )}
+        </AutoHeight>
       </div>
       <Popover open={!!menu} anchor={menu?.anchor ?? null} onClose={() => setMenu(null)} align="end" label="Skin actions">
         {menu && (
@@ -180,26 +252,6 @@ export function Shelf({
         }}
       />
     </motion.div>
-  );
-}
-
-/**
- * The ACTIVE / PENDING tag. One per entity, shared layoutId, so it slides between cards (SPEC §7).
- * With reduced motion it crossfades in place instead.
- */
-export function SelectionTag({ entityId, pending, reduced }: { entityId: string; pending: boolean; reduced: boolean }) {
-  const cls = `tag ${pending ? "tag--pending" : "tag--active"}`;
-  if (reduced) {
-    return (
-      <motion.span className={cls} initial={{ opacity: 0 }} animate={{ opacity: 1, transition: tween.small }} exit={{ opacity: 0, transition: tween.micro }}>
-        {pending ? "Pending" : "Active"}
-      </motion.span>
-    );
-  }
-  return (
-    <motion.span layoutId={`tag-${entityId}`} className={cls} transition={spring.snappy}>
-      {pending ? "Pending" : "Active"}
-    </motion.span>
   );
 }
 
@@ -251,6 +303,7 @@ function SkinCard({
   reduced,
   onPick,
   onDetails,
+  onPeek,
   onMenu,
 }: {
   skin: Skin;
@@ -261,6 +314,7 @@ function SkinCard({
   reduced: boolean;
   onPick: () => void;
   onDetails?: () => void;
+  onPeek: () => void;
   onMenu: (e: MouseEvent) => void;
 }) {
   return (
@@ -274,7 +328,10 @@ function SkinCard({
         onClick={onPick}
         onDoubleClick={onDetails}
       />
-      <Cover skin={skin} className="skincard__cover" />
+      <Cover skin={skin} className="skincard__cover" flip reduced={reduced} />
+      <button type="button" className="skincard__info" aria-label={`Quick peek at ${skin.name} (I)`} title="Quick peek (I)" onClick={onPeek}>
+        i
+      </button>
       <button type="button" className="skincard__more" aria-label={`More actions for ${skin.name}`} onClick={onMenu}>
         ⋯
       </button>
