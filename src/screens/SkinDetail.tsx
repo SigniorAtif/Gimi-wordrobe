@@ -12,7 +12,7 @@ import { entityView, visibleSkins } from "../lib/derive";
 import { useReduced } from "../lib/useReduced";
 import { spring, tween } from "../motion";
 import { useApp } from "../store/app";
-import { useHome } from "../store/home";
+import { prunePicks, useHome } from "../store/home";
 import "./SkinDetail.css";
 
 /** A3 skin detail (SPEC §6, shared by both layouts). Double-click a skin card to get here. */
@@ -206,19 +206,22 @@ export function SkinInfo({
 
 function Notes({ skin }: { skin: Skin }) {
   const setSnapshot = useApp((s) => s.setSnapshot);
+  const toast = useApp((s) => s.toast);
   const [draft, setDraft] = useState(skin.notes ?? "");
   const [saved, setSaved] = useState<"idle" | "saving" | "saved">("idle");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const last = useRef(skin.notes ?? "");
   const save = async (text: string) => {
     if (text === last.current) return;
-    last.current = text;
     setSaved("saving");
     try {
       setSnapshot(await api.updateSkin(skin.id, { notes: text }));
+      // only remember what actually saved, so a failed save is retried on the next edit or blur
+      last.current = text;
       setSaved("saved");
-    } catch {
+    } catch (e) {
       setSaved("idle");
+      toast({ kind: "error", text: `Couldn't save the notes: ${toFailure(e).message}` });
     }
   };
   useEffect(() => () => {
@@ -228,6 +231,7 @@ function Notes({ skin }: { skin: Skin }) {
     <div className="notes">
       <textarea
         className="input"
+        aria-label="Notes"
         placeholder={'Your own notes, e.g. "use with the dark hair variant"…'}
         value={draft}
         onChange={(e) => {
@@ -254,7 +258,10 @@ function EditDetails({ skin, snapshot }: { skin: Skin; snapshot: Snapshot }) {
   const toast = useApp((s) => s.toast);
   const save = async (patch: Parameters<typeof api.updateSkin>[1]) => {
     try {
-      setSnapshot(await api.updateSkin(skin.id, patch));
+      const snap = await api.updateSkin(skin.id, patch);
+      setSnapshot(snap);
+      // a skin that moved to another character can't stay a pending pick for the old one
+      if (patch.entityId !== undefined) useHome.setState((h) => ({ picks: prunePicks(h.picks, snap) }));
     } catch (e) {
       toast({ kind: "error", text: toFailure(e).message });
     }

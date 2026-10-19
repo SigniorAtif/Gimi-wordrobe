@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "motion/react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { api, toFailure } from "../api";
 import type { Hotkey, ParsedKey, Skin, Snapshot } from "../api/types";
 import { keycaps, onlyWithoutModifiers, type HotkeyClash } from "../lib/hotkeys";
@@ -62,6 +62,8 @@ export function HotkeyTable({ skin, editable = true }: { skin: Skin; editable?: 
 function LabelInput({ value, onCommit }: { value: string; onCommit: (v: string) => void }) {
   const [draft, setDraft] = useState(value);
   const [seen, setSeen] = useState(value);
+  // Escape reverts: the blur that follows must not save the typed text
+  const cancelled = useRef(false);
   if (seen !== value) {
     setSeen(value);
     setDraft(value);
@@ -73,11 +75,18 @@ function LabelInput({ value, onCommit }: { value: string; onCommit: (v: string) 
       aria-label="Hotkey label"
       spellCheck={false}
       onChange={(e) => setDraft(e.target.value)}
-      onBlur={() => onCommit(draft)}
+      onBlur={() => {
+        if (cancelled.current) {
+          cancelled.current = false;
+          return;
+        }
+        onCommit(draft);
+      }}
       onKeyDown={(e) => {
         if (e.key === "Enter") (e.target as HTMLInputElement).blur();
         if (e.key === "Escape") {
           e.stopPropagation();
+          cancelled.current = true;
           setDraft(value);
           (e.target as HTMLInputElement).blur();
         }
