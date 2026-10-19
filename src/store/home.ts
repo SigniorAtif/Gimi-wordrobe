@@ -22,6 +22,13 @@ interface HomeState {
   chip: Chip;
   nsfwVisible: boolean;
   applyState: ApplyState;
+  /** C3 quick peek: the skin shown in the open shelf's 3-column view */
+  peek: string | null;
+  /** shared-element targets: the card that morphs into the next page's hero (SPEC §7) */
+  morphSkin: string | null;
+  morphEntity: string | null;
+  /** entity the user is "in" (open shelf or A2), kept across layout switches */
+  contextEntity: string | null;
 
   pick(entityId: string, skinId: string | null): void;
   undo(): void;
@@ -31,6 +38,8 @@ interface HomeState {
   setQuery(q: string): void;
   setChip(c: Chip): void;
   setNsfwVisible(v: boolean): void;
+  setPeek(skinId: string | null): void;
+  setMorph(m: { skin?: string | null; entity?: string | null }): void;
   apply(): Promise<void>;
   removeSkin(skinId: string): Promise<void>;
 }
@@ -67,6 +76,10 @@ export const useHome = create<HomeState>((set, get) => ({
   chip: "all",
   nsfwVisible: false,
   applyState: IDLE,
+  peek: null,
+  morphSkin: null,
+  morphEntity: null,
+  contextEntity: null,
 
   pick(entityId, skinId) {
     const snap = useApp.getState().snapshot;
@@ -91,11 +104,26 @@ export const useHome = create<HomeState>((set, get) => ({
   },
 
   toggleShelf(entityId) {
-    set((s) => ({ openShelf: s.openShelf === entityId ? null : entityId }));
+    set((s) => {
+      const open = s.openShelf === entityId ? null : entityId;
+      return { openShelf: open, peek: null, contextEntity: open };
+    });
   },
 
   closeShelf() {
-    set({ openShelf: null });
+    set({ openShelf: null, peek: null, contextEntity: null });
+  },
+
+  setPeek(peek) {
+    set({ peek });
+  },
+
+  setMorph(m) {
+    set((s) => ({
+      morphSkin: m.skin !== undefined ? m.skin : s.morphSkin,
+      morphEntity: m.entity !== undefined ? m.entity : s.morphEntity,
+      contextEntity: m.entity ? m.entity : s.contextEntity,
+    }));
   },
 
   setQuery(query) {

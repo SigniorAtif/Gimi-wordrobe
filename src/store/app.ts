@@ -43,7 +43,7 @@ interface AppState {
   boot(): Promise<void>;
   setSnapshot(s: Snapshot): void;
   navigate(r: Route): void;
-  replace(r: Route): void;
+  replace(r: Route, dir?: 1 | -1): void;
   back(): void;
   rememberScroll(key: string, top: number): void;
   saveSettings(patch: Partial<Settings>): Promise<void>;
@@ -94,8 +94,8 @@ export const useApp = create<AppState>((set, get) => ({
     set({ route: r, history: [...history, route], navDir: 1 });
   },
 
-  replace(r) {
-    set({ route: r, navDir: 1 });
+  replace(r, dir = 1) {
+    set({ route: r, navDir: dir });
   },
 
   back() {
