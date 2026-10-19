@@ -248,7 +248,8 @@ export type PreviewChoice = "gamebanana" | "archive" | "user" | "later";
 export interface AddSkinRequest {
   archivePath: string;
   main: AddTarget;
-  splits: (AddTarget & { rootPath: string })[];
+  /** `folders` lists every folder of a root that has several (Face + Outfit) */
+  splits: (AddTarget & { rootPath: string; folders?: string[] })[];
   exclude: string[];
   nsfw: boolean;
   gameBananaUrl?: string;

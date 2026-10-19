@@ -59,7 +59,16 @@ export function AddPanel() {
   };
 
   return (
-    <Popover open={!!flow} anchor={flow?.anchor ?? null} onClose={close} kind="dialog" label={title} className="addpanel">
+    <Popover
+      open={!!flow}
+      anchor={flow?.anchor ?? null}
+      // stays on its card while the page scrolls ("+ New" tiles vanish after the drop, so those keep the drop spot)
+      follow={() => (flow?.entityId ? document.querySelector(`[data-drop="entity:${flow.entityId}"]`) : null)}
+      onClose={close}
+      kind="dialog"
+      label={title}
+      className="addpanel"
+    >
       {flow && (
         <form
           className="addpanel__form"
@@ -159,7 +168,7 @@ export function AddPanel() {
                       })
                       .join(", ")}
                     .{" "}
-                    <button type="button" className="link" onClick={expand} disabled={busy}>
+                    <button type="button" className="link" onClick={() => expand(draft)} disabled={busy}>
                       More options…
                     </button>
                   </p>

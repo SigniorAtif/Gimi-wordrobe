@@ -2,6 +2,7 @@
 import { create } from "zustand";
 import { api, toFailure } from "../api";
 import type { AddProgress, AddSkinRequest, ArchiveSummary, Category } from "../api/types";
+import type { AddDraft } from "../lib/addDraft";
 import { useApp } from "./app";
 import { useHome } from "./home";
 
@@ -42,6 +43,8 @@ export interface AddFlow {
   newCategory: Category | null;
   /** C4: the card the popover is anchored to */
   anchor: DOMRect | null;
+  /** what C4 already had filled in when "More options…" opened A4 */
+  draft?: AddDraft | null;
 }
 
 interface AddState {
@@ -57,8 +60,8 @@ interface AddState {
   /** Pick an archive with the system dialog, then open A4. */
   browse(entityId?: string | null): Promise<void>;
   close(): void;
-  /** C4 -> A4 ("More options…"): same archive, the full dialog. */
-  expand(): void;
+  /** C4 -> A4 ("More options…"): same archive and answers, the full dialog. */
+  expand(draft: AddDraft | null): void;
   dropImage(path: string, target: DroppedImage["target"]): void;
   submit(req: AddSkinRequest, entityName: string): Promise<boolean>;
 }
@@ -88,6 +91,11 @@ export const useAdd = create<AddState>((set, get) => ({
   },
 
   async start(archivePath, opts) {
+    if (get().busy) {
+      // an add is extracting: replacing its flow would lose this archive when that add finishes
+      useApp.getState().toast({ kind: "info", text: "One archive at a time: wait until the current add finishes." });
+      return;
+    }
     set({
       flow: {
         kind: opts.kind,
@@ -106,7 +114,9 @@ export const useAdd = create<AddState>((set, get) => ({
       if (get().flow?.archivePath === archivePath) set((s) => ({ flow: s.flow && { ...s.flow, summary } }));
     } catch (e) {
       const f = toFailure(e);
-      if (f.code === "unsafe_archive") {
+      // a late answer about an earlier archive must not touch the flow open now
+      if (get().flow?.archivePath !== archivePath) return;
+      if (f.code === "unsafe_archive" || f.code === "archive_too_big") {
         set({ flow: null });
         useApp.getState().toast({ kind: "error", text: "Archive rejected.", detail: f.message, ttl: 10000 });
       } else {
@@ -125,8 +135,8 @@ export const useAdd = create<AddState>((set, get) => ({
     set({ flow: null, progress: null, droppedImage: null });
   },
 
-  expand() {
-    set((s) => ({ flow: s.flow && { ...s.flow, kind: "a4", anchor: null } }));
+  expand(draft) {
+    set((s) => ({ flow: s.flow && { ...s.flow, kind: "a4", anchor: null, draft } }));
   },
 
   dropImage(path, target) {
@@ -134,13 +144,16 @@ export const useAdd = create<AddState>((set, get) => ({
   },
 
   async submit(req, entityName) {
+    if (get().busy) return false;
     const app = useApp.getState();
     set({ busy: true, progress: { done: 0, total: 1, label: "Extracting" } });
     try {
       const r = await api.addSkin(req, (progress) => set({ progress }));
       app.setSnapshot(r.snapshot);
-      set({ busy: false, flow: null, progress: null });
-      app.toast({ kind: "success", text: `Added ${req.main.skinName} to ${entityName}.` });
+      set((s) => ({ busy: false, progress: null, flow: s.flow?.archivePath === req.archivePath ? null : s.flow }));
+      // a hidden 18+ skin isn't named, not even in a toast (SPEC §11)
+      const hidden = req.nsfw && !useHome.getState().nsfwVisible;
+      app.toast({ kind: "success", text: hidden ? `Added a hidden 18+ skin to ${entityName}.` : `Added ${req.main.skinName} to ${entityName}.` });
       for (const w of r.warnings) app.toast({ kind: "info", text: w });
       // show where it went: the entity's shelf (Shelves) or its page (Pages)
       const main = r.snapshot.library.skins.find((s) => s.id === r.skinIds[r.skinIds.length - 1]);

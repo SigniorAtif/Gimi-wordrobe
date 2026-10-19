@@ -94,6 +94,14 @@ export function initialDraft(
 }
 
 /** Default name for a split-out skin: "Bennett Beach Day" for the sword out of Bennett's "Beach Day". */
+/** Tick or untick a root; roots nested inside it follow, since they can't be added without their parent's files. */
+export function withRootIncluded(draft: AddDraft, summary: ArchiveSummary, i: number, include: boolean): AddDraft {
+  const parent = summary.roots[i];
+  const inside = (j: number) =>
+    j !== i && !!parent && summary.roots[j]?.folders.some((f) => parent.folders.some((p) => p && f.toLowerCase().startsWith(`${p.toLowerCase()}/`)));
+  return { ...draft, roots: draft.roots.map((r, j) => (j === i || inside(j) ? { ...r, include } : r)) };
+}
+
 export function defaultSplitName(draft: AddDraft, entities: Entity[]): string {
   return [choiceName(draft.entity, entities), draft.skinName.trim()].filter(Boolean).join(" ") || "Skin";
 }
@@ -130,9 +138,10 @@ export function checkDraft(draft: AddDraft, summary: ArchiveSummary, entities: E
     if (i === 0 || !root || !r.include || !r.own) return;
     const t = target(r.entity, r.skinName.trim() || splitName);
     if (!t) errors.roots ??= `Pick where ${rootLabel(root, summary)} goes.`;
-    else splits.push({ ...t, rootPath: root.path });
+    else splits.push({ ...t, rootPath: root.path, ...(root.folders.length > 1 ? { folders: root.folders } : {}) });
   });
-  const exclude = draft.roots.flatMap((r, i) => (i > 0 && !r.include && summary.roots[i] ? [summary.roots[i].path] : []));
+  // every folder of an unticked root stays behind, not just its first
+  const exclude = [...new Set(draft.roots.flatMap((r, i) => (i > 0 && !r.include && summary.roots[i] ? summary.roots[i].folders : [])))];
   if (Object.keys(errors).length || !main) return { request: null, errors };
   return {
     errors,

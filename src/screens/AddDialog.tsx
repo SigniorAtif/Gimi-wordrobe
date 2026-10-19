@@ -25,6 +25,7 @@ import {
   type AddDraft,
   type EntityChoice,
   type RootDraft,
+  withRootIncluded,
 } from "../lib/addDraft";
 import { useReduced } from "../lib/useReduced";
 import { shake, spring, tween } from "../motion";
@@ -405,6 +406,7 @@ function RootList({
   error?: string;
 }) {
   const setRoot = (i: number, patch: Partial<RootDraft>) => setDraft({ ...draft, roots: draft.roots.map((r, j) => (j === i ? { ...r, ...patch } : r)) });
+  const setInclude = (i: number, include: boolean) => setDraft(withRootIncluded(draft, summary, i, include));
   const splitName = defaultSplitName(draft, entities);
   return (
     <div className="roots">
@@ -422,7 +424,7 @@ function RootList({
                 checked={d.include}
                 disabled={main}
                 title={main ? "The main skin" : undefined}
-                onChange={(e) => setRoot(i, { include: e.target.checked })}
+                onChange={(e) => setInclude(i, e.target.checked)}
               />
               <span className="roots__name" title={rootLabel(root, summary)}>
                 {rootLabel(root, summary)}

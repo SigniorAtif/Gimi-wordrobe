@@ -25,6 +25,7 @@ export function Popover({
   className,
   label,
   kind = "menu",
+  follow,
 }: {
   open: boolean;
   anchor: Anchor | null;
@@ -34,9 +35,15 @@ export function Popover({
   className?: string;
   label?: string;
   kind?: "menu" | "dialog";
+  /** dialog only: the element it belongs to, re-measured when the page scrolls */
+  follow?: () => Element | null;
 }) {
   const reduced = useReduced();
   const ref = useRef<HTMLDivElement>(null);
+  const followRef = useRef(follow);
+  useLayoutEffect(() => {
+    followRef.current = follow;
+  });
   const [pos, setPos] = useState<{ left: number; top: number; origin: string } | null>(null);
   const below = useRef(true);
 
@@ -44,7 +51,7 @@ export function Popover({
     if (!open || !anchor || !ref.current) return;
     const el = ref.current;
     const place = (first: boolean) => {
-      const a = anchorPoint(anchor);
+      const a = anchorPoint(followRef.current?.()?.getBoundingClientRect() ?? anchor);
       const box = el.getBoundingClientRect();
       const margin = 8;
       let left = align === "end" ? a.x + a.w - box.width : a.x;
@@ -65,9 +72,11 @@ export function Popover({
     ro.observe(el);
     const onResize = () => place(false);
     window.addEventListener("resize", onResize);
+    window.addEventListener("scroll", onResize, true);
     return () => {
       ro.disconnect();
       window.removeEventListener("resize", onResize);
+      window.removeEventListener("scroll", onResize, true);
     };
   }, [open, anchor, align, kind]);
 

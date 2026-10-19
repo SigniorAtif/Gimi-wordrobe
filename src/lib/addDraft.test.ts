@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ArchiveSummary, Entity } from "../api/types";
-import { checkDraft, initialDraft } from "./addDraft";
+import { checkDraft, initialDraft, withRootIncluded } from "./addDraft";
 
 const entities: Entity[] = [
   { id: "bennett", name: "Bennett", category: "character", skinIds: [], aliases: [] },
@@ -75,5 +75,22 @@ describe("add draft (A4 / C4)", () => {
       newEntity: { name: "Lumine", category: "character", portraitPath: "/p.png" },
       skinName: "Beach Day",
     });
+  });
+
+  it("unticks nested roots with their parent and sends every folder of a multi-folder root", () => {
+    const multi: ArchiveSummary = {
+      ...bennett,
+      roots: [
+        bennett.roots[0],
+        { ...bennett.roots[1], path: "Side/Face", folders: ["Side/Face", "Side/Outfit"], nested: false },
+        { ...bennett.roots[1], path: "Side/Face/Glow", folders: ["Side/Face/Glow"], nested: true },
+      ],
+    };
+    let d = initialDraft(multi, opts);
+    d = withRootIncluded(d, multi, 1, false);
+    expect(d.roots.map((r) => r.include)).toEqual([true, false, false]);
+    expect(checkDraft(d, multi, entities).request?.exclude).toEqual(["Side/Face", "Side/Outfit", "Side/Face/Glow"]);
+    d = withRootIncluded(d, multi, 1, true);
+    expect(checkDraft(d, multi, entities).request?.splits[0]).toMatchObject({ rootPath: "Side/Face", folders: ["Side/Face", "Side/Outfit"] });
   });
 });

@@ -16,7 +16,12 @@ export function useAddDraft(flow: AddFlow | null, entities: Entity[], makeActive
   const summary = flow?.summary ?? null;
   if (summary !== seen) {
     setSeen(summary);
-    setDraft(summary && flow ? initialDraft(summary, { entityId: flow.entityId, newCategory: flow.newCategory, entities, makeActive }) : null);
+    // A4 opened from C4 ("More options…") carries on with what was filled in there
+    setDraft(
+      summary && flow
+        ? (flow.draft ?? initialDraft(summary, { entityId: flow.entityId, newCategory: flow.newCategory, entities, makeActive }))
+        : null,
+    );
   }
   // an image dropped on the window becomes the new entry's portrait or the skin's own preview
   const dropped = useAdd((s) => s.droppedImage);
@@ -154,7 +159,8 @@ export function PreviewPicker({
     <div className={`previews-pick ${compact ? "previews-pick--compact" : ""}`} role="radiogroup" aria-label="Preview source">
       {PREVIEW_OPTIONS.map((o) => {
         const on = draft.preview === o.value;
-        const disabled = (o.value === "archive" && imageCount === 0) || (o.value === "gamebanana" && !gbOk);
+        // fetching from GameBanana arrives with the previews milestone; until then the tile only shows it's coming
+        const disabled = (o.value === "archive" && imageCount === 0) || o.value === "gamebanana";
         const pick = async () => {
           if (o.value === "user") {
             const p = draft.userImage ?? (await api.pickImage());
@@ -172,12 +178,12 @@ export function PreviewPicker({
             disabled={disabled}
             className={`ptile ${on ? "is-on" : ""}`}
             data-drop={o.value === "user" ? "preview" : undefined}
-            title={o.value === "gamebanana" && !gbOk ? "Paste a GameBanana link first" : undefined}
+            title={o.value === "gamebanana" ? "Fetching images from GameBanana comes in a later update" : undefined}
             onClick={() => void pick()}
           >
             {on && <motion.span layoutId={`ptile-${id}`} className="ptile__ring" transition={spring.snappy} />}
             <span className="ptile__art" aria-hidden>
-              {o.value === "gamebanana" && (gbOk ? "Fetched after adding" : "Paste a link")}
+              {o.value === "gamebanana" && (gbOk ? "Coming soon" : "Paste a link")}
               {o.value === "archive" && (imageCount ? `${imageCount} image${imageCount === 1 ? "" : "s"}` : "None inside")}
               {o.value === "user" && (draft.userImage ? fileName(draft.userImage) : "Drop / browse")}
               {o.value === "later" && "+"}
