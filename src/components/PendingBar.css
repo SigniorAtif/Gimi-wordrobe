@@ -17,6 +17,8 @@
 }
 .pending__count {
   flex: none;
+  /* inline-flex drops the space before "pending" */
+  gap: 0.4em;
   height: 22px;
   padding: 0 8px;
   font-size: 10.5px;

@@ -97,13 +97,24 @@
 .ecard__dot.is-pending .ecard__dot-fill {
   background: var(--pending);
 }
+/* neither badge may squeeze the name: "!" sits on the portrait's corner, PENDING bottom-right beside the dots */
 .ecard__badges {
+  display: contents;
+}
+.ecard__badges .ecard__alert {
   position: absolute;
-  top: 8px;
+  /* the 48px portrait is vertically centred after 12px of padding */
+  top: calc(50% - 30px);
+  left: 46px;
+  box-shadow: 0 0 0 2px var(--surface-1);
+}
+.ecard.is-open .ecard__badges .ecard__alert {
+  box-shadow: 0 0 0 2px var(--surface-2);
+}
+.ecard__badges .tag {
+  position: absolute;
   right: 8px;
-  display: flex;
-  gap: 4px;
-  align-items: center;
+  bottom: 8px;
 }
 .ecard__alert {
   display: grid;
