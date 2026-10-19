@@ -24,8 +24,10 @@ pub fn sync_asset_scope(app: &AppHandle, settings: &Settings) {
 
 pub struct AppState(pub Arc<Mutex<AppCore>>);
 
+/// Disk work is serialised on purpose (an add and an Apply must never interleave). A panic in one command poisons the
+/// lock; the core's state is still consistent (each operation undoes itself on error), so carry on with it.
 fn lock(core: &Mutex<AppCore>) -> AppResult<MutexGuard<'_, AppCore>> {
-    core.lock().map_err(|_| AppError::new("state", "Internal state is unavailable; restart the app."))
+    Ok(core.lock().unwrap_or_else(|poisoned| poisoned.into_inner()))
 }
 
 impl AppState {
