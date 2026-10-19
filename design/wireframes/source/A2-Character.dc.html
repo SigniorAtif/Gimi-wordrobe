@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>A2 Character page</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&amp;family=IBM+Plex+Sans:wght@400;600&amp;display=swap">
+<style>
+body{margin:0;background:#0e0e0e}
+*{box-sizing:border-box}
+.ab{width:1600px;height:800px;display:flex;font-family:'IBM Plex Sans',system-ui,sans-serif;color:#d8d8d8;font-size:13px;background:#0e0e0e}
+.win{width:1280px;height:800px;flex:none;background:#181818;border:1px solid #555;display:flex;flex-direction:column;position:relative;overflow:hidden}
+.tbar{height:30px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 10px;border-bottom:1px solid #3a3a3a;background:#111;font:11px 'IBM Plex Mono',monospace;color:#a0a0a0}
+.wc{display:flex;gap:6px}.wc i{width:26px;height:16px;border:1px solid #555;display:block}
+.notes{width:320px;flex:none;padding:20px 18px;display:flex;flex-direction:column;gap:10px;border-left:1px dashed #555;overflow:hidden}
+.vt{font:600 11px 'IBM Plex Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:#a0a0a0}
+.n{font-size:12px;line-height:1.45;color:#e9c46a;border:1px dashed #8a7233;padding:8px 10px;border-radius:4px;display:flex;gap:8px}
+.pin{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#e9c46a;color:#111;font:700 10px 'IBM Plex Mono',monospace;flex:none}
+.box{border:1px solid #4a4a4a;background:#222;border-radius:4px}
+.img{background:#2a2a2a linear-gradient(to top right,transparent calc(50% - .5px),#454545 50%,transparent calc(50% + .5px)),linear-gradient(to top left,transparent calc(50% - .5px),#454545 50%,transparent calc(50% + .5px));border:1px solid #454545;border-radius:3px}
+.btn{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;border:1px solid #666;background:#262626;color:#e0e0e0;border-radius:4px;font:inherit;font-size:12px;white-space:nowrap}
+.btn.p{background:#e6e6e6;color:#111;border-color:#e6e6e6;font-weight:600}
+.lbl{font:10px 'IBM Plex Mono',monospace;color:#9a9a9a;text-transform:uppercase;letter-spacing:.06em}
+.mut{color:#9a9a9a}
+.tag{font:600 9px 'IBM Plex Mono',monospace;padding:2px 5px;border:1px solid #777;border-radius:3px;color:#cfcfcf;letter-spacing:.05em}
+.act{font:700 9px 'IBM Plex Mono',monospace;background:#fff;color:#111;padding:2px 6px;border-radius:3px;letter-spacing:.05em}
+.dash{border:1.5px dashed #666;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px;color:#9a9a9a;text-align:center}
+.card{display:flex;flex-direction:column;gap:6px;padding:10px;border:1px solid #444;background:#202020;border-radius:6px;text-align:left;color:inherit;font:inherit;position:relative}
+.card.on{border:2px solid #fff}
+.radio{width:14px;height:14px;border-radius:50%;border:2px solid #888;flex:none}
+.radio.on{border-color:#fff;background:radial-gradient(#fff 40%,transparent 45%)}
+.menu{position:absolute;top:34px;right:8px;width:150px;background:#2c2c2c;border:1px solid #777;border-radius:4px;display:flex;flex-direction:column;padding:4px;z-index:2}
+.menu span{padding:6px 8px;font-size:12px}
+.mini{display:flex;flex-direction:column;gap:4px;padding:6px;border:1px solid #444;border-radius:4px;background:#1c1c1c}
+</style>
+</helmet>
+<div class="ab">
+<div class="win">
+  <div class="tbar"><span>Skin Switcher — Variant A · Varesa</span><span class="wc"><i></i><i></i><i></i></span></div>
+  <div style="display:flex;align-items:center;gap:14px;padding:14px 20px;border-bottom:1px solid #333">
+    <button class="btn">← All characters</button>
+    <div class="img" style="width:52px;height:52px;border-radius:50%"></div>
+    <div style="display:flex;flex-direction:column;gap:2px">
+      <div style="font-size:20px;font-weight:600">Varesa</div>
+      <div class="mut" style="font-size:12px">1 of 5 skins shown · 4 hidden (18+) · Mods/Varesa/</div>
+    </div>
+    <div style="flex:1"></div>
+    <span class="tag">18+ HIDDEN · CTRL+H</span>
+    <button class="btn">+ Add skin to Varesa</button>
+    <button class="btn" aria-label="Character menu">⋯</button>
+  </div>
+  <div style="flex:1;padding:20px;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:16px;align-content:start">
+    <button class="card">
+      <div class="dash" style="height:300px"><span style="font-size:14px">Original</span><span style="font-size:11px">no mod · default model</span></div>
+      <div style="display:flex;align-items:center;gap:8px"><span class="radio"></span><span style="font-weight:600">Original / no mod</span></div>
+      <div class="mut" style="font-size:11px">Disables every Varesa skin</div>
+    </button>
+    <div class="card on">
+      <div class="img" style="height:300px"></div>
+      <div style="display:flex;align-items:center;gap:8px"><span class="radio on"></span><span style="font-weight:600">[SFW skin]</span><span class="act">ACTIVE</span></div>
+      <div class="mut" style="font-size:11px">by [author] · 3 images · 2 hotkeys</div>
+      <button class="btn" style="position:absolute;top:16px;right:16px;height:24px;padding:0 8px" aria-label="Skin menu">⋯</button>
+      <div class="menu"><span>Edit details</span><span>Open folder</span><span>Open GameBanana</span><span style="border-top:1px solid #555">Remove…</span></div>
+      <div style="position:absolute;top:-8px;left:-8px"><span class="pin">2</span></div>
+    </div>
+    <div class="card" style="border-style:dashed">
+      <div class="dash" style="height:300px;border:0"><span style="font-size:13px">4 skins hidden</span><span class="tag">18+</span><span style="font-size:11px">Press Ctrl+H to reveal</span></div>
+      <div class="mut" style="font-size:11px">Placeholder shows only a count. Can be turned off in Settings (fully invisible).</div>
+      <div style="position:absolute;top:-8px;left:-8px"><span class="pin">3</span></div>
+    </div>
+    <div class="card" style="border-style:dashed">
+      <div class="dash" style="height:300px;border:0"><span style="font-size:22px">+</span><span style="font-size:12px">Drop archive here</span><span style="font-size:11px">or click to add a skin</span></div>
+    </div>
+  </div>
+  <div style="position:absolute;left:20px;top:142px"><span class="pin">1</span></div>
+</div>
+<div class="notes">
+  <div class="vt">A2 · Character page</div>
+  <div class="n"><span class="pin">1</span><span>Cards act as radio buttons. Click any card → it becomes active, previous one turns off, pending bar appears.</span></div>
+  <div class="n"><span class="pin">2</span><span>Active = white border + ACTIVE tag. "⋯" menu: edit, open folder, GameBanana, remove. Double-click → A3 detail.</span></div>
+  <div class="n"><span class="pin">3</span><span>Hidden state (approach a). After Ctrl+H the 4 cards below appear in place:</span></div>
+  <div class="lbl">Revealed state · also shows the 4 preview states</div>
+  <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px">
+    <div class="mini"><div class="dash" style="height:70px;font-size:10px">Fetching from GameBanana…</div><div style="font-size:11px">NSFW 1 <span class="tag">18+</span></div><div class="lbl">(1) link fetch</div></div>
+    <div class="mini"><div class="img" style="height:70px"></div><div style="font-size:11px">NSFW 2 <span class="tag">18+</span></div><div class="lbl">(2) 3 found in archive</div></div>
+    <div class="mini"><div class="dash" style="height:70px;font-size:10px">Drop or paste image</div><div style="font-size:11px">NSFW 3 <span class="tag">18+</span></div><div class="lbl">(3) drag / Ctrl+V</div></div>
+    <div class="mini"><div class="dash" style="height:70px;font-size:10px">+ Add preview</div><div style="font-size:11px">NSFW 4 <span class="tag">18+</span></div><div class="lbl">(4) empty</div></div>
+  </div>
+  <div class="n"><span class="pin">4</span><span>Esc / Backspace = back to grid. At 1000px: 4 columns.</span></div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1600,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>A4 Add skin dialog</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&amp;family=IBM+Plex+Sans:wght@400;600&amp;display=swap">
+<style>
+body{margin:0;background:#0e0e0e}
+*{box-sizing:border-box}
+.ab{width:1600px;height:800px;display:flex;font-family:'IBM Plex Sans',system-ui,sans-serif;color:#d8d8d8;font-size:13px;background:#0e0e0e}
+.win{width:1280px;height:800px;flex:none;background:#181818;border:1px solid #555;display:flex;flex-direction:column;position:relative;overflow:hidden}
+.tbar{height:30px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 10px;border-bottom:1px solid #3a3a3a;background:#111;font:11px 'IBM Plex Mono',monospace;color:#a0a0a0}
+.wc{display:flex;gap:6px}.wc i{width:26px;height:16px;border:1px solid #555;display:block}
+.notes{width:320px;flex:none;padding:20px 18px;display:flex;flex-direction:column;gap:10px;border-left:1px dashed #555;overflow:hidden}
+.vt{font:600 11px 'IBM Plex Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:#a0a0a0}
+.n{font-size:12px;line-height:1.45;color:#e9c46a;border:1px dashed #8a7233;padding:8px 10px;border-radius:4px;display:flex;gap:8px}
+.pin{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#e9c46a;color:#111;font:700 10px 'IBM Plex Mono',monospace;flex:none}
+.img{background:#2a2a2a linear-gradient(to top right,transparent calc(50% - .5px),#454545 50%,transparent calc(50% + .5px)),linear-gradient(to top left,transparent calc(50% - .5px),#454545 50%,transparent calc(50% + .5px));border:1px solid #454545;border-radius:3px}
+.btn{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;border:1px solid #666;background:#262626;color:#e0e0e0;border-radius:4px;font:inherit;font-size:12px;white-space:nowrap}
+.btn.p{background:#e6e6e6;color:#111;border-color:#e6e6e6;font-weight:600}
+.in{height:32px;border:1px solid #555;background:#141414;border-radius:4px;padding:0 10px;color:#d8d8d8;font:inherit;font-size:12px;width:100%}
+.in::placeholder{color:#8a8a8a}
+.lbl{font:10px 'IBM Plex Mono',monospace;color:#9a9a9a;text-transform:uppercase;letter-spacing:.06em}
+.mut{color:#9a9a9a}
+.tag{font:600 9px 'IBM Plex Mono',monospace;padding:2px 5px;border:1px solid #777;border-radius:3px;color:#cfcfcf;letter-spacing:.05em}
+.dash{border:1.5px dashed #777;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px;color:#9a9a9a;text-align:center}
+.f{display:flex;flex-direction:column;gap:5px}
+.tg{width:34px;height:18px;border-radius:9px;border:1px solid #888;position:relative;flex:none}
+.tg::after{content:"";position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:#888}
+.tg.on{background:#e6e6e6;border-color:#e6e6e6}.tg.on::after{left:18px;background:#111}
+.opt{display:flex;flex-direction:column;gap:4px;padding:8px;border:1px solid #444;border-radius:4px;font-size:11px}
+.opt.s{border:2px solid #fff}
+</style>
+</helmet>
+<div class="ab">
+<div class="win">
+  <div class="tbar"><span>Skin Switcher — Variant A · Add skin</span><span class="wc"><i></i><i></i><i></i></span></div>
+  <div style="flex:1;padding:20px;display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:12px;align-content:start;opacity:.25">
+    <div class="img" style="height:200px"></div><div class="img" style="height:200px"></div><div class="img" style="height:200px"></div><div class="img" style="height:200px"></div><div class="img" style="height:200px"></div><div class="img" style="height:200px"></div><div class="img" style="height:200px"></div><div class="img" style="height:200px"></div>
+    <div class="img" style="height:200px"></div><div class="img" style="height:200px"></div><div class="img" style="height:200px"></div><div class="img" style="height:200px"></div><div class="img" style="height:200px"></div><div class="img" style="height:200px"></div><div class="img" style="height:200px"></div><div class="img" style="height:200px"></div>
+  </div>
+  <div style="position:absolute;inset:30px 0 0 0;background:rgba(0,0,0,.55)"></div>
+  <div style="position:absolute;left:200px;top:70px;width:880px;background:#1e1e1e;border:1px solid #888;border-radius:8px;display:flex;flex-direction:column">
+    <div style="display:flex;align-items:center;padding:14px 18px;border-bottom:1px solid #444"><span style="font-size:16px;font-weight:600">Add skin</span><div style="flex:1"></div><button class="btn" aria-label="Close">×</button></div>
+    <div style="display:flex;gap:20px;padding:18px">
+      <div style="width:300px;flex:none;display:flex;flex-direction:column;gap:10px">
+        <div class="dash" style="height:150px"><span style="font-size:13px;color:#ddd">Neuvillette_Vampire_v2.7z</span><span style="font-size:11px">48 MB · 1 mod folder · 3 images · 1 .ini</span><button class="btn" style="height:24px">Choose another…</button></div>
+        <div class="lbl">Inside the archive <span class="pin">1</span></div>
+        <div class="mut" style="font:11px/1.6 'IBM Plex Mono',monospace;border:1px solid #444;border-radius:4px;padding:8px">▾ NeuvilletteVampire/<br>&nbsp;&nbsp;merged.ini (hotkeys: 3)<br>&nbsp;&nbsp;preview1.png · preview2.jpg<br>&nbsp;&nbsp;▸ textures/ (22)</div>
+        <div class="mut" style="font-size:11px">Archives with several mod folders → one skin per folder (checkbox list).</div>
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;gap:12px">
+        <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px">
+          <div class="f"><label class="lbl" for="a4c">Character <span class="pin">2</span></label><input class="in" id="a4c" value="Neuvillette ▾  (guessed from folder)"></div>
+          <div class="f"><label class="lbl" for="a4n">Skin name</label><input class="in" id="a4n" value="Vampire"></div>
+        </div>
+        <div style="display:flex;gap:16px;align-items:center"><button class="btn">+ New character…</button><span class="mut" style="font-size:11px">Category:</span><span class="tag">CHARACTER</span><span class="mut">· Weapon · Extra</span></div>
+        <div class="f"><label class="lbl" for="a4g">GameBanana link (optional) <span class="pin">3</span></label><input class="in" id="a4g" placeholder="https://gamebanana.com/mods/…"></div>
+        <div style="display:flex;gap:10px;align-items:center"><span class="tg"></span><span>NSFW / 18+</span><span class="mut" style="font-size:11px">— hidden behind Ctrl+H once added</span></div>
+        <div class="lbl">Preview source <span class="pin">4</span></div>
+        <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px">
+          <div class="opt"><div class="dash" style="height:60px;font-size:10px">Fetching…</div>From GameBanana link</div>
+          <div class="opt s"><div class="img" style="height:60px"></div>Found in archive (3)</div>
+          <div class="opt"><div class="dash" style="height:60px;font-size:10px">Drop / Ctrl+V</div>Drop or paste</div>
+          <div class="opt"><div class="dash" style="height:60px;font-size:10px">+</div>None for now</div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center"><span class="tg on"></span><span>Make it the active skin after adding</span></div>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;padding:14px 18px;border-top:1px solid #444;align-items:center"><span class="mut" style="font-size:11px">Extracts &amp; files it under Neuvillette / Vampire</span><div style="flex:1"></div><button class="btn">Cancel</button><button class="btn p">Extract &amp; add</button></div>
+  </div>
+</div>
+<div class="notes">
+  <div class="vt">A4 · Add skin (modal)</div>
+  <div class="n"><span class="pin">1</span><span>Opens when an archive is dropped anywhere on the window, or via "+ Add mod". Shows its contents before extracting.</span></div>
+  <div class="n"><span class="pin">2</span><span>Character auto-guessed from folder or .ini names; dropdown to fix it.</span></div>
+  <div class="n"><span class="pin">3</span><span>Pasting a link fills name + author and starts fetching images (state 1).</span></div>
+  <div class="n"><span class="pin">4</span><span>All 4 preview states shown as options; can be changed later on the card.</span></div>
+  <div class="lbl">"+ New character…" sub-dialog</div>
+  <div style="border:1px solid #777;border-radius:6px;padding:12px;display:flex;gap:12px;background:#1e1e1e">
+    <div class="dash" style="width:80px;height:80px;border-radius:50%;font-size:10px;flex:none">Drop portrait</div>
+    <div style="display:flex;flex-direction:column;gap:8px;flex:1">
+      <div class="in" style="display:flex;align-items:center;color:#8a8a8a">Name</div>
+      <div style="font-size:11px" class="mut">Character · Weapon · Extra</div>
+      <button class="btn p" style="align-self:flex-start">Create</button>
+    </div>
+  </div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1600,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
