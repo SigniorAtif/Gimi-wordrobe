@@ -10,4 +10,6 @@ pub mod library;
 pub mod model;
 pub mod names;
 pub mod paths;
+pub mod scanner;
 pub mod settings;
+pub mod state;
