@@ -19,6 +19,10 @@
   border-color: var(--border);
   box-shadow: var(--shadow-2);
 }
+/* the card's own shadow would hide the global focus ring */
+.ecard:focus-visible {
+  box-shadow: var(--focus-ring), var(--shadow-2);
+}
 .ecard.is-open {
   border-color: var(--accent-line);
   background: var(--surface-2);
@@ -93,13 +97,24 @@
 .ecard__dot.is-pending .ecard__dot-fill {
   background: var(--pending);
 }
+/* neither badge may squeeze the name: "!" sits on the portrait's corner, PENDING bottom-right beside the dots */
 .ecard__badges {
+  display: contents;
+}
+.ecard__badges .ecard__alert {
   position: absolute;
-  top: 8px;
+  /* the 48px portrait is vertically centred after 12px of padding */
+  top: calc(50% - 30px);
+  left: 46px;
+  box-shadow: 0 0 0 2px var(--surface-1);
+}
+.ecard.is-open .ecard__badges .ecard__alert {
+  box-shadow: 0 0 0 2px var(--surface-2);
+}
+.ecard__badges .tag {
+  position: absolute;
   right: 8px;
-  display: flex;
-  gap: 4px;
-  align-items: center;
+  bottom: 8px;
 }
 .ecard__alert {
   display: grid;
@@ -123,4 +138,13 @@
   border-left: 1px solid var(--accent-line);
   border-right: 1px solid var(--accent-line);
   z-index: 2;
+}
+.ecard__portrait {
+  display: inline-flex;
+  flex: none;
+  border-radius: 50%;
+}
+.ecard--weapon .ecard__portrait,
+.ecard--extra .ecard__portrait {
+  border-radius: 12px;
 }

@@ -1,0 +1,99 @@
+.pcard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 8px 12px;
+  border-radius: var(--r-card);
+  border: 1px solid var(--border-soft);
+  background: var(--surface-1);
+  text-align: left;
+  box-shadow: var(--shadow-1);
+  transition:
+    border-color 160ms var(--ease-out),
+    box-shadow 200ms var(--ease-out);
+}
+.pcard:hover {
+  border-color: var(--border);
+  box-shadow: var(--shadow-2);
+}
+/* the card's own shadow would hide the global focus ring */
+.pcard:focus-visible {
+  box-shadow: var(--focus-ring), var(--shadow-2);
+}
+.pcard__art {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+.pcard__art-bg {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(120% 90% at 30% 15%, oklch(0.38 0.07 var(--hue)) 0%, oklch(0.18 0.03 var(--hue)) 100%);
+}
+.pcard__art img,
+.pcard__portrait {
+  position: relative;
+}
+.pcard__art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.pcard__art::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 35%;
+  background: linear-gradient(to top, oklch(0.1 0.01 275 / 0.55), transparent);
+}
+.pcard__name {
+  padding: 0 4px;
+  font-weight: 650;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pcard__sub {
+  position: relative;
+  height: 17px;
+  overflow: hidden;
+  padding: 0 4px;
+  font-size: var(--fs-meta);
+  color: var(--text-2);
+}
+.pcard__sub-text {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pcard__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 4px;
+  padding: 0 4px;
+}
+.pcard__dots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.pcard__count {
+  font-size: 10px;
+}
+.pcard__badges {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: flex;
+  gap: 4px;
+}
+.pcard.is-pending {
+  border-color: oklch(0.85 0.14 88 / 0.5);
+}

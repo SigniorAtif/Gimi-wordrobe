@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from "motion/react";
 import type { MouseEvent } from "react";
 import type { EntityView } from "../lib/derive";
 import { riseIn, spring, tween } from "../motion";
+import { Flip } from "./Flip";
 import { Portrait } from "./Portrait";
 import "./EntityCard.css";
 
@@ -45,7 +46,9 @@ export function EntityCard({
         onContextMenu(e);
       }}
     >
-      <Portrait entity={entity} cover={view.effectiveSkin} hidden={view.effectiveHidden} size={48} />
+      <Flip flipKey={`entity:${entity.id}`} className="ecard__portrait" reduced={reduced} radius={entity.category === "character" ? 24 : 12}>
+        <Portrait entity={entity} cover={view.effectiveSkin} hidden={view.effectiveHidden} size={48} />
+      </Flip>
       <span className="ecard__text">
         <span className="ecard__name">
           {entity.name}

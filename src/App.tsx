@@ -6,7 +6,9 @@ import { Toasts } from "./components/Toasts";
 import { tween } from "./motion";
 import { useMotionConfigMode, useReduced } from "./lib/useReduced";
 import { useShortcuts } from "./lib/useShortcuts";
+import { EntityPage } from "./screens/EntityPage";
 import { Home } from "./screens/Home";
+import { SkinDetail } from "./screens/SkinDetail";
 import { SettingsPage } from "./screens/SettingsPage";
 import { Setup } from "./screens/Setup";
 import { routeKey, useApp, type Route } from "./store/app";
@@ -40,7 +42,7 @@ export default function App() {
           <main className="app__main">
             <AnimatePresence initial={false} custom={{ dir: navDir, reduced }}>
               {snapshot ? (
-                <Page key={routeKey(route)} id={routeKey(route)} kind={pageKind(route)}>
+                <Page key={pageId(route, snapshot.settings.layout)} id={pageId(route, snapshot.settings.layout)} kind={pageKind(route)}>
                   <Screen route={route} />
                 </Page>
               ) : (
@@ -62,11 +64,20 @@ function pageKind(r: Route): PageKind {
   return r.name;
 }
 
+/** Home keeps one scroll position per layout mode (SPEC §7 layout switch). */
+function pageId(r: Route, layout: string): string {
+  return r.name === "home" ? `home:${layout}` : routeKey(r);
+}
+
 function Screen({ route }: { route: Route }) {
   const snapshot = useApp((s) => s.snapshot)!;
   switch (route.name) {
     case "home":
       return <Home snapshot={snapshot} />;
+    case "entity":
+      return <EntityPage entityId={route.entityId} />;
+    case "skin":
+      return <SkinDetail skinId={route.skinId} />;
     case "settings":
       return <SettingsPage />;
     case "setup":

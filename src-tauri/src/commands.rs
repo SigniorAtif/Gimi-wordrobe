@@ -1,6 +1,6 @@
 //! Thin `#[tauri::command]` wrappers over `core::app::AppCore` (SPEC §13). No disk logic lives here.
 
-use crate::core::app::{AppCore, ApplyOutcome, IMAGE_DIRS, Picks};
+use crate::core::app::{AppCore, ApplyOutcome, EntityPatch, IMAGE_DIRS, Picks, SkinPatch};
 use crate::core::apply::Fault;
 use crate::core::error::{AppError, AppResult};
 use crate::core::model::{Settings, Snapshot};
@@ -115,6 +115,16 @@ pub async fn apply(app: AppHandle, state: State<'_, AppState>, picks: Picks) -> 
         std::process::exit(101);
     }
     result
+}
+
+#[tauri::command]
+pub async fn update_skin(state: State<'_, AppState>, skin_id: String, patch: SkinPatch) -> AppResult<Snapshot> {
+    state.run(move |c| c.update_skin(&skin_id, patch)).await
+}
+
+#[tauri::command]
+pub async fn update_entity(state: State<'_, AppState>, entity_id: String, patch: EntityPatch) -> AppResult<Snapshot> {
+    state.run(move |c| c.update_entity(&entity_id, patch)).await
 }
 
 /// Remove a skin: folders and previews go to the Recycle Bin (SPEC §1).

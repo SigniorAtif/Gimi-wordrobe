@@ -1,6 +1,6 @@
 // The one typed interface every component goes through (SPEC §13). Two implementations:
 // tauri.ts (real backend) and mock.ts (in-memory fixtures for the browser test harness, VITE_MOCK=1).
-import type { ApplyProgress, ApplyResult, FirstRunDefaults, Picks, Settings, Snapshot } from "./types";
+import type { ApplyProgress, ApplyResult, EntityPatch, FirstRunDefaults, Picks, Settings, SkinPatch, Snapshot } from "./types";
 
 export type OpenTarget =
   | { kind: "mods" }
@@ -30,6 +30,9 @@ export interface Api {
   apply(picks: Picks, onProgress?: (p: ApplyProgress) => void): Promise<ApplyResult>;
   /** Folders and previews go to the Recycle Bin. */
   removeSkin(skinId: string): Promise<Snapshot>;
+  /** Edit a skin's metadata (library.json only; the mod's files are never changed). */
+  updateSkin(skinId: string, patch: SkinPatch): Promise<Snapshot>;
+  updateEntity(entityId: string, patch: EntityPatch): Promise<Snapshot>;
   openFolder(target: OpenTarget): Promise<void>;
   openUrl(url: string): Promise<void>;
   setWindowTitle(title: string): Promise<void>;

@@ -56,9 +56,12 @@ export interface EntityView {
 export function entityView(s: Snapshot, picks: Picks, nsfwVisible: boolean, entity: Entity): EntityView {
   const all = s.library.skins.filter((k) => k.entityId === entity.id);
   const skins = all.filter((k) => nsfwVisible || !k.nsfw);
-  const onDisk = s.disk.active[entity.id] ?? [];
+  // hidden NSFW skins don't count anywhere (SPEC §11), not even in "2 skins are on"
+  const visibleIds = new Set(skins.map((k) => k.id));
+  const onDiskAll = s.disk.active[entity.id] ?? [];
+  const onDisk = onDiskAll.filter((id) => visibleIds.has(id));
   const pending = entity.id in picks;
-  const effective = pending ? picks[entity.id] : (onDisk[0] ?? null);
+  const effective = pending ? picks[entity.id] : (onDiskAll[0] ?? null);
   const effectiveSkin = effective ? (all.find((k) => k.id === effective) ?? null) : null;
   const effectiveHidden = !!effectiveSkin?.nsfw && !nsfwVisible;
   const subtitle = !all.length

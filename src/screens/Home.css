@@ -16,6 +16,9 @@
   grid-template-columns: repeat(var(--cols, 6), minmax(0, 1fr));
   gap: var(--s-3);
 }
+.home__grid--pages {
+  gap: var(--s-4);
+}
 .home__empty {
   max-width: 520px;
   margin: var(--s-9) auto;

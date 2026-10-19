@@ -46,6 +46,8 @@ export const api: Api = {
     }
   },
   removeSkin: (skinId) => snap("remove_skin", { skinId }),
+  updateSkin: (skinId, patch) => snap("update_skin", { skinId, patch }),
+  updateEntity: (entityId, patch) => snap("update_entity", { entityId, patch }),
   openFolder: (target) => call<void>("open_folder", { target }),
   openUrl: (url) => openExternal(url),
   async setWindowTitle(title) {

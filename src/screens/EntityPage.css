@@ -1,0 +1,194 @@
+.epage {
+  min-height: 100%;
+}
+.epage__header {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  min-height: 88px;
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  padding: var(--s-3) var(--gutter);
+  background: oklch(0.145 0.008 275 / 0.92);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border-soft);
+}
+.epage__portrait {
+  display: inline-flex;
+  border-radius: 50%;
+}
+.epage__titles {
+  min-width: 0;
+}
+.epage__name {
+  margin: 0;
+  font-size: var(--fs-page);
+  font-weight: 680;
+}
+.epage__meta {
+  margin: 2px 0 0;
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.epage__spacer {
+  flex: 1;
+}
+.epage__grid {
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 5), minmax(0, 1fr));
+  gap: var(--s-4);
+  padding: var(--s-6) var(--gutter) calc(var(--s-9) + var(--pending-offset, 0px));
+  align-items: stretch;
+}
+.epage__grid > div {
+  display: flex;
+}
+.bigcard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 10px 12px;
+  border-radius: var(--r-card);
+  border: 1px solid var(--border-soft);
+  background: var(--surface-1);
+  text-align: left;
+  transition:
+    border-color 160ms var(--ease-out),
+    transform 160ms var(--ease-out),
+    box-shadow 200ms var(--ease-out),
+    opacity 200ms var(--ease-out);
+}
+.bigcard:hover {
+  border-color: var(--border-strong);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-2);
+}
+.bigcard:active {
+  transform: scale(0.98);
+}
+.bigcard.is-selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent-line), var(--shadow-2);
+}
+.bigcard.is-pending {
+  border-color: var(--pending);
+  box-shadow: 0 0 0 1px oklch(0.85 0.14 88 / 0.4), var(--shadow-2);
+}
+.epage__grid:has(.bigcard.is-selected) .bigcard:not(.is-selected):not(.bigcard--drop):not(.bigcard--hidden) {
+  opacity: 0.8;
+}
+.bigcard__hit {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+}
+.bigcard__hit:focus-visible {
+  box-shadow: var(--focus-ring);
+}
+.bigcard__more {
+  position: absolute;
+  z-index: 2;
+  top: 16px;
+  right: 16px;
+  width: 30px;
+  height: 26px;
+  border-radius: 7px;
+  border: 1px solid oklch(1 0 0 / 0.12);
+  background: oklch(0.15 0.01 275 / 0.72);
+  color: var(--text);
+  font-size: 15px;
+  opacity: 0;
+  transition: opacity 120ms var(--ease-out);
+}
+.bigcard:hover .bigcard__more,
+.bigcard__more:focus-visible {
+  opacity: 1;
+}
+.bigcard__nsfw {
+  position: absolute;
+  z-index: 2;
+  top: 16px;
+  left: 16px;
+}
+.bigcard__alert {
+  position: absolute;
+  z-index: 2;
+  bottom: 62px;
+  right: 16px;
+}
+.bigcard__meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.bigcard__name {
+  flex: 1;
+  min-width: 0;
+  font-weight: 640;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bigcard__sub {
+  font-size: var(--fs-meta);
+  color: var(--text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bigcard__orig {
+  aspect-ratio: 3 / 4;
+  display: grid;
+  place-content: center;
+  gap: 4px;
+  text-align: center;
+  border-radius: 10px;
+  border: 1.5px dashed var(--border-strong);
+  color: var(--text-2);
+}
+.bigcard__orig small {
+  color: var(--text-3);
+}
+.bigcard--original {
+  cursor: pointer;
+}
+.bigcard--hidden,
+.bigcard--drop {
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 320px;
+  border-style: dashed;
+  border-width: 1.5px;
+  border-color: var(--border-strong);
+  background: transparent;
+  color: var(--text-3);
+  text-align: center;
+}
+.bigcard--hidden:hover,
+.bigcard--drop:hover {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--text-2);
+}
+.bigcard__hidden-title {
+  font-size: var(--fs-title);
+  color: var(--text-2);
+}
+.bigcard__hidden-sub,
+.bigcard--drop small {
+  font-size: var(--fs-meta);
+}
+.bigcard__plus {
+  font-size: 26px;
+  line-height: 1;
+}
