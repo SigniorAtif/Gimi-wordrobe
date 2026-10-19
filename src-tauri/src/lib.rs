@@ -32,6 +32,8 @@ pub fn run() {
             commands::open_folder,
             commands::apply,
             commands::remove_skin,
+            commands::update_skin,
+            commands::update_entity,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

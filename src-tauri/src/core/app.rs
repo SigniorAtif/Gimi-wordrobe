@@ -31,6 +31,48 @@ pub struct ApplyOutcome {
     pub warnings: Vec<String>,
 }
 
+/// Edits to a skin's metadata (A3 / Edit details). Only library.json changes, never the mod's files (SPEC §6 A3).
+/// Empty strings clear optional fields.
+#[derive(Debug, Clone, Default, serde::Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct SkinPatch {
+    pub name: Option<String>,
+    pub author: Option<String>,
+    pub version: Option<String>,
+    pub notes: Option<String>,
+    pub nsfw: Option<bool>,
+    pub game_banana_url: Option<String>,
+    /// Move the skin to another entity (its folders stay where they are).
+    pub entity_id: Option<String>,
+    pub hotkey_labels: Option<Vec<HotkeyLabel>>,
+    /// Preview files in the new order; the first is the cover.
+    pub preview_order: Option<Vec<String>>,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HotkeyLabel {
+    pub section: String,
+    pub ini_file: String,
+    pub keys: String,
+    pub label: String,
+}
+
+#[derive(Debug, Clone, Default, serde::Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct EntityPatch {
+    pub name: Option<String>,
+    pub category: Option<super::model::Category>,
+    /// "" clears the parent.
+    pub parent_id: Option<String>,
+    pub aliases: Option<Vec<String>>,
+}
+
+fn opt(v: String) -> Option<String> {
+    let t = v.trim();
+    (!t.is_empty()).then(|| t.to_string())
+}
+
 /// A fingerprint of what's on disk, to notice changes made outside the app (SPEC §3).
 fn signature(s: &Snapshot) -> u64 {
     let mut h = std::collections::hash_map::DefaultHasher::new();
@@ -454,6 +496,97 @@ impl AppCore {
         self.rescan()
     }
 
+    pub fn update_skin(&mut self, id: &str, patch: SkinPatch) -> AppResult<Snapshot> {
+        if let Some(e) = &patch.entity_id
+            && self.library.entity(e).is_none()
+        {
+            return Err(AppError::new("unknown_entity", "That character or item doesn't exist."));
+        }
+        let skin =
+            self.library.skin_mut(id).ok_or_else(|| AppError::new("unknown_skin", "That skin no longer exists."))?;
+        if let Some(n) = patch.name {
+            skin.name = opt(n).ok_or_else(|| AppError::new("invalid_name", "A skin needs a name."))?;
+        }
+        if let Some(v) = patch.author {
+            skin.author = opt(v);
+        }
+        if let Some(v) = patch.version {
+            skin.version = opt(v);
+        }
+        if let Some(v) = patch.notes {
+            skin.notes = (!v.trim().is_empty()).then_some(v);
+        }
+        if let Some(v) = patch.nsfw {
+            skin.nsfw = v;
+        }
+        if let Some(v) = patch.game_banana_url {
+            skin.game_banana_url = opt(v);
+        }
+        if let Some(labels) = patch.hotkey_labels {
+            for l in labels {
+                if let Some(h) = skin.hotkeys.iter_mut().find(|h| {
+                    h.section.eq_ignore_ascii_case(&l.section)
+                        && h.ini_file.eq_ignore_ascii_case(&l.ini_file)
+                        && h.keys == l.keys
+                }) {
+                    h.label = opt(l.label).unwrap_or_else(|| super::hotkeys::label_for(&h.section));
+                }
+            }
+        }
+        if let Some(order) = patch.preview_order {
+            let mut next = vec![];
+            for f in &order {
+                if let Some(p) = skin.previews.iter().find(|p| &p.file == f) {
+                    next.push(p.clone());
+                }
+            }
+            for p in &skin.previews {
+                if !next.iter().any(|n| n.file == p.file) {
+                    next.push(p.clone());
+                }
+            }
+            skin.previews = next;
+        }
+        let moved = patch.entity_id.filter(|e| e != &skin.entity_id);
+        if let Some(to) = moved {
+            let from = std::mem::replace(&mut skin.entity_id, to.clone());
+            if let Some(e) = self.library.entity_mut(&from) {
+                e.skin_ids.retain(|s| s != id);
+            }
+            if let Some(e) = self.library.entity_mut(&to) {
+                e.skin_ids.push(id.to_string());
+            }
+        }
+        self.save_library()?;
+        Ok(self.snapshot())
+    }
+
+    pub fn update_entity(&mut self, id: &str, patch: EntityPatch) -> AppResult<Snapshot> {
+        if let Some(p) = patch.parent_id.as_deref().filter(|p| !p.is_empty())
+            && (p == id || self.library.entity(p).is_none())
+        {
+            return Err(AppError::new("invalid_parent", "Pick another character as the parent."));
+        }
+        let e = self
+            .library
+            .entity_mut(id)
+            .ok_or_else(|| AppError::new("unknown_entity", "That character or item doesn't exist."))?;
+        if let Some(n) = patch.name {
+            e.name = opt(n).ok_or_else(|| AppError::new("invalid_name", "It needs a name."))?;
+        }
+        if let Some(c) = patch.category {
+            e.category = c;
+        }
+        if let Some(p) = patch.parent_id {
+            e.parent_id = opt(p);
+        }
+        if let Some(a) = patch.aliases {
+            e.aliases = a.into_iter().filter_map(opt).collect();
+        }
+        self.save_library()?;
+        Ok(self.snapshot())
+    }
+
     /// Where a skin's first folder is right now (Mods, DISABLED_ in Mods, or the stash).
     pub fn skin_path(&self, id: &str) -> Option<PathBuf> {
         let skin = self.library.skin(id)?;
@@ -849,5 +982,61 @@ pub mod tests {
         core.rescan().unwrap();
         let out = core.apply(&picks(&[("furina", Some("furina--remembrance"))]), Fault::None, &mut noop).unwrap();
         assert!(out.warnings.iter().any(|w| w.contains("Furina/Party")), "{:?}", out.warnings);
+    }
+
+    #[test]
+    fn editing_metadata_only_touches_library_json() {
+        let cfg = tempfile::tempdir().unwrap();
+        let (_t, mods, lib) = fixture_world();
+        let mut core = configured_core(cfg.path(), &mods, &lib);
+        let before = crate::core::apply::tests::tree(&mods);
+        let snap = core
+            .update_skin(
+                "sandrone--marionette",
+                SkinPatch {
+                    name: Some("Marionette (Neyori)".into()),
+                    notes: Some("hat 2 looks best".into()),
+                    hotkey_labels: Some(vec![HotkeyLabel {
+                        section: "KeyHat".into(),
+                        ini_file: "sandrone_marionette_by_neyori/outfit/Sandrone.ini".into(),
+                        keys: "no_modifiers 8".into(),
+                        label: "Hat style".into(),
+                    }]),
+                    ..SkinPatch::default()
+                },
+            )
+            .unwrap();
+        let s = snap.library.skin("sandrone--marionette").unwrap();
+        assert_eq!(s.name, "Marionette (Neyori)");
+        assert_eq!(s.notes.as_deref(), Some("hat 2 looks best"));
+        assert!(s.hotkeys.iter().any(|h| h.label == "Hat style"));
+        assert_eq!(crate::core::apply::tests::tree(&mods), before, "mod files untouched");
+        // labels survive a re-scan
+        let snap = core.rescan().unwrap();
+        assert!(snap.library.skin("sandrone--marionette").unwrap().hotkeys.iter().any(|h| h.label == "Hat style"));
+        assert!(
+            core.update_skin("sandrone--marionette", SkinPatch { name: Some("  ".into()), ..SkinPatch::default() })
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn a_skin_can_move_to_another_entity() {
+        let cfg = tempfile::tempdir().unwrap();
+        let (_t, mods, lib) = fixture_world();
+        let mut core = configured_core(cfg.path(), &mods, &lib);
+        let snap = core
+            .update_skin("furina--casual", SkinPatch { entity_id: Some("kazuha".into()), ..SkinPatch::default() })
+            .unwrap();
+        assert_eq!(snap.library.skin("furina--casual").unwrap().entity_id, "kazuha");
+        assert!(snap.library.entity("kazuha").unwrap().skin_ids.contains(&"furina--casual".to_string()));
+        assert!(!snap.library.entity("furina").unwrap().skin_ids.contains(&"furina--casual".to_string()));
+        let snap = core
+            .update_entity(
+                "kazuha",
+                EntityPatch { aliases: Some(vec!["Kaz".into(), " ".into()]), ..EntityPatch::default() },
+            )
+            .unwrap();
+        assert_eq!(snap.library.entity("kazuha").unwrap().aliases, vec!["Kaz".to_string()]);
     }
 }
