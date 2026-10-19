@@ -29,3 +29,4 @@ desktop.ini
 
 # Local tool caches
 .code-review-graph/
+!fixtures/**/desktop.ini
