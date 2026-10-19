@@ -39,3 +39,8 @@ these fill gaps or record where something had to be interpreted.
   re-hide settings.
 - **The Rust side owns an `AppCore`** (Tauri-free) that every command calls into, so integration tests drive the same
   code paths as the app.
+- **Asset protocol scope is `<Library>/previews` and `<Library>/portraits` only**, not the whole Library, so a
+  badly chosen Library path can't expose a drive to the webview. The Library also may not be a drive root.
+- **XXMI-only first run** suggests `%AppData%\XXMI Launcher\SkinLibrary` (same drive, user-writable, outside
+  `GIMI\Mods`); otherwise `D:\mods\SkinLibrary` as SPEC §5 says.
+- **Commands are async** and do their disk work on a blocking thread (Tauri runs sync commands on the main thread).
