@@ -9,6 +9,7 @@ const params = new URLSearchParams(typeof location !== "undefined" ? location.se
 const world: MockWorld = buildMockWorld();
 let settings: Settings = structuredClone(MOCK_SETTINGS);
 let configured = params.get("firstrun") !== "1";
+let hashIndex = { date: "2026-08-03", entries: 3941 };
 if (params.get("pages") === "1") settings.layout = "pages";
 if (params.get("reduced") === "1") settings.reduceMotion = "on";
 
@@ -47,7 +48,7 @@ function snapshot(): Snapshot {
     disk: diskState(),
     changedOutside: false,
     recovered: null,
-    hashIndex: { date: "2026-08-03", entries: 18342 },
+    hashIndex,
     configured,
     sameDrive: true,
   };
@@ -67,6 +68,11 @@ export const api: Api = {
     await wait(40);
     settings = structuredClone(next);
     configured = !!(settings.modsPath[settings.activeLoader]?.trim() && settings.libraryPath.trim());
+    return snapshot();
+  },
+  async updateHashIndex() {
+    await wait(1200);
+    hashIndex = { date: "2026-10-12", entries: 3990 };
     return snapshot();
   },
   async firstRunDefaults() {

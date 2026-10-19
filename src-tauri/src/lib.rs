@@ -1,5 +1,6 @@
 pub mod commands;
 pub mod core;
+pub mod net;
 
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -27,6 +28,7 @@ pub fn run() {
             commands::rescan,
             commands::save_settings,
             commands::first_run_defaults,
+            commands::update_hash_index,
             commands::open_folder,
         ])
         .run(tauri::generate_context!())

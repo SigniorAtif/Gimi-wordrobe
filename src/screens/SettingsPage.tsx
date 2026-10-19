@@ -154,6 +154,19 @@ function LibrarySection({ s, snapshot, save }: { s: Settings; snapshot: Snapshot
   const setSnapshot = useApp((st) => st.setSnapshot);
   const toast = useApp((st) => st.toast);
   const [scanning, setScanning] = useState(false);
+  const [updating, setUpdating] = useState(false);
+  const updateIndex = async () => {
+    setUpdating(true);
+    try {
+      const snap = await api.updateHashIndex();
+      setSnapshot(snap);
+      toast({ kind: "success", text: `Hash index updated (${snap.hashIndex.date ?? "latest"}).` });
+    } catch (e) {
+      toast({ kind: "error", text: "Couldn't update the hash index.", detail: toFailure(e).message });
+    } finally {
+      setUpdating(false);
+    }
+  };
   const browse = async () => {
     const picked = await api.pickFolder({ title: "Choose the Library folder", defaultPath: s.libraryPath });
     if (picked) void save({ libraryPath: picked });
@@ -225,7 +238,7 @@ function LibrarySection({ s, snapshot, save }: { s: Settings; snapshot: Snapshot
             ))}
           </ul>
         ) : (
-          <div className="settings__empty">None found in the Mods folder.</div>
+          <div className="settings__empty">{snapshot.disk.modsExists ? "None found in the Mods folder." : "The Mods folder isn't set or doesn't exist."}</div>
         )}
       </Field>
       <div className="hash-row">
@@ -237,6 +250,10 @@ function LibrarySection({ s, snapshot, save }: { s: Settings; snapshot: Snapshot
               : "Not built yet. Detection falls back to names."}
           </div>
         </div>
+        <button className="btn btn--sm" onClick={() => void updateIndex()} disabled={updating}>
+          {updating && <span className="spinner" aria-hidden />}
+          {updating ? "Updating…" : "Update hash index"}
+        </button>
       </div>
     </div>
   );

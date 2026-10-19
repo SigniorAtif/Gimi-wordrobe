@@ -28,6 +28,7 @@ export const api: Api = {
   load: () => snap("load"),
   rescan: () => snap("rescan"),
   saveSettings: (settings: Settings) => snap("save_settings", { settings }),
+  updateHashIndex: () => snap("update_hash_index"),
   firstRunDefaults: () => call<FirstRunDefaults>("first_run_defaults"),
   async pickFolder({ title, defaultPath }) {
     const picked = await openDialog({ directory: true, multiple: false, title, defaultPath });
