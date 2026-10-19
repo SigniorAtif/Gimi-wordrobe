@@ -1,10 +1,30 @@
+# Dependencies and build output
 node_modules/
 dist/
+dist-ssr/
 src-tauri/target/
 src-tauri/gen/schemas/
+*.local
+
+# Generated from GPL-3.0 data at build time (SPEC §5); never commit
 src-tauri/resources/hash_index.json
+
+# Test output
+test-results/
+e2e/.out/
+
+# Secrets and logs
 .env
 .env.*
 *.log
+
+# Editor / OS
+.vscode/*
+!.vscode/extensions.json
+.idea
 .DS_Store
 Thumbs.db
+desktop.ini
+
+# Local tool caches
+.code-review-graph/
