@@ -2,7 +2,8 @@ You are building the Skin Switcher (repo "Gimi-wordrobe") end to end, on your ow
 
 ## Read first
 1. `CLAUDE.md` and all of `SPEC.md` in this repo. SPEC.md is the source of truth.
-2. If `docs/PROGRESS.md` exists, you are resuming. Continue from where it says.
+2. The wireframes: look at every image in `design/wireframes/*.png` and read `design/wireframes/README.md`, which lists where SPEC.md overrides them. Use them for layout, structure and copy.
+3. If `docs/PROGRESS.md` exists, you are resuming. Continue from where it says.
 
 ## Goal
 Finish milestones 0–8 of SPEC §15 on this Arch Linux machine, fully tested and merged to `main` on GitHub. For milestone 9, prepare the Windows NSIS bundle config. The Windows build and the final checks happen later, on Windows. For that, write `docs/WINDOWS-TESTING.md`: step-by-step instructions for me (install MSVC + Rust per §0, `npm ci`, `npm run tauri build`, run every §16 acceptance check on fixtures, then the first-run import against the real Mods folder).
