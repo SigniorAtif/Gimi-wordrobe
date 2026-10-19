@@ -148,6 +148,16 @@ these fill gaps or record where something had to be interpreted.
   circle shows a check mark and the file name until the image is copied in.
 - **The drag chip sits exactly on the cursor.** A spring only made it trail the OS drag image, and it got stuck when
   a drag started and moved within one frame.
-- **"From GameBanana link" is selectable once a valid mod link is pasted.** Fetching the images is M7; until then the
-  link is saved with the skin.
+- **The "From GameBanana link" preview tile is shown but disabled** until M7 fetches images; the pasted link is saved
+  with the skin either way.
 - **A committed Apply tidies the stash folders its moves emptied** (only empty folders, so there is nothing to undo).
+- **Disk work stays serialised behind one lock**, adds included: an add and an Apply must never interleave. The window
+  stays responsive because commands run off the main thread; a panicked command no longer poisons the lock for good.
+- **Untrusted archive limits**: refused before extraction when the listing can't be parsed, a component is a Windows
+  device name or would be trimmed to `..`, or the archive unpacks to more than 8 GB or 50,000 entries. There is no
+  free-space check; a full disk fails the extraction and the staging folder is removed.
+- **Staging folders** (`<Library>/tmp/<tag>-<pid>-<time>-<n>`) are created with `create_dir`, which fails if the name
+  exists, and `<Library>/tmp` is swept at startup.
+- **Split skins keep the archive's NSFW flag**: hiding a weapon by mistake is better than showing one.
+- **`check:windows-core`** type-checks `src-tauri/src/core` for `x86_64-pc-windows-gnu` from Linux. The whole app
+  can't be checked that way (ring needs a MinGW C compiler), so `commands.rs` Windows paths wait for the Windows run.
