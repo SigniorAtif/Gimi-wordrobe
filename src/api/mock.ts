@@ -122,6 +122,52 @@ export const api: Api = {
     world.active.delete(skinId);
     return snapshot();
   },
+  async updateSkin(skinId, patch) {
+    await wait(30);
+    const s = world.library.skins.find((k) => k.id === skinId);
+    if (!s) throw new ApiFailure("unknown_skin", "That skin no longer exists.");
+    const clean = (v: string) => (v.trim() ? v.trim() : undefined);
+    if (patch.name !== undefined) {
+      if (!patch.name.trim()) throw new ApiFailure("invalid_name", "A skin needs a name.");
+      s.name = patch.name.trim();
+    }
+    if (patch.author !== undefined) s.author = clean(patch.author);
+    if (patch.version !== undefined) s.version = clean(patch.version);
+    if (patch.notes !== undefined) s.notes = patch.notes.trim() ? patch.notes : undefined;
+    if (patch.nsfw !== undefined) s.nsfw = patch.nsfw;
+    if (patch.gameBananaUrl !== undefined) s.gameBananaUrl = clean(patch.gameBananaUrl);
+    for (const l of patch.hotkeyLabels ?? []) {
+      const h = s.hotkeys.find((x) => x.section === l.section && x.iniFile === l.iniFile && x.keys === l.keys);
+      if (h) h.label = l.label.trim() || h.section.replace(/^Key/i, "");
+    }
+    if (patch.previewOrder) {
+      const order = patch.previewOrder;
+      s.previews = [...s.previews].sort((a, b) => {
+        const ia = order.indexOf(a.file);
+        const ib = order.indexOf(b.file);
+        return (ia < 0 ? 1e9 : ia) - (ib < 0 ? 1e9 : ib);
+      });
+    }
+    if (patch.entityId && patch.entityId !== s.entityId) {
+      const from = world.library.entities.find((e) => e.id === s.entityId);
+      const to = world.library.entities.find((e) => e.id === patch.entityId);
+      if (!to) throw new ApiFailure("unknown_entity", "That character or item doesn't exist.");
+      if (from) from.skinIds = from.skinIds.filter((x) => x !== skinId);
+      to.skinIds.push(skinId);
+      s.entityId = to.id;
+    }
+    return snapshot();
+  },
+  async updateEntity(entityId, patch) {
+    await wait(30);
+    const e = world.library.entities.find((x) => x.id === entityId);
+    if (!e) throw new ApiFailure("unknown_entity", "That character or item doesn't exist.");
+    if (patch.name !== undefined) e.name = patch.name.trim() || e.name;
+    if (patch.category) e.category = patch.category;
+    if (patch.parentId !== undefined) e.parentId = patch.parentId || undefined;
+    if (patch.aliases) e.aliases = patch.aliases.map((a) => a.trim()).filter(Boolean);
+    return snapshot();
+  },
   async firstRunDefaults() {
     await wait(40);
     return {

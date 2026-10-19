@@ -160,6 +160,27 @@ export interface ApplyResult {
   warnings: string[];
 }
 
+/** Metadata edits (A3). Empty strings clear optional fields. */
+export interface SkinPatch {
+  name?: string;
+  author?: string;
+  version?: string;
+  notes?: string;
+  nsfw?: boolean;
+  gameBananaUrl?: string;
+  entityId?: string;
+  hotkeyLabels?: { section: string; iniFile: string; keys: string; label: string }[];
+  previewOrder?: string[];
+}
+
+export interface EntityPatch {
+  name?: string;
+  category?: Category;
+  /** "" clears the parent */
+  parentId?: string;
+  aliases?: string[];
+}
+
 export interface ApiError {
   code: string;
   message: string;
