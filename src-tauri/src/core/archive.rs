@@ -3,6 +3,7 @@
 //! and pick preview images (SPEC §10). Archives are untrusted input.
 
 use super::error::{AppError, AppResult};
+use super::fsutil;
 use super::paths;
 use super::scanner::{self, ScanResult};
 use std::fs;
@@ -48,7 +49,15 @@ fn command(program: &Path) -> Command {
     c
 }
 
+/// Archives bigger than this (uncompressed) or with more entries are refused before anything is extracted, so a
+/// zip bomb can't fill the Library drive. The largest real mod archive here is about 115 MB.
+pub const MAX_TOTAL_BYTES: u64 = 8 << 30;
+pub const MAX_ENTRIES: usize = 50_000;
+/// An extractor still running after this long is stopped.
+const EXTRACT_TIMEOUT: Duration = Duration::from_secs(30 * 60);
+
 /// Parse one `tar -tv` line: `-rw-r--r--  0 0      0       2015 Jun 12  2023 DilucInWhite/Diluc.ini`.
+/// None for a line that isn't an entry (the caller treats that as unsafe).
 pub fn parse_tv_line(line: &str) -> Option<Entry> {
     let line = line.trim_end_matches(['\r', '\n']);
     if line.is_empty() {
@@ -66,40 +75,156 @@ pub fn parse_tv_line(line: &str) -> Option<Entry> {
     let name = rest.strip_prefix(' ').unwrap_or(rest);
     let perm = fields[0];
     let kind = perm.chars().next()?;
-    let size = fields[4].parse::<u64>().unwrap_or(0);
-    let link = kind == 'l' || kind == 'h' || name.contains(" link to ");
-    let name = name.split(" -> ").next().unwrap_or(name).to_string();
+    let size = fields[4].parse::<u64>().ok()?;
+    // only links carry a target suffix; a plain file may well have " -> " in its name
+    let link = kind == 'l' || kind == 'h';
+    let name = match kind {
+        'l' => name.split(" -> ").next().unwrap_or(name),
+        'h' => name.split(" link to ").next().unwrap_or(name),
+        _ => name,
+    }
+    .to_string();
     let is_dir = kind == 'd' || name.ends_with('/');
     Some(Entry { path: name.replace('\\', "/"), size, is_dir, link })
 }
 
-/// List an archive's entries (SPEC §9 "list contents before extracting").
+/// Parse 7-Zip's technical listing (`7z l -slt`): blocks of `Key = value` after the `----------` line.
+pub fn parse_7z_slt(out: &str) -> Option<Vec<Entry>> {
+    let out = out.replace("\r\n", "\n");
+    let body = out.split_once("\n----------")?.1;
+    let mut entries = vec![];
+    for block in body.split("\n\n") {
+        let mut path = None;
+        let mut size = 0;
+        let mut dir = false;
+        let mut link = false;
+        for line in block.lines() {
+            let Some((k, v)) = line.split_once(" = ").or_else(|| line.strip_suffix(" =").map(|k| (k, ""))) else {
+                continue;
+            };
+            match k.trim() {
+                "Path" => path = Some(v.trim_end_matches('\r').replace('\\', "/")),
+                "Size" => size = v.trim().parse().unwrap_or(0),
+                "Folder" => dir |= v.trim() == "+",
+                "Attributes" => dir |= v.trim().starts_with('D'),
+                "Symbolic Link" | "Hard Link" | "Link" => link |= !v.trim().is_empty(),
+                _ => {}
+            }
+        }
+        if let Some(path) = path.filter(|p| !p.is_empty()) {
+            entries.push(Entry { path, size, is_dir: dir, link });
+        }
+    }
+    Some(entries)
+}
+
+/// Parse UnRAR's technical listing (`UnRAR lt`): `Name:`, `Type:`, `Size:` lines per entry.
+pub fn parse_unrar_lt(out: &str) -> Vec<Entry> {
+    let mut entries: Vec<Entry> = vec![];
+    for line in out.lines() {
+        let line = line.trim();
+        if let Some(name) = line.strip_prefix("Name: ") {
+            entries.push(Entry { path: name.replace('\\', "/"), size: 0, is_dir: false, link: false });
+        } else if let (Some(e), Some(t)) = (entries.last_mut(), line.strip_prefix("Type: ")) {
+            let t = t.to_lowercase();
+            e.is_dir = t.contains("directory");
+            e.link = t.contains("link");
+        } else if let (Some(e), Some(s)) = (entries.last_mut(), line.strip_prefix("Size: ")) {
+            e.size = s.trim().parse().unwrap_or(0);
+        }
+    }
+    entries
+}
+
+/// List an archive's entries (SPEC §9 "list contents before extracting"). On Windows, an archive tar.exe can't read
+/// is listed with 7-Zip or UnRAR instead, so the same safety checks run before their fallback extraction.
 pub fn list(archive: &Path) -> AppResult<Vec<Entry>> {
     let out = command(&tar_program()).arg("-tvf").arg(archive).output().map_err(|e| {
         AppError::new("extractor_missing", format!("Couldn't run the archive tool ({}): {e}", tar_program().display()))
     })?;
     if !out.status.success() {
+        #[cfg(windows)]
+        if let Some(entries) = list_fallback(archive) {
+            return Ok(entries);
+        }
         let err = String::from_utf8_lossy(&out.stderr).trim().to_string();
         return Err(AppError::new("unreadable_archive", format!("This archive can't be read: {err}")));
     }
-    Ok(String::from_utf8_lossy(&out.stdout).lines().filter_map(parse_tv_line).collect())
+    let mut entries = vec![];
+    for line in String::from_utf8_lossy(&out.stdout).lines().filter(|l| !l.trim().is_empty()) {
+        // a line we can't read could hide an entry from the checks below
+        let e = parse_tv_line(line).ok_or_else(|| {
+            AppError::new("unsafe_archive", "Its file list couldn't be read safely. Nothing was extracted.")
+        })?;
+        entries.push(e);
+    }
+    Ok(entries)
 }
 
-/// Refuse the whole archive on any absolute path, drive letter, `..` component or link (SPEC §9).
+#[cfg(windows)]
+fn seven_zip() -> Option<PathBuf> {
+    [r"C:\Program Files\7-Zip\7z.exe", r"C:\Program Files (x86)\7-Zip\7z.exe"]
+        .iter()
+        .map(PathBuf::from)
+        .find(|p| p.exists())
+}
+
+#[cfg(windows)]
+fn unrar() -> Option<PathBuf> {
+    Some(PathBuf::from(r"C:\Program Files\WinRAR\UnRAR.exe")).filter(|p| p.exists())
+}
+
+#[cfg(windows)]
+fn is_rar(archive: &Path) -> bool {
+    archive.extension().map(|e| e.eq_ignore_ascii_case("rar")).unwrap_or(false)
+}
+
+#[cfg(windows)]
+fn list_fallback(archive: &Path) -> Option<Vec<Entry>> {
+    if let Some(z) = seven_zip()
+        && let Ok(out) = command(&z).arg("l").arg("-slt").arg(archive).output()
+        && out.status.success()
+        && let Some(entries) = parse_7z_slt(&String::from_utf8_lossy(&out.stdout))
+    {
+        return Some(entries);
+    }
+    if is_rar(archive)
+        && let Some(u) = unrar()
+        && let Ok(out) = command(&u).arg("lt").arg(archive).output()
+        && out.status.success()
+    {
+        return Some(parse_unrar_lt(&String::from_utf8_lossy(&out.stdout)));
+    }
+    None
+}
+
+/// Refuse the whole archive on any absolute path, drive letter, `..` component (also `.. ` and `...`, which Windows
+/// trims to `..`), Windows device name, control character or link (SPEC §9), and on archives too big to extract.
 pub fn check_entries(entries: &[Entry]) -> AppResult<()> {
+    let unsafe_entry = |path: &str| {
+        AppError::new("unsafe_archive", format!("It contains an unsafe entry ({path}). Nothing was extracted."))
+    };
     for e in entries {
         let p = e.path.replace('\\', "/");
-        let bad = e.link
-            || p.starts_with('/')
-            || p.contains(':')
-            || p.split('/').any(|c| c == "..")
-            || p.bytes().any(|b| b < 0x20);
+        let bad_component = p.split('/').filter(|c| !c.is_empty() && *c != ".").any(|c| {
+            // Win32 drops trailing dots and spaces, so "..." or ".. " would land as ".."
+            c.trim_end_matches(['.', ' ']).is_empty() || paths::is_reserved_name(c)
+        });
+        let bad = e.link || p.starts_with('/') || p.contains(':') || bad_component || p.bytes().any(|b| b < 0x20);
         if bad {
-            return Err(AppError::new(
-                "unsafe_archive",
-                format!("It contains an unsafe entry ({}). Nothing was extracted.", e.path),
-            ));
+            return Err(unsafe_entry(&e.path));
         }
+    }
+    let total: u64 = entries.iter().map(|e| e.size).sum();
+    if entries.len() > MAX_ENTRIES || total > MAX_TOTAL_BYTES {
+        return Err(AppError::new(
+            "archive_too_big",
+            format!(
+                "It would unpack to {} files and {:.1} GB, more than a mod should. Nothing was extracted.",
+                entries.len(),
+                total as f64 / (1u64 << 30) as f64
+            ),
+        ));
     }
     Ok(())
 }
@@ -128,19 +253,35 @@ pub fn extract(archive: &Path, dest: &Path, include: &[&str], progress: &mut dyn
     c.stdout(Stdio::null()).stderr(Stdio::piped());
     let mut child =
         c.spawn().map_err(|e| AppError::new("extractor_missing", format!("Couldn't run the archive tool: {e}")))?;
+    // drain stderr while it runs: a full pipe would block the extractor forever
+    let stderr = child.stderr.take().map(|mut s| {
+        std::thread::spawn(move || {
+            let mut buf = String::new();
+            use std::io::Read;
+            let _ = s.read_to_string(&mut buf);
+            buf
+        })
+    });
+    let started = std::time::Instant::now();
+    let mut ticks = 0u32;
     let status = loop {
         if let Some(st) = child.try_wait()? {
             break st;
         }
-        progress(dir_size(dest));
+        if started.elapsed() > EXTRACT_TIMEOUT {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(AppError::new("extract_failed", "Extraction took too long and was stopped."));
+        }
+        // walking the staging tree costs, so measure about once a second
+        if ticks.is_multiple_of(5) {
+            progress(dir_size(dest));
+        }
+        ticks += 1;
         std::thread::sleep(Duration::from_millis(200));
     };
     if !status.success() {
-        let mut err = String::new();
-        if let Some(mut s) = child.stderr.take() {
-            use std::io::Read;
-            let _ = s.read_to_string(&mut err);
-        }
+        let err = stderr.and_then(|h| h.join().ok()).unwrap_or_default();
         #[cfg(windows)]
         if extract_fallback(archive, dest).is_ok() {
             return verify_inside(dest);
@@ -154,18 +295,30 @@ pub fn extract(archive: &Path, dest: &Path, include: &[&str], progress: &mut dyn
 /// Windows fallbacks when tar.exe can't read an archive (SPEC §9): 7-Zip, then WinRAR's UnRAR for .rar.
 #[cfg(windows)]
 fn extract_fallback(archive: &Path, dest: &Path) -> io::Result<()> {
-    let candidates =
-        [PathBuf::from(r"C:\Program Files\7-Zip\7z.exe"), PathBuf::from(r"C:\Program Files (x86)\7-Zip\7z.exe")];
-    for z in candidates.iter().filter(|p| p.exists()) {
-        let st = command(z).arg("x").arg("-y").arg(format!("-o{}", dest.display())).arg(archive).status()?;
+    if let Some(z) = seven_zip() {
+        let st = command(&z)
+            .arg("x")
+            .arg("-y")
+            .arg(format!("-o{}", dest.display()))
+            .arg(archive)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()?;
         if st.success() {
             return Ok(());
         }
     }
-    let unrar = PathBuf::from(r"C:\Program Files\WinRAR\UnRAR.exe");
-    let is_rar = archive.extension().map(|e| e.eq_ignore_ascii_case("rar")).unwrap_or(false);
-    if is_rar && unrar.exists() {
-        let st = command(&unrar).arg("x").arg("-o+").arg(archive).arg(format!("{}\\", dest.display())).status()?;
+    if is_rar(archive)
+        && let Some(u) = unrar()
+    {
+        let st = command(&u)
+            .arg("x")
+            .arg("-o+")
+            .arg(archive)
+            .arg(format!("{}\\", dest.display()))
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()?;
         if st.success() {
             return Ok(());
         }
@@ -233,9 +386,9 @@ pub fn strip_unwanted(dir: &Path) -> io::Result<Vec<String>> {
             if paths::is_junk_name(&name) || library {
                 out.push(paths::rel_from(base, &path).unwrap_or(name));
                 if is_dir {
-                    fs::remove_dir_all(&path)?
+                    fsutil::remove_tree_force(&path)?
                 } else {
-                    fs::remove_file(&path)?
+                    fsutil::remove_file_force(&path)?
                 }
                 continue;
             }
@@ -409,6 +562,44 @@ pub mod tests {
             assert_eq!(check_entries(&[ok(bad)]).unwrap_err().code, "unsafe_archive", "{bad}");
         }
         assert!(check_entries(&[Entry { link: true, ..ok("a") }]).is_err());
+    }
+
+    #[test]
+    fn only_links_carry_a_target_and_odd_lines_are_not_entries() {
+        let f = parse_tv_line("-rw-r--r--  0 0      0          10 Jun 12  2023 a -> b.ini").unwrap();
+        assert!(!f.link, "a plain file may have an arrow in its name");
+        assert_eq!(f.path, "a -> b.ini");
+        let h = parse_tv_line("hrw-r--r--  0 0      0           0 Jun 12  2023 copy.ini link to real.ini").unwrap();
+        assert!(h.link);
+        assert_eq!(h.path, "copy.ini");
+        assert!(parse_tv_line("tar: something odd").is_none());
+    }
+
+    #[test]
+    fn refuses_windows_name_tricks_and_oversized_archives() {
+        let ok = |p: &str| Entry { path: p.into(), size: 0, is_dir: false, link: false };
+        for bad in [".. /x.ini", "a/.../b.ini", "a/. ./b", "CON", "dir/nul.txt", "COM1.ini", "aux/x.ini"] {
+            assert_eq!(check_entries(&[ok(bad)]).unwrap_err().code, "unsafe_archive", "{bad}");
+        }
+        assert!(check_entries(&[ok("./a.ini"), ok("a/./b.ini"), ok("Console.ini"), ok("dir/")]).is_ok());
+        let huge = Entry { size: MAX_TOTAL_BYTES + 1, ..ok("bomb.bin") };
+        assert_eq!(check_entries(&[huge]).unwrap_err().code, "archive_too_big");
+    }
+
+    #[test]
+    fn parses_7zip_and_unrar_technical_listings() {
+        let z = "7-Zip 23.01\r\n\r\n--\r\nPath = C:\\dl\\a.rar\r\nType = Rar5\r\n\r\n----------\r\nPath = Mod\\Mod.ini\r\nFolder = -\r\nSize = 558\r\nAttributes = A\r\n\r\nPath = Mod\r\nFolder = +\r\nSize = 0\r\nAttributes = D\r\n\r\nPath = Mod\\l\r\nSize = 0\r\nSymbolic Link = ..\\..\\x\r\n";
+        let e = parse_7z_slt(z).unwrap();
+        assert_eq!(e.len(), 3);
+        assert_eq!((e[0].path.as_str(), e[0].size, e[0].is_dir), ("Mod/Mod.ini", 558, false));
+        assert!(e[1].is_dir);
+        assert!(e[2].link);
+        assert!(parse_7z_slt("no separator").is_none());
+        let r = "UNRAR 7.00\n\n        Name: Mod/Varesa.ini\n        Type: File\n        Size: 1200\n\n        Name: Mod\n        Type: Directory\n\n        Name: Mod/evil\n        Type: Symbolic link\n";
+        let e = parse_unrar_lt(r);
+        assert_eq!(e.len(), 3);
+        assert_eq!((e[0].path.as_str(), e[0].size), ("Mod/Varesa.ini", 1200));
+        assert!(e[1].is_dir && e[2].link);
     }
 
     #[test]

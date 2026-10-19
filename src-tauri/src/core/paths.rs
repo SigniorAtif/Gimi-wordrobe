@@ -165,6 +165,12 @@ pub fn sanitize_component(name: &str) -> String {
     s
 }
 
+/// A Windows device name (`CON`, `nul.txt`, `COM1`…), which can't be a file name on NTFS.
+pub fn is_reserved_name(component: &str) -> bool {
+    let stem = component.trim_end_matches(['.', ' ']).split('.').next().unwrap_or("").trim_end().to_uppercase();
+    RESERVED.contains(&stem.as_str())
+}
+
 /// Sanitise every component of a relative path.
 pub fn sanitize_rel(rel: &str) -> String {
     rel.split(['/', '\\']).filter(|s| !s.is_empty()).map(sanitize_component).collect::<Vec<_>>().join("/")

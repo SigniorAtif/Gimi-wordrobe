@@ -59,6 +59,51 @@ pub fn strip_bom(b: &[u8]) -> &[u8] {
     b.strip_prefix(&[0xEF, 0xBB, 0xBF]).unwrap_or(b)
 }
 
+/// Make a read-only file or tree deletable. Windows refuses to delete read-only files, and archive entries often carry
+/// that attribute (desktop.ini does); elsewhere the folder's permissions decide, so there is nothing to do.
+#[cfg(windows)]
+fn clear_readonly(p: &Path) {
+    if let Ok(meta) = fs::symlink_metadata(p) {
+        if meta.is_dir() && !meta.file_type().is_symlink() {
+            if let Ok(rd) = fs::read_dir(p) {
+                for e in rd.flatten() {
+                    clear_readonly(&e.path());
+                }
+            }
+        }
+        let mut perm = meta.permissions();
+        if perm.readonly() {
+            #[allow(clippy::permissions_set_readonly_false)]
+            perm.set_readonly(false);
+            let _ = fs::set_permissions(p, perm);
+        }
+    }
+}
+
+/// `remove_file` that also works on read-only files.
+pub fn remove_file_force(p: &Path) -> io::Result<()> {
+    match fs::remove_file(p) {
+        #[cfg(windows)]
+        Err(e) if e.kind() == io::ErrorKind::PermissionDenied => {
+            clear_readonly(p);
+            fs::remove_file(p)
+        }
+        r => r,
+    }
+}
+
+/// `remove_dir_all` that also works on trees holding read-only files. Links inside are removed, never followed.
+pub fn remove_tree_force(p: &Path) -> io::Result<()> {
+    match fs::remove_dir_all(p) {
+        #[cfg(windows)]
+        Err(e) if e.kind() == io::ErrorKind::PermissionDenied => {
+            clear_readonly(p);
+            fs::remove_dir_all(p)
+        }
+        r => r,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
