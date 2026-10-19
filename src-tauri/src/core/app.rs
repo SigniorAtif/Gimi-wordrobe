@@ -497,10 +497,33 @@ impl AppCore {
     }
 
     pub fn update_skin(&mut self, id: &str, patch: SkinPatch) -> AppResult<Snapshot> {
+        let before = self.library.clone();
+        let result = self.update_skin_inner(id, patch).and_then(|_| self.save_library());
+        if let Err(e) = result {
+            // a failed save must not leave the edit in memory for the next save to persist
+            self.library = before;
+            return Err(e);
+        }
+        Ok(self.snapshot())
+    }
+
+    fn update_skin_inner(&mut self, id: &str, patch: SkinPatch) -> AppResult<()> {
         if let Some(e) = &patch.entity_id
             && self.library.entity(e).is_none()
         {
             return Err(AppError::new("unknown_entity", "That character or item doesn't exist."));
+        }
+        // moving a skin that is switched on would leave it enabled under the old entity's name
+        if let Some(to) = &patch.entity_id
+            && let Some(skin) = self.library.skin(id)
+            && &skin.entity_id != to
+            && let Ok((mods, stash)) = self.roots()
+            && skin.folders.iter().any(|f| state::place_of(&mods, Some(&stash), f) == state::FolderPlace::Mods)
+        {
+            return Err(AppError::new(
+                "skin_enabled",
+                format!("{} is switched on. Turn it off (pick Original) and Apply before moving it.", skin.name),
+            ));
         }
         let skin =
             self.library.skin_mut(id).ok_or_else(|| AppError::new("unknown_skin", "That skin no longer exists."))?;
@@ -536,6 +559,9 @@ impl AppCore {
         if let Some(order) = patch.preview_order {
             let mut next = vec![];
             for f in &order {
+                if next.iter().any(|n: &super::model::Preview| &n.file == f) {
+                    continue;
+                }
                 if let Some(p) = skin.previews.iter().find(|p| &p.file == f) {
                     next.push(p.clone());
                 }
@@ -557,11 +583,20 @@ impl AppCore {
                 e.skin_ids.push(id.to_string());
             }
         }
-        self.save_library()?;
-        Ok(self.snapshot())
+        Ok(())
     }
 
     pub fn update_entity(&mut self, id: &str, patch: EntityPatch) -> AppResult<Snapshot> {
+        let before = self.library.clone();
+        let result = self.update_entity_inner(id, patch).and_then(|_| self.save_library());
+        if let Err(e) = result {
+            self.library = before;
+            return Err(e);
+        }
+        Ok(self.snapshot())
+    }
+
+    fn update_entity_inner(&mut self, id: &str, patch: EntityPatch) -> AppResult<()> {
         if let Some(p) = patch.parent_id.as_deref().filter(|p| !p.is_empty())
             && (p == id || self.library.entity(p).is_none())
         {
@@ -583,8 +618,7 @@ impl AppCore {
         if let Some(a) = patch.aliases {
             e.aliases = a.into_iter().filter_map(opt).collect();
         }
-        self.save_library()?;
-        Ok(self.snapshot())
+        Ok(())
     }
 
     /// Where a skin's first folder is right now (Mods, DISABLED_ in Mods, or the stash).
@@ -1025,6 +1059,10 @@ pub mod tests {
         let cfg = tempfile::tempdir().unwrap();
         let (_t, mods, lib) = fixture_world();
         let mut core = configured_core(cfg.path(), &mods, &lib);
+        // enabled skins can't move (their folder would stay on under the old name)
+        let e = core.update_skin("furina--casual", SkinPatch { entity_id: Some("kazuha".into()), ..SkinPatch::default() });
+        assert_eq!(e.unwrap_err().code, "skin_enabled");
+        core.apply(&picks(&[("furina", Some("furina--remembrance"))]), Fault::None, &mut noop).unwrap();
         let snap = core
             .update_skin("furina--casual", SkinPatch { entity_id: Some("kazuha".into()), ..SkinPatch::default() })
             .unwrap();

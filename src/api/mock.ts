@@ -126,11 +126,15 @@ export const api: Api = {
     await wait(30);
     const s = world.library.skins.find((k) => k.id === skinId);
     if (!s) throw new ApiFailure("unknown_skin", "That skin no longer exists.");
-    const clean = (v: string) => (v.trim() ? v.trim() : undefined);
-    if (patch.name !== undefined) {
-      if (!patch.name.trim()) throw new ApiFailure("invalid_name", "A skin needs a name.");
-      s.name = patch.name.trim();
+    // refuse before changing anything, like the Rust side
+    const moveTo = patch.entityId && patch.entityId !== s.entityId ? world.library.entities.find((e) => e.id === patch.entityId) : undefined;
+    if (patch.entityId && patch.entityId !== s.entityId) {
+      if (!moveTo) throw new ApiFailure("unknown_entity", "That character or item doesn't exist.");
+      if (world.active.has(skinId)) throw new ApiFailure("skin_enabled", `${s.name} is switched on. Turn it off (pick Original) and Apply before moving it.`);
     }
+    if (patch.name !== undefined && !patch.name.trim()) throw new ApiFailure("invalid_name", "A skin needs a name.");
+    const clean = (v: string) => (v.trim() ? v.trim() : undefined);
+    if (patch.name !== undefined) s.name = patch.name.trim();
     if (patch.author !== undefined) s.author = clean(patch.author);
     if (patch.version !== undefined) s.version = clean(patch.version);
     if (patch.notes !== undefined) s.notes = patch.notes.trim() ? patch.notes : undefined;
@@ -148,13 +152,11 @@ export const api: Api = {
         return (ia < 0 ? 1e9 : ia) - (ib < 0 ? 1e9 : ib);
       });
     }
-    if (patch.entityId && patch.entityId !== s.entityId) {
+    if (moveTo) {
       const from = world.library.entities.find((e) => e.id === s.entityId);
-      const to = world.library.entities.find((e) => e.id === patch.entityId);
-      if (!to) throw new ApiFailure("unknown_entity", "That character or item doesn't exist.");
       if (from) from.skinIds = from.skinIds.filter((x) => x !== skinId);
-      to.skinIds.push(skinId);
-      s.entityId = to.id;
+      moveTo.skinIds.push(skinId);
+      s.entityId = moveTo.id;
     }
     return snapshot();
   },
