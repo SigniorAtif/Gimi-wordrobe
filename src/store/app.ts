@@ -52,6 +52,7 @@ interface AppState {
 }
 
 let toastSeq = 1;
+let settingsSeq = 0;
 
 export const useApp = create<AppState>((set, get) => ({
   snapshot: null,
@@ -107,14 +108,21 @@ export const useApp = create<AppState>((set, get) => ({
   async saveSettings(patch) {
     const snap = get().snapshot;
     if (!snap) return;
+    const seq = ++settingsSeq;
     const next: Settings = { ...snap.settings, ...patch };
     // optimistic: settings save instantly (§6), the backend may re-scan and return a fresh snapshot
     set({ snapshot: { ...snap, settings: next } });
     try {
       const fresh = await api.saveSettings(next);
-      set({ snapshot: fresh });
+      // a newer save already went out with this patch included; only the latest response wins
+      if (seq === settingsSeq) set({ snapshot: fresh });
     } catch (e) {
-      set({ snapshot: snap });
+      if (seq === settingsSeq) {
+        const cur = get().snapshot ?? snap;
+        const reverted = { ...cur.settings } as Record<keyof Settings, unknown>;
+        for (const k of Object.keys(patch) as (keyof Settings)[]) reverted[k] = snap.settings[k];
+        set({ snapshot: { ...cur, settings: reverted as unknown as Settings } });
+      }
       get().toast({ kind: "error", text: toFailure(e).message });
     }
   },
