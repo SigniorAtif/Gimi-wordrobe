@@ -5,6 +5,7 @@ pub mod error;
 pub mod fsutil;
 pub mod hashindex;
 pub mod hotkeys;
+pub mod import;
 pub mod ini;
 pub mod library;
 pub mod model;
