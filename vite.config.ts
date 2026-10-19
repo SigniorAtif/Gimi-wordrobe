@@ -7,6 +7,9 @@ const host = process.env.TAURI_DEV_HOST;
 // VITE_MOCK=1 swaps the real Tauri backend for the in-memory fixture backend
 // (test harness only, SPEC §0). Release builds never set it.
 const mock = process.env.VITE_MOCK === "1";
+if (mock && process.env.TAURI_ENV_PLATFORM) {
+  throw new Error("VITE_MOCK=1 must never be used for a Tauri build (the mock backend is a test harness).");
+}
 
 export default defineConfig(() => ({
   plugins: [react()],

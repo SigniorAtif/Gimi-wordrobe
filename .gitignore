@@ -1,6 +1,7 @@
 # Dependencies and build output
 node_modules/
 dist/
+dist-mock/
 dist-ssr/
 src-tauri/target/
 src-tauri/gen/schemas/

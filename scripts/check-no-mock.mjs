@@ -1,8 +1,22 @@
 // Fails the build if the mock backend leaked into the release bundle (SPEC §0).
-import { readdirSync, readFileSync, statSync } from "node:fs";
+// Mock builds (VITE_MOCK=1) go to dist-mock/ and are never allowed under the Tauri bundler.
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
+if (process.env.VITE_MOCK === "1") {
+  if (process.env.TAURI_ENV_PLATFORM) {
+    console.error("check-no-mock: VITE_MOCK=1 is set during a Tauri build; refusing to bundle the mock backend.");
+    process.exit(1);
+  }
+  console.log("check-no-mock: mock build (dist-mock), skipped");
+  process.exit(0);
+}
+
 const dir = "dist";
+if (!existsSync(dir)) {
+  console.error("check-no-mock: dist/ is missing");
+  process.exit(1);
+}
 const files = [];
 (function walk(d) {
   for (const f of readdirSync(d)) {
