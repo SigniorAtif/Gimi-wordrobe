@@ -504,7 +504,9 @@ impl AppCore {
         Ok((self.snapshot(), added))
     }
 
-    /// Remove one preview: library.json first, then the file goes to the Recycle Bin (never a hard delete).
+    /// Remove one preview: library.json first, then the file goes to the Recycle Bin (never a hard delete). A preview
+    /// that is a symlink, or sits in a linked folder, only leaves the list: the bin never gets a path that could lead
+    /// outside the Library.
     pub fn remove_preview(
         &mut self,
         skin_id: &str,
@@ -531,7 +533,9 @@ impl AppCore {
             self.library = before;
             return Err(e);
         }
-        if let Some(p) = path.filter(|p| p.is_file())
+        let plain_file =
+            |p: &PathBuf| !fsutil::leaves_root(&lib, p) && fs::symlink_metadata(p).is_ok_and(|m| m.is_file());
+        if let Some(p) = path.filter(plain_file)
             && let Err(e) = delete(&p)
         {
             self.library = before;
@@ -923,6 +927,36 @@ mod tests {
         core.remove_preview(&id, &outside, &count).unwrap();
         assert_eq!(*calls.borrow(), 0);
         assert!(w.lib.join("library.json").is_file());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn never_bins_a_symlinked_preview_or_folder() {
+        use std::os::unix::fs::symlink;
+        let (w, mut core, id) = world();
+        core.add_previews(&id, &[PNG.to_vec(), JPG.to_vec()], PreviewSource::User).unwrap();
+        let files = files_of(&core, &id);
+        let outside = w.root.path().join("precious.png");
+        fs::write(&outside, PNG).unwrap();
+        let calls = RefCell::new(vec![]);
+        let bin = |p: &Path| {
+            calls.borrow_mut().push(p.to_path_buf());
+            Ok(())
+        };
+        // the preview file itself is a symlink to something outside the Library
+        let first = w.lib.join(&files[0]);
+        fs::remove_file(&first).unwrap();
+        symlink(&outside, &first).unwrap();
+        core.remove_preview(&id, &files[0], &bin).unwrap();
+        // the skin's previews folder is a symlink: the file inside it lives elsewhere
+        let dir = w.lib.join("previews").join(&id);
+        let away = w.root.path().join("away");
+        fs::rename(&dir, &away).unwrap();
+        symlink(&away, &dir).unwrap();
+        core.remove_preview(&id, &files[1], &bin).unwrap();
+        assert!(calls.borrow().is_empty(), "{:?}", calls.borrow());
+        assert!(files_of(&core, &id).is_empty(), "both left the list");
+        assert!(outside.is_file() && away.join(files[1].rsplit('/').next().unwrap()).is_file());
     }
 
     #[test]
