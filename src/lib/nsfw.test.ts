@@ -80,12 +80,13 @@ describe("messages don't name hidden skins (SPEC §11)", () => {
     expect(redactHidden("anything", null, false)).toBe("anything");
   });
 
-  it("skips names too short to redact safely", () => {
+  it("redacts short names as whole words only", () => {
     const s = lewdWorld();
     const k = s.library.skins.find((x) => x.id === "v-lewd")!;
-    k.name = "XY";
+    k.name = "Ei";
     k.folders = ["Ab"];
-    expect(redactHidden("XY moved Ab", s, false)).toBe("XY moved a hidden skin");
+    expect(redactHidden("Couldn't move Ei (Ab)", s, false)).toBe("Couldn't move a hidden skin (a hidden skin)");
+    expect(redactHidden("Neither eight nor Abbey", s, false)).toBe("Neither eight nor Abbey");
   });
 });
 

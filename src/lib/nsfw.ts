@@ -8,14 +8,14 @@ const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 /**
  * Replace the names and folders of hidden NSFW skins in a message (toasts, errors from the backend), so an Apply
- * error like "Couldn't move Varesa\CowGirl" doesn't give a hidden skin away. Over-redacting is the safe direction.
+ * error like "Couldn't move Varesa\CowGirl" doesn't give a hidden skin away. Over-redacting is the safe direction; names under three characters only match as whole words.
  */
 export function redactHidden(text: string, snap: Snapshot | null, nsfwVisible: boolean): string {
   if (nsfwVisible || !snap || !text) return text;
   const terms = new Set<string>();
   for (const k of snap.library.skins) {
     if (!k.nsfw) continue;
-    if (k.name.trim().length >= 3) terms.add(k.name.trim());
+    if (k.name.trim()) terms.add(k.name.trim());
     for (const f of k.folders) {
       const parts = f.split(/[\\/]/).filter(Boolean);
       if (!parts.length) continue;
@@ -23,12 +23,14 @@ export function redactHidden(text: string, snap: Snapshot | null, nsfwVisible: b
       terms.add(parts.join("/"));
       terms.add(parts.join("\\"));
       const last = parts[parts.length - 1].replace(/^DISABLED_?/i, "");
-      if (last.length >= 3) terms.add(last);
+      if (last) terms.add(last);
     }
   }
   if (!terms.size) return text;
-  const pattern = [...terms].sort((a, b) => b.length - a.length).map(escape).join("|");
-  return text.replace(new RegExp(pattern, "gi"), "a hidden skin");
+  // short terms ("Ei") only as whole words, so they don't eat parts of other words
+  const term = (t: string) => (t.length < 3 ? `(?<![\\p{L}\\p{N}])${escape(t)}(?![\\p{L}\\p{N}])` : escape(t));
+  const pattern = [...terms].sort((a, b) => b.length - a.length).map(term).join("|");
+  return text.replace(new RegExp(pattern, "giu"), "a hidden skin");
 }
 
 /** Calls `onIdle` once after `ms` without `bump()`; `stop()` cancels. Plain timers, so it's testable without React. */
