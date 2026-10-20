@@ -3,6 +3,7 @@
 
 use super::apply::{self, ExecError, Fault, Roots};
 use super::error::{AppError, AppResult};
+use super::fixers;
 use super::hashindex::HashIndex;
 use super::import;
 use super::library;
@@ -88,6 +89,17 @@ fn signature(s: &Snapshot) -> u64 {
 pub const IMAGE_DIRS: [&str; 2] = ["previews", "portraits"];
 pub const STASH_DIR: &str = "stash";
 pub const HASH_INDEX_FILE: &str = "hash_index.json";
+
+/// What "Run fixer scripts" did.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FixersRun {
+    pub snapshot: Snapshot,
+    /// "Ran 2 fixer scripts on your active mods."; None when none ran cleanly.
+    pub note: Option<String>,
+    /// One line per script that failed or was missing.
+    pub warnings: Vec<String>,
+}
 
 pub struct AppCore {
     config_dir: PathBuf,
@@ -316,6 +328,20 @@ impl AppCore {
             self.save_library()?;
         }
         Ok(self.publish())
+    }
+
+    /// "Run fixer scripts": the enabled tools once over the whole Mods folder, as running them there by hand would, so
+    /// every active mod is fixed. Stashed skins aren't touched. Re-scans after, so the library sees updated hashes.
+    pub fn run_fixers_on_mods(&mut self, progress: &mut dyn FnMut(&str)) -> AppResult<FixersRun> {
+        let (mods, _) = self.roots()?;
+        self.recover_pending()?;
+        let scripts = self.settings.fixer_scripts.clone();
+        if !scripts.iter().any(|s| s.enabled && !s.path.trim().is_empty()) {
+            return Err(AppError::new("no_fixers", "Add a fixer script in Settings first (or switch one on)."));
+        }
+        let out = fixers::run_all(&scripts, &mods, fixers::TIMEOUT, progress);
+        let snapshot = self.rescan()?;
+        Ok(FixersRun { snapshot, note: out.note("your active mods"), warnings: out.warnings })
     }
 
     /// Copy active skins' d3dx_user.ini lines into the library (SPEC §3).
@@ -1098,5 +1124,32 @@ pub mod tests {
             )
             .unwrap();
         assert_eq!(snap.library.entity("kazuha").unwrap().aliases, vec!["Kaz".to_string()]);
+    }
+
+    #[test]
+    fn fixer_scripts_run_once_over_the_mods_folder() {
+        let cfg = tempfile::tempdir().unwrap();
+        let tools = tempfile::tempdir().unwrap();
+        let (_t, mods, lib) = fixture_world();
+        let mut core = configured_core(cfg.path(), &mods, &lib);
+        assert_eq!(core.run_fixers_on_mods(&mut |_| {}).unwrap_err().code, "no_fixers");
+        #[cfg(windows)]
+        let (name, body) = ("fix.cmd", "@echo off\r\necho fixed>fixer-was-here.txt\r\n");
+        #[cfg(unix)]
+        let (name, body) = ("fix.sh", "#!/bin/sh\necho fixed > fixer-was-here.txt\n");
+        let script = tools.path().join(name);
+        fs::write(&script, body).unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&script, fs::Permissions::from_mode(0o755)).unwrap();
+        }
+        core.settings.fixer_scripts =
+            vec![crate::core::model::FixerScript { path: script.to_string_lossy().into_owned(), enabled: true }];
+        let out = core.run_fixers_on_mods(&mut |_| {}).unwrap();
+        assert_eq!(out.note.as_deref(), Some("Ran 1 fixer script on your active mods."));
+        assert!(out.warnings.is_empty());
+        assert!(mods.join("fixer-was-here.txt").is_file(), "ran in the Mods folder");
+        assert!(!lib.join("fixer-was-here.txt").exists());
     }
 }

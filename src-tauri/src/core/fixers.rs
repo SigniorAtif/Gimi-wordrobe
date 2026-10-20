@@ -27,12 +27,12 @@ pub struct FixerOutcome {
 }
 
 impl FixerOutcome {
-    /// One line for the toast after an add; None when no script ran.
-    pub fn note(&self) -> Option<String> {
+    /// One line for a toast ("Ran 2 fixer scripts on the new skin."); None when no script ran.
+    pub fn note(&self, on: &str) -> Option<String> {
         match self.ran {
             0 => None,
-            1 => Some("Ran 1 fixer script on the new skin.".into()),
-            n => Some(format!("Ran {n} fixer scripts on the new skin.")),
+            1 => Some(format!("Ran 1 fixer script on {on}.")),
+            n => Some(format!("Ran {n} fixer scripts on {on}.")),
         }
     }
 }
@@ -222,7 +222,7 @@ mod tests {
         assert_eq!(out.ran, 2);
         assert!(out.warnings.is_empty(), "{:?}", out.warnings);
         assert_eq!(labels.len(), 2);
-        assert_eq!(out.note().as_deref(), Some("Ran 2 fixer scripts on the new skin."));
+        assert_eq!(out.note("the new skin").as_deref(), Some("Ran 2 fixer scripts on the new skin."));
         assert!(!tools.path().join("log.txt").exists(), "runs in the skin's folder, not the script's");
     }
 

@@ -610,7 +610,7 @@ impl AppCore {
                 }
             }
         }
-        Ok(AddResult { snapshot, skin_ids: ids, warnings, fix_note: fixed.note() })
+        Ok(AddResult { snapshot, skin_ids: ids, warnings, fix_note: fixed.note("the new skin") })
     }
 }
 

@@ -60,6 +60,12 @@ pub async fn rescan(state: State<'_, AppState>) -> AppResult<Snapshot> {
     state.run(|c| c.rescan()).await
 }
 
+/// Settings / skin detail "Run fixer scripts": the user's tools once over the whole Mods folder.
+#[tauri::command]
+pub async fn run_fixers(state: State<'_, AppState>) -> AppResult<crate::core::app::FixersRun> {
+    state.run(|c| c.run_fixers_on_mods(&mut |_| {})).await
+}
+
 #[tauri::command]
 pub async fn save_settings(app: AppHandle, state: State<'_, AppState>, settings: Settings) -> AppResult<Snapshot> {
     let snap = state.run(move |c| c.save_settings(settings)).await?;
