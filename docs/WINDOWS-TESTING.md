@@ -7,8 +7,10 @@ real Mods folder.
 Work through it top to bottom. Tick each box as you go. Allow about two hours the first time (most of it is the
 first Rust build and the checks).
 
-> **Rule for the whole guide:** sections 1–5 never touch `D:\mods\3dmigoto`. The setup screen pre-fills the real
-> paths, so change them every time the guide says so. The real Mods folder comes last, in section 6, after a backup.
+> **Rule for the whole guide:** sections 1–5 never write to `D:\mods\3dmigoto`, and the app never opens a file inside
+> it. The only use is in 5.11, where PowerShell copies two archives out of it into the test world. The setup screen
+> pre-fills the real paths, so change them every time the guide says so. The real Mods folder comes last, in
+> section 6, after a backup.
 
 All commands are for **PowerShell**. Paths assume the project is at `D:\mods\skin-switcher`.
 
@@ -338,10 +340,16 @@ if ($env:SKIN_SWITCHER_CONFIG_DIR -ne "D:\mods\ss-test\config") { throw 'set SKI
 
 ### 5.11 Windows-only archive checks
 
-These code paths can't run on Linux.
+These code paths can't run on Linux. Two of them need real archives. Copy those into the test world first; the app
+only ever adds the copies:
 
-1. **A real .rar**: **+ Add** → `D:\mods\3dmigoto\Mods\Charecters and wepon\Diluc\dilucinwhitebetterhair.rar`.
-   Reading it is safe; the skin is extracted into the test world, not the real Mods folder.
+```powershell
+$Real = "D:\mods\3dmigoto\Mods\Charecters and wepon"     # read-only: only ever a copy source
+Copy-Item -LiteralPath "$Real\Diluc\dilucinwhitebetterhair.rar" "$T\fixtures\archives\"
+Copy-Item -LiteralPath "$Real\Veresa\nsfw\varesa_lewd_-_culott_e_mort_1828d.zip" "$T\fixtures\archives\"
+```
+
+1. **A real .rar**: **+ Add** → `D:\mods\ss-test\fixtures\archives\dilucinwhitebetterhair.rar`.
    - [ ] It lists and extracts through Windows' `tar.exe`, and its `prev (1..6).png` images become previews.
 2. **A non-ASCII archive name**:
    ```powershell
@@ -350,9 +358,8 @@ These code paths can't run on Linux.
    The `八重` characters are outside the Western code page, which is what breaks badly encoded command lines.
    - [ ] Adding `D:\mods\ss-test\Culottée à mort 八重.zip` works, and the file name shows correctly in the add
          dialog.
-3. **A non-ASCII folder inside an archive**: add
-   `D:\mods\3dmigoto\Mods\Charecters and wepon\Veresa\nsfw\varesa_lewd_-_culott_e_mort_1828d.zip` (it's 18+; keep it
-   marked 18+).
+3. **A non-ASCII folder inside an archive**: add the copy at
+   `D:\mods\ss-test\fixtures\archives\varesa_lewd_-_culott_e_mort_1828d.zip` (it's 18+; keep it marked 18+).
    - [ ] The folder shows as `Culottée à mort` (or a cleaned-up readable name), never with `�` characters. Its inner
          `DISABLED…` folders keep their names.
 4. **A read-only `desktop.ini`**:
@@ -372,8 +379,18 @@ These code paths can't run on Linux.
          `D:\mods\ss-test\Library\tmp` is empty afterwards.
 5. **The 7-Zip / UnRAR fallback**: the app only uses these when `tar.exe` can't read an archive. WinRAR is installed
    (`C:\Program Files\WinRAR\UnRAR.exe`); 7-Zip is used if it's in `C:\Program Files\7-Zip`. One way to make an
-   archive `tar.exe` may not read: in WinRAR, add a mod folder with **Split to volumes** set to a small size, so you
-   get `name.part1.rar`, `name.part2.rar`, … Then add `name.part1.rar`.
+   archive `tar.exe` may not read is a RAR split into volumes. Build it from a copy under the test world, with the
+   output in `$T\split\`:
+   ```powershell
+   $S = "$T\split-src\SplitTest"
+   New-Item -ItemType Directory -Force $S, "$T\split" | Out-Null
+   Copy-Item "$T\fixtures\Mods\Mona\Starry Witch\MonaCN.ini" $S
+   $b = New-Object byte[] 65536; (New-Object Random 1).NextBytes($b); [IO.File]::WriteAllBytes("$S\filler.buf", $b)
+   & "C:\Program Files\WinRAR\Rar.exe" a -r -ep1 -v20k "$T\split\splittest.rar" $S
+   ```
+   (Or in WinRAR's window: add `D:\mods\ss-test\split-src\SplitTest` with **Split to volumes** = 20 KB and the
+   archive name `D:\mods\ss-test\split\splittest.rar`.) You get `splittest.part1.rar`, `splittest.part2.rar`, … in
+   `D:\mods\ss-test\split\`. Then add `D:\mods\ss-test\split\splittest.part1.rar`.
    - [ ] Either `tar.exe` reads it, or the fallback does and the skin is added with the same checks (no junk, no
          unsafe paths). Write down which happened. If neither can read it, the app should say so and write nothing.
 6. **Native dialogs**:
