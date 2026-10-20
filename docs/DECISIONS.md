@@ -248,3 +248,10 @@ these fill gaps or record where something had to be interpreted.
   a test settings folder, so the installed app can be tested without touching the real settings or Mods. The
   rollback and crash checks use the debug build's `SKIN_SWITCHER_FAULT` hook; the rollback check also has a
   locked-file variant that runs on the installed release build.
+- **The guide targets `main` after M6.** Checks for UI the redesign brings (the PIN prompt, Ctrl+H, auto re-hide,
+  GameBanana fetching) sit under "Skip until the redesign UI lands", and the 18+ checks use the toolbar chip. The
+  README lists those features as planned.
+- **Guide commands fail closed.** Each launch sets `SKIN_SWITCHER_CONFIG_DIR` and checks it on the same line as the
+  launch, because a pasted block can run line by line and a `throw` on its own line wouldn't stop the next one. The
+  backup and rollback run inside one `& { }` block for the same reason. `Snap` hashes file contents and skips only
+  the `Library\tmp` folder itself, which the app deletes at every start.
