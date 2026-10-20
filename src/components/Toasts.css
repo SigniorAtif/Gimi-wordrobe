@@ -1,14 +1,16 @@
 .toasts {
   position: fixed;
   right: var(--gutter);
-  bottom: calc(var(--gutter) + var(--pending-offset, 0px));
+  bottom: var(--gutter);
+  /* moves above the pending sheet with a transform, not by animating bottom */
+  transform: translateY(calc(-1 * var(--pending-offset, 0px)));
   z-index: 60;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   gap: var(--s-2);
   pointer-events: none;
-  transition: bottom 320ms var(--ease-out);
+  transition: transform 320ms var(--ease-out);
 }
 .toast {
   pointer-events: auto;

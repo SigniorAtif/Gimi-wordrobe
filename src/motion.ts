@@ -8,6 +8,8 @@ export const spring = {
   smooth: { type: "spring", stiffness: 260, damping: 30, mass: 1 },
   /** page-level moves and shared elements */
   gentle: { type: "spring", stiffness: 170, damping: 26, mass: 1 },
+  /** radio fills: one small overshoot (damping ratio about 0.7), never a bounce */
+  pop: { type: "spring", stiffness: 520, damping: 32, mass: 1 },
 } as const satisfies Record<string, Transition>;
 
 export const duration = {
