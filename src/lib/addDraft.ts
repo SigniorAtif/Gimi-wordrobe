@@ -1,5 +1,6 @@
 // Draft state behind the add dialogs (A4 modal, C4 popover) and the request it turns into (SPEC §6, §9).
-import type { AddSkinRequest, AddTarget, ArchiveRoot, ArchiveSummary, Category, Entity, PreviewChoice } from "../api/types";
+import type { AddSkinRequest, AddTarget, ArchiveRoot, ArchiveSummary, Category, Entity, GameBananaInfo, PreviewChoice } from "../api/types";
+import { gameBananaSkinName } from "./previews";
 
 export type EntityChoice =
   | { kind: "existing"; id: string }
@@ -20,6 +21,8 @@ export interface AddDraft {
   entity: EntityChoice;
   skinName: string;
   gbUrl: string;
+  /** the main skin's author (pre-filled from GameBanana, or typed in A4) */
+  author: string;
   nsfw: boolean;
   preview: PreviewChoice;
   userImage: string | null;
@@ -85,6 +88,7 @@ export function initialDraft(
     entity,
     skinName: summary.suggestedName,
     gbUrl: "",
+    author: "",
     nsfw: summary.nsfwGuess,
     preview: summary.images.length ? "archive" : "later",
     userImage: null,
@@ -93,7 +97,6 @@ export function initialDraft(
   };
 }
 
-/** Default name for a split-out skin: "Bennett Beach Day" for the sword out of Bennett's "Beach Day". */
 /** Tick or untick a root; roots nested inside it follow, since they can't be added without their parent's files. */
 export function withRootIncluded(draft: AddDraft, summary: ArchiveSummary, i: number, include: boolean): AddDraft {
   const parent = summary.roots[i];
@@ -102,6 +105,7 @@ export function withRootIncluded(draft: AddDraft, summary: ArchiveSummary, i: nu
   return { ...draft, roots: draft.roots.map((r, j) => (j === i || inside(j) ? { ...r, include } : r)) };
 }
 
+/** Default name for a split-out skin: "Bennett Beach Day" for the sword out of Bennett's "Beach Day". */
 export function defaultSplitName(draft: AddDraft, entities: Entity[]): string {
   return [choiceName(draft.entity, entities), draft.skinName.trim()].filter(Boolean).join(" ") || "Skin";
 }
@@ -153,9 +157,46 @@ export function checkDraft(draft: AddDraft, summary: ArchiveSummary, entities: E
       exclude,
       nsfw: draft.nsfw,
       gameBananaUrl: gb || undefined,
+      author: draft.author.trim() || undefined,
       previewSource: draft.preview,
       userImagePath: draft.preview === "user" ? (draft.userImage ?? undefined) : undefined,
       makeActive: draft.makeActive,
     },
+  };
+}
+
+/** What a GameBanana lookup filled in last time, so a second link can replace it but never what the user typed. */
+export interface GameBananaPrefill {
+  name: string;
+  author: string;
+}
+
+/** The name and author a GameBanana page suggests for a skin of `entityName`. */
+export function gameBananaPrefill(info: Pick<GameBananaInfo, "name" | "author">, entityName: string): GameBananaPrefill {
+  return { name: gameBananaSkinName(info.name, entityName), author: info.author?.trim() ?? "" };
+}
+
+/**
+ * Fill the draft from a pasted GameBanana link (SPEC §6 A4/C4): the skin name and author unless the user typed their
+ * own, NSFW switched on when GameBanana rates the mod 18+ (never off), and GameBanana as the preview source when the
+ * archive brought none.
+ */
+export function applyGameBananaInfo(
+  draft: AddDraft,
+  info: Pick<GameBananaInfo, "name" | "author" | "nsfw" | "images">,
+  opts: { suggestedName: string; entityName: string; previous: GameBananaPrefill | null },
+): { draft: AddDraft; prefill: GameBananaPrefill } {
+  const { name, author } = gameBananaPrefill(info, opts.entityName);
+  const ours = (v: string, prev: string | undefined) => !v.trim() || v === prev;
+  const nameFree = ours(draft.skinName, opts.previous?.name) || draft.skinName === opts.suggestedName;
+  return {
+    draft: {
+      ...draft,
+      skinName: nameFree && name ? name : draft.skinName,
+      author: ours(draft.author, opts.previous?.author) && author ? author : draft.author,
+      nsfw: draft.nsfw || info.nsfw,
+      preview: draft.preview === "later" && info.images.length > 0 ? "gamebanana" : draft.preview,
+    },
+    prefill: { name, author },
   };
 }
