@@ -99,7 +99,10 @@ pub struct AddRequest {
     pub nsfw: bool,
     #[serde(default)]
     pub game_banana_url: Option<String>,
-    /// "archive" | "user" | "gamebanana" | "later"
+    /// The main skin's author (from its GameBanana page, or typed in).
+    #[serde(default)]
+    pub author: Option<String>,
+    /// "archive" | "user" | "gamebanana" (fetched by the frontend right after the add) | "later"
     #[serde(default)]
     pub preview_source: String,
     #[serde(default)]
@@ -529,6 +532,11 @@ impl AppCore {
                     nsfw: req.nsfw,
                     // the link is the main skin's page, not the weapon's or extra's
                     game_banana_url: req.game_banana_url.clone().filter(|u| split.is_none() && !u.trim().is_empty()),
+                    author: req
+                        .author
+                        .clone()
+                        .filter(|a| split.is_none() && !a.trim().is_empty())
+                        .map(|a| a.trim().to_string()),
                     source_archive: file_name.clone(),
                     previews,
                     hotkeys,
@@ -632,6 +640,7 @@ mod tests {
             exclude: vec![],
             nsfw: false,
             game_banana_url: None,
+            author: None,
             preview_source: "archive".into(),
             user_image_path: None,
             make_active: false,
