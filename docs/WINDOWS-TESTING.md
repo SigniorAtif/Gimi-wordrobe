@@ -1,11 +1,14 @@
 # Windows testing guide
 
+> **Run this guide on `main` after PR #9 (first-run import) has merged.**
+
 The app was built and tested on Linux against the fixtures. This guide covers what's left, all on Windows:
 build the installer, run every acceptance check (SPEC §16) on a **copy of the fixtures**, and only then import the
 real Mods folder.
 
 Work through it top to bottom. Tick each box as you go. Allow about two hours the first time (most of it is the
-first Rust build and the checks).
+first Rust build and the checks). Steps under **Skip until the redesign UI lands** need screens that aren't built
+yet (the PIN prompt, the Ctrl+H shortcut, auto re-hide, GameBanana previews); leave those boxes for later.
 
 > **Rule for the whole guide:** sections 1–5 never write to `D:\mods\3dmigoto`, and the app never opens a file inside
 > it. The only use is in 5.11, where PowerShell copies two archives out of it into the test world. The setup screen
@@ -150,9 +153,9 @@ Import.
 - [ ] Archives in `Charecters and wepon`: Bennett's archive (folder `Benny`) is a Bennett skin, and its sword is a
       separate **Skyward Blade** weapon skin named "Bennett Beach Day". Fischl's archive has **Oz** as a separate extra.
       Neuvillette's archive has **Tome of the Eternal Flow** as a separate weapon skin. The archive in `Veresa\nsfw`
-      is marked 18+ (it shows as "Hidden 18+ skin" until you press Ctrl+H).
-- [ ] Library mods (ORFix, ORFixAPI and the other global helpers) are not listed as skins. `desktop.ini` and the
-      `.impeccable` dot-folder don't appear.
+      is marked 18+ (it shows as "Hidden 18+ skin" until you click the **18+ HIDDEN** chip above the list).
+- [ ] Library mods (ORFix, ORFixAPI and the other global helpers) are not listed as skins. `desktop.ini` files and
+      dot-folders don't appear.
 - [ ] The loose `paimon_cc116.zip` and `sandrone_marionette_by_neyori.zip` are offered for moving to the Library, and
       "Move the imported archives" is ticked.
 - [ ] Furina has two skins on (Remembrance and Casual), so the "Several skins are on" box asks which one to keep.
@@ -166,9 +169,13 @@ Import.
 
 - [ ] Ctrl+F (or just typing) focuses search; arrow keys move between cards; Enter opens; Space picks; I opens the
       quick peek (Shelves) or the detail page (Pages); Esc/Backspace goes back; Ctrl+S applies; Ctrl+Z undoes the last
-      pending change; Ctrl+H toggles 18+ skins (SPEC §12). Shortcuts do nothing while another window is focused.
+      pending change. Shortcuts do nothing while another window is focused.
 - [ ] Settings › Appearance › Reduce motion = **On**: only crossfades, no sliding or stagger. **System** follows
       Windows Settings › Accessibility › Visual effects › Animation effects.
+
+**Skip until the redesign UI lands:**
+
+- [ ] Ctrl+H toggles 18+ skins (SPEC §12).
 
 ## 5. Acceptance checks (SPEC §16) on the test world
 
@@ -250,12 +257,25 @@ Settings › Library › Disable method should be **Move** (the default).
 
 1. Make sure at least one skin is 18+ (the Varesa archive from the import, or switch on **18+** on any skin's detail
    page).
-2. Press Ctrl+H until the toolbar chip reads **18+ HIDDEN**.
+2. Settings › NSFW › When hidden = **Fully invisible**. (The default, a small "+N" stub, shows how many are hidden on
+   purpose.)
+3. Click the toolbar's 18+ chip until it reads **18+ HIDDEN**.
 
 - [ ] No 18+ name, cover or count shows anywhere: Shelves, Pages, character pages, the pending bar, toasts, and search
       (type the skin's name: no result). A character whose active skin is 18+ shows "Modded (hidden)" with a
       placeholder cover.
-- [ ] Settings › NSFW: set a PIN. Ctrl+H now asks for it, and a wrong PIN doesn't reveal anything.
+- [ ] Click the chip: it reads **18+ VISIBLE** and the 18+ skins appear. Click it again: they're hidden.
+- [ ] Hidden is the default. Reveal the 18+ skins, close the app and start it again:
+      ```powershell
+      $env:SKIN_SWITCHER_CONFIG_DIR = "$T\config"
+      if ($env:SKIN_SWITCHER_CONFIG_DIR -ne "D:\mods\ss-test\config") { throw 'set SKIN_SWITCHER_CONFIG_DIR first' }; & $App
+      ```
+      It opens with the chip on **18+ HIDDEN** and no 18+ skin showing.
+
+**Skip until the redesign UI lands:**
+
+- [ ] Ctrl+H toggles 18+ skins the same way the chip does.
+- [ ] Settings › NSFW: set a PIN. Revealing now asks for it, and a wrong PIN doesn't reveal anything.
 - [ ] With **Auto re-hide** on, minimise the window after revealing: 18+ skins are hidden again when you come back.
 
 ### 5.6 Removing goes to the Recycle Bin
@@ -285,7 +305,7 @@ WebView2 is the real target for motion, so judge it here. Walk through SPEC §7'
 - [ ] A shelf springs open; opening another closes the old one without a jump. The quick peek morphs.
 - [ ] Picking a skin: the dot pops, the ACTIVE / PENDING tag slides between cards.
 - [ ] Pending bar slides up and its count ticks. Apply morphs into progress and then a check mark. Toasts spring in.
-- [ ] Dialogs (add, confirm, PIN) scale in over a blurred backdrop; menus scale from their trigger.
+- [ ] Dialogs (add, confirm) scale in over a blurred backdrop; menus scale from their trigger.
 - [ ] Dragging an archive over the window: cards pulse, the hovered one lifts, "+ New" tiles slide in.
 - [ ] Search: filtered cards fade out and the rest reflow. 18+ reveal: cards un-blur in a stagger.
 - [ ] Layout switch: the main area crossfades. Hover lifts cards; pressing shrinks them slightly.
@@ -397,8 +417,8 @@ Copy-Item -LiteralPath "$Real\Veresa\nsfw\varesa_lewd_-_culott_e_mort_1828d.zip"
    - [ ] **+ Add** opens a Windows file dialog filtered to `.zip`, `.rar` and `.7z`.
    - [ ] Settings' **Browse** buttons open a folder picker.
    - [ ] Choosing a preview or portrait image opens a picker filtered to images.
-7. **GameBanana previews**: paste a GameBanana mod link (e.g. a `https://gamebanana.com/mods/<id>` page) into a
-   skin.
+7. **GameBanana previews. Skip until the redesign UI lands:** the current UI doesn't fetch from GameBanana yet.
+   Later: paste a GameBanana mod link (e.g. a `https://gamebanana.com/mods/<id>` page) into a skin.
    - [ ] A shimmer shows while it fetches, then the mod's preview images appear. With the network off, it falls back
          to "+ Add preview" with a Retry link.
 8. **Library on another drive** (optional): in the test settings, set the Library to `C:\ss-test-lib`.
@@ -460,7 +480,7 @@ and compares the file count and total bytes on both sides. Write down the folder
       `www.patreon.com annplan.png` promo image isn't the cover.
 - [ ] Alyosha is found even though the ini is spelled `Aloysha.ini`.
 - [ ] Varesa: `varesa_by_neyori` is one skin (Face + Outfit) and isn't 18+. The three skins in `Veresa\nsfw` are 18+
-      (press Ctrl+H to check their names).
+      (click the **18+ HIDDEN** chip to check their names).
 - [ ] Libraries (ORFix, ORFixAPI and other global helpers) aren't listed as skins.
 - [ ] No archive is listed as unreadable. If one is, write down its name and the message.
 - [ ] The loose `paimon_cc116.zip` and `sandrone_marionette_by_neyori.zip` are offered for moving to the Library,
