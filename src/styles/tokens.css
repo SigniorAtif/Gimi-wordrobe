@@ -1,42 +1,54 @@
-/* Design tokens (SPEC §2, docs/DESIGN.md). Dark only. OKLCH neutrals tinted toward the accent hue. */
+/* Design tokens (SPEC §2, docs/DESIGN.md). Dark only.
+   A wardrobe at night: warm charcoal chrome stays quiet so the skin art carries the colour. */
 :root {
   color-scheme: dark;
 
-  /* Surfaces: window < 1 < 2 < 3 */
-  --bg: oklch(0.145 0.008 275);
-  --bg-deep: oklch(0.12 0.007 275);
-  --surface-1: oklch(0.182 0.009 275);
-  --surface-2: oklch(0.218 0.010 275);
-  --surface-3: oklch(0.258 0.011 275);
-  --surface-hover: oklch(0.24 0.011 275);
+  /* Neutrals: warm charcoal, OKLCH hue 70 at very low chroma. Window < 1 < 2 < 3, about +0.045 L per step. */
+  --bg-deep: oklch(0.138 0.005 70);
+  --bg: oklch(0.165 0.006 70);
+  --surface-1: oklch(0.207 0.007 70);
+  --surface-2: oklch(0.25 0.008 70);
+  --surface-3: oklch(0.296 0.009 70);
+  --surface-hover: oklch(0.272 0.009 70);
 
-  --border: oklch(0.285 0.011 275);
-  --border-soft: oklch(0.245 0.010 275);
-  --border-strong: oklch(0.38 0.013 275);
+  --border-soft: oklch(0.255 0.007 70);
+  --border: oklch(0.315 0.008 70);
+  --border-strong: oklch(0.405 0.009 70);
 
-  --text: oklch(0.95 0.006 275);
-  --text-2: oklch(0.77 0.010 275);
-  --text-3: oklch(0.58 0.012 275);
-  --text-4: oklch(0.46 0.012 275);
+  --text: oklch(0.945 0.008 85);
+  --text-2: oklch(0.79 0.009 80);
+  --text-3: oklch(0.645 0.01 75);
+  --text-4: oklch(0.505 0.01 75);
 
-  /* One accent: soft violet-blue */
-  --accent: oklch(0.73 0.125 278);
-  --accent-strong: oklch(0.79 0.12 278);
-  --accent-ink: oklch(0.2 0.04 278);
-  --accent-soft: oklch(0.73 0.125 278 / 0.16);
-  --accent-line: oklch(0.73 0.125 278 / 0.55);
-  --focus-ring: 0 0 0 2px var(--bg), 0 0 0 4px oklch(0.73 0.125 278 / 0.85);
+  /* One accent: jade. Only for the active state, focus rings and the primary button. */
+  --accent: oklch(0.8 0.13 165);
+  --accent-strong: oklch(0.86 0.115 165);
+  --accent-ink: oklch(0.24 0.05 168);
+  --accent-soft: oklch(0.8 0.13 165 / 0.13);
+  --accent-line: oklch(0.8 0.13 165 / 0.5);
+  --accent-glow: oklch(0.8 0.13 165 / 0.3);
+  --focus-ring: 0 0 0 2px var(--bg), 0 0 0 4px oklch(0.8 0.13 165 / 0.9);
 
-  /* Semantic */
-  --pending: oklch(0.85 0.14 88);
-  --pending-ink: oklch(0.25 0.05 88);
-  --pending-soft: oklch(0.85 0.14 88 / 0.14);
-  --danger: oklch(0.67 0.19 25);
-  --danger-ink: oklch(0.98 0.01 25);
-  --danger-soft: oklch(0.67 0.19 25 / 0.14);
-  --danger-line: oklch(0.67 0.19 25 / 0.5);
+  /* Semantic: yellow only for PENDING, red only for conflicts, errors and 18+ */
+  --pending: oklch(0.86 0.15 88);
+  --pending-strong: oklch(0.9 0.14 92);
+  --pending-ink: oklch(0.27 0.06 80);
+  --pending-soft: oklch(0.86 0.15 88 / 0.13);
+  --pending-line: oklch(0.86 0.15 88 / 0.5);
+  --danger: oklch(0.69 0.17 27);
+  --danger-ink: oklch(0.98 0.012 30);
+  --danger-soft: oklch(0.69 0.17 27 / 0.14);
+  --danger-line: oklch(0.69 0.17 27 / 0.5);
 
-  /* Type */
+  /* Text and controls laid over cover art */
+  --scrim: oklch(0.13 0.006 70 / 0.9);
+  --scrim-clear: oklch(0.13 0.006 70 / 0);
+  --on-art: oklch(0.16 0.006 70 / 0.74);
+  --on-art-line: oklch(0.95 0.008 85 / 0.16);
+  --backdrop: oklch(0.09 0.006 70 / 0.66);
+  --art-edge: inset 0 0 0 1px oklch(0.95 0.008 85 / 0.07);
+
+  /* Type: Inter for UI, Bricolage Grotesque for names and titles. Heading steps are 1.25x apart. */
   --font: "Inter Variable", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
   /* names, page titles and skin titles only; never labels, buttons or data */
   --font-display: "Bricolage Grotesque Variable", "Inter Variable", "Segoe UI Variable Display", system-ui, sans-serif;
@@ -45,17 +57,22 @@
   --fs-meta: 12px;
   --fs-sm: 13px;
   --fs-body: 14px;
-  --fs-title: 16px;
-  --fs-page: 20px;
-  --fs-detail: 26px;
+  --fs-title: 17.5px;
+  --fs-page: 22px;
+  --fs-detail: 28px;
+  --fs-display: 36px;
+  --ls-display: -0.018em;
+  --ls-caps: 0.09em;
 
   /* Shape */
   --r-card: 14px;
+  --r-art: 12px;
   --r-btn: 10px;
   --r-sm: 6px;
+  --r-sheet: 20px;
   --r-pill: 999px;
 
-  /* Space */
+  /* Space: 4px base; screens mix tight and loose steps for rhythm */
   --s-1: 4px;
   --s-2: 8px;
   --s-3: 12px;
@@ -65,15 +82,22 @@
   --s-7: 32px;
   --s-8: 40px;
   --s-9: 56px;
-  --gutter: 24px;
+  --s-10: 72px;
+  --gutter: 28px;
 
-  /* Depth */
-  --shadow-1: 0 1px 2px oklch(0.05 0.01 275 / 0.5), 0 2px 8px oklch(0.05 0.01 275 / 0.25);
-  --shadow-2: 0 2px 4px oklch(0.05 0.01 275 / 0.45), 0 10px 28px oklch(0.05 0.01 275 / 0.45);
-  --shadow-3: 0 6px 16px oklch(0.04 0.01 275 / 0.5), 0 24px 60px oklch(0.04 0.01 275 / 0.55);
+  /* Depth: lighter surfaces carry elevation; shadows only for things that float */
+  --shadow-1: 0 1px 2px oklch(0.08 0.006 70 / 0.5);
+  --shadow-2: 0 2px 6px oklch(0.08 0.006 70 / 0.4), 0 12px 32px oklch(0.08 0.006 70 / 0.45);
+  --shadow-3: 0 8px 20px oklch(0.07 0.006 70 / 0.5), 0 28px 70px oklch(0.07 0.006 70 / 0.55);
 
   /* Layout */
-  --toolbar-h: 64px;
-  --pending-h: 64px;
+  --toolbar-h: 68px;
+  --pending-h: 80px;
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (max-width: 1179px) {
+  :root {
+    --gutter: 20px;
+  }
 }

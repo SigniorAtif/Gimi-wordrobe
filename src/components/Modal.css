@@ -9,7 +9,7 @@
 .modal__backdrop {
   position: absolute;
   inset: 0;
-  background: oklch(0.08 0.01 275 / 0.62);
+  background: var(--backdrop);
 }
 .modal__dialog {
   position: relative;

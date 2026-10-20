@@ -8,7 +8,7 @@
   align-items: center;
   gap: var(--s-2);
   padding: 0 var(--gutter);
-  background: oklch(0.145 0.008 275 / 0.92);
+  background: var(--bg);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--border-soft);
 }

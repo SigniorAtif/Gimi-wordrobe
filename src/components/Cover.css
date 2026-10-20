@@ -16,7 +16,7 @@
   position: absolute;
   inset: auto 0 0 0;
   height: 40%;
-  background: linear-gradient(to top, oklch(0.1 0.01 275 / 0.7), transparent);
+  background: linear-gradient(to top, var(--scrim), var(--scrim-clear));
   pointer-events: none;
 }
 .cover--empty,
