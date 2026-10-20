@@ -390,3 +390,218 @@ textarea.input {
   gap: var(--s-2);
   margin-top: var(--s-3);
 }
+
+/* Art card: a skin card where the cover leads (C2 shelf strip as .skincard, A2 grid as .bigcard).
+   The name plate sits on the cover's scrim; the selection ring is drawn outside the card so it never covers art.
+   Plate text ignores the pointer so clicks reach the full-card radio (.skincard__hit / .bigcard__hit). */
+.skincard,
+.bigcard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 0;
+  gap: 0;
+  border: 0;
+  border-radius: var(--r-art);
+  background: var(--surface-1);
+  text-align: left;
+  box-shadow: var(--shadow-1);
+  transition:
+    transform 180ms var(--ease-out),
+    box-shadow 220ms var(--ease-out);
+}
+.skincard::before,
+.bigcard::before {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  z-index: 3;
+  border-radius: calc(var(--r-art) + 4px);
+  box-shadow: 0 0 0 2px transparent;
+  pointer-events: none;
+  transition: box-shadow 220ms var(--ease-out);
+}
+.skincard:hover,
+.bigcard:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-2);
+}
+.skincard:active,
+.bigcard:active {
+  transform: scale(0.98);
+}
+.skincard.is-selected::before,
+.bigcard.is-selected::before {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+.skincard.is-pending::before,
+.bigcard.is-pending::before {
+  box-shadow: 0 0 0 2px var(--pending);
+}
+.skincard .cover,
+.bigcard .cover {
+  border-radius: var(--r-art);
+}
+.skincard .cover img,
+.bigcard .cover img {
+  transition: filter 260ms var(--ease-out);
+}
+.skincard__hit,
+.bigcard__hit {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+}
+.skincard__hit:focus-visible,
+.bigcard__hit:focus-visible {
+  box-shadow: var(--focus-ring);
+}
+.skincard__meta,
+.bigcard__meta {
+  position: absolute;
+  z-index: 2;
+  left: 10px;
+  right: 10px;
+  bottom: 29px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 7px 7px;
+  min-height: 20px;
+  pointer-events: none;
+}
+/* the ACTIVE / PENDING tag hangs above the name like a garment tag, so long names never fight it */
+.skincard__meta .tag,
+.bigcard__meta .tag {
+  order: -1;
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+.skincard__name,
+.bigcard__name {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+  font-size: 14.5px;
+  font-weight: 640;
+  letter-spacing: -0.005em;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.skincard__author,
+.bigcard__sub {
+  position: absolute;
+  z-index: 2;
+  left: 10px;
+  right: 10px;
+  bottom: 10px;
+  min-height: 16px;
+  font-size: var(--fs-meta);
+  color: var(--text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+.skincard .radio,
+.bigcard .radio {
+  border-color: var(--text-2);
+}
+.skincard .radio[data-on="true"],
+.bigcard .radio[data-on="true"] {
+  border-color: var(--accent);
+}
+.skincard .radio[data-pending="true"],
+.bigcard .radio[data-pending="true"] {
+  border-color: var(--pending);
+}
+/* on-art controls: quiet chips that appear on hover or focus */
+.skincard__more,
+.skincard__info,
+.bigcard__more {
+  position: absolute;
+  z-index: 2;
+  top: 8px;
+  display: grid;
+  place-items: center;
+  height: 26px;
+  border-radius: 8px;
+  border: 1px solid var(--on-art-line);
+  background: var(--on-art);
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1;
+  opacity: 0;
+  transition:
+    opacity 140ms var(--ease-out),
+    background-color 140ms var(--ease-out);
+}
+.skincard__more:hover,
+.skincard__info:hover,
+.bigcard__more:hover {
+  background: oklch(0.24 0.008 70 / 0.9);
+}
+.skincard__more,
+.bigcard__more {
+  right: 8px;
+  width: 30px;
+}
+.skincard__info {
+  right: 44px;
+  width: 26px;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 750;
+}
+.skincard:hover .skincard__more,
+.skincard__more:focus-visible,
+.skincard.is-selected .skincard__more,
+.skincard:hover .skincard__info,
+.skincard__info:focus-visible,
+.bigcard:hover .bigcard__more,
+.bigcard__more:focus-visible {
+  opacity: 1;
+}
+.skincard__nsfw,
+.bigcard__nsfw {
+  position: absolute;
+  z-index: 2;
+  top: 10px;
+  left: 10px;
+}
+/* Original: the bare model. No art, so a quiet patterned tile with the plate on top. */
+.skincard__orig,
+.bigcard__orig {
+  display: grid;
+  place-content: center;
+  gap: 2px;
+  aspect-ratio: 3 / 4;
+  padding-bottom: 22%;
+  border-radius: var(--r-art);
+  background:
+    radial-gradient(70% 50% at 50% 38%, oklch(0.27 0.008 70) 0%, transparent 100%),
+    repeating-linear-gradient(135deg, var(--surface-1) 0 9px, oklch(0.222 0.007 70) 9px 10px);
+  box-shadow: var(--art-edge);
+  text-align: center;
+}
+.skincard__orig-title,
+.bigcard__orig > span {
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+  font-size: var(--fs-title);
+  font-weight: 620;
+  letter-spacing: var(--ls-display);
+  color: var(--text-2);
+}
+.skincard__orig-sub,
+.bigcard__orig small {
+  font-size: var(--fs-meta);
+  color: var(--text-3);
+}

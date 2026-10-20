@@ -72,7 +72,7 @@ export function Cover({
     );
   }
   return (
-    <Flip flipKey={flip ? `skin:${skin.id}` : `cover:${skin.id}:static`} className={`cover ${className ?? ""}`} reduced={reduced || !flip} radius={10}>
+    <Flip flipKey={flip ? `skin:${skin.id}` : `cover:${skin.id}:static`} className={`cover ${className ?? ""}`} reduced={reduced || !flip} radius={12}>
       <motion.img
         key={first.file}
         src={api.assetUrl(first.file)}

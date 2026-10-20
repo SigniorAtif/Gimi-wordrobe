@@ -49,13 +49,13 @@ export function PageCard({
         onContextMenu(e);
       }}
     >
-      <Flip flipKey={`entity:${entity.id}`} className="pcard__art" reduced={reduced} radius={10}>
+      <Flip flipKey={`entity:${entity.id}`} className="pcard__art" reduced={reduced} radius={14}>
         <span className="pcard__art-bg" style={{ ["--hue" as string]: hueFor(entity.name) }} />
         {cover ? (
           <img src={cover} alt="" loading="lazy" decoding="async" draggable={false} />
         ) : (
           <span className="pcard__portrait">
-            <Portrait entity={entity} size={72} />
+            <Portrait entity={entity} size={84} />
           </span>
         )}
         <AnimatePresence>{fetching && <CoverShimmer key="fetching" overlay />}</AnimatePresence>
@@ -92,9 +92,9 @@ export function PageCard({
                 {s.id === effective && (
                   <motion.span
                     className="ecard__dot-fill"
-                    initial={{ scale: 0, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1, transition: { type: "spring", stiffness: 600, damping: 22, opacity: tween.micro } }}
-                    exit={{ scale: 0, opacity: 0, transition: tween.micro }}
+                    initial={reduced ? { opacity: 0 } : { scaleX: 0, opacity: 0 }}
+                    animate={{ scaleX: 1, opacity: 1, transition: { ...spring.snappy, opacity: tween.micro } }}
+                    exit={reduced ? { opacity: 0, transition: tween.micro } : { scaleX: 0, opacity: 0, transition: tween.micro }}
                   />
                 )}
               </AnimatePresence>

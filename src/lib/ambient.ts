@@ -27,10 +27,10 @@ export function rgbToOklch([r, g, b]: Rgb): { l: number; c: number; h: number } 
 
 /**
  * Glow colours sit at one low lightness with capped chroma: the glow tints by hue, not by brightness, so --text-3
- * laid over its peak (mixed at most 45% into --surface-2) still clears 4.5:1.
+ * laid over its peak (mixed at most 55% into --surface-2) still clears 4.5:1.
  */
-export const GLOW_L = 0.32;
-export const GLOW_MAX_C = 0.075;
+export const GLOW_L = 0.3;
+export const GLOW_MAX_C = 0.09;
 
 /**
  * Dominant colour of RGBA pixel data as a glow-safe OKLCH string, or null for a grey image.

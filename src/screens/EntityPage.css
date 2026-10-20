@@ -47,141 +47,69 @@
 .epage__grid > div {
   display: flex;
 }
-.bigcard {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  width: 100%;
-  padding: 10px 10px 12px;
-  border-radius: var(--r-card);
-  border: 1px solid var(--border-soft);
-  background: var(--surface-1);
-  text-align: left;
-  transition:
-    border-color 160ms var(--ease-out),
-    transform 160ms var(--ease-out),
-    box-shadow 200ms var(--ease-out),
-    opacity 200ms var(--ease-out);
+/* skin cards: the art card primitive (styles/components.css) at A2 size */
+.bigcard__name {
+  font-size: 16px;
 }
-.bigcard:hover {
-  border-color: var(--border-strong);
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-2);
+.bigcard__meta {
+  left: 12px;
+  right: 12px;
+  bottom: 31px;
 }
-.bigcard:active {
-  transform: scale(0.98);
+.bigcard__sub {
+  left: 12px;
+  right: 12px;
+  bottom: 11px;
 }
-.bigcard.is-selected {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent-line), var(--shadow-2);
+.epage__grid:has(.bigcard.is-selected) .bigcard:not(.is-selected):not(.bigcard--drop):not(.bigcard--hidden) .cover img {
+  filter: saturate(0.55) brightness(0.72);
 }
-.bigcard.is-pending {
-  border-color: var(--pending);
-  box-shadow: 0 0 0 1px var(--pending-line), var(--shadow-2);
+.epage__grid:has(.bigcard.is-selected) .bigcard:not(.is-selected):hover .cover img {
+  filter: none;
 }
-.epage__grid:has(.bigcard.is-selected) .bigcard:not(.is-selected):not(.bigcard--drop):not(.bigcard--hidden) {
-  opacity: 0.8;
-}
-.bigcard__hit {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  border: 0;
-  border-radius: inherit;
-  background: transparent;
-}
-.bigcard__hit:focus-visible {
-  box-shadow: var(--focus-ring);
-}
-.bigcard__more {
-  position: absolute;
-  z-index: 2;
-  top: 16px;
-  right: 16px;
-  width: 30px;
-  height: 26px;
-  border-radius: 7px;
-  border: 1px solid var(--on-art-line);
-  background: var(--on-art);
-  color: var(--text);
-  font-size: 15px;
-  opacity: 0;
-  transition: opacity 120ms var(--ease-out);
-}
-.bigcard:hover .bigcard__more,
-.bigcard__more:focus-visible {
-  opacity: 1;
-}
-.bigcard__nsfw {
-  position: absolute;
-  z-index: 2;
-  top: 16px;
-  left: 16px;
+.bigcard--original {
+  cursor: pointer;
 }
 .bigcard__alert {
   position: absolute;
   z-index: 2;
-  bottom: 62px;
-  right: 16px;
-}
-.bigcard__meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.bigcard__name {
-  flex: 1;
-  min-width: 0;
-  font-weight: 640;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.bigcard__sub {
-  font-size: var(--fs-meta);
-  color: var(--text-3);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.bigcard__orig {
-  aspect-ratio: 3 / 4;
-  display: grid;
-  place-content: center;
-  gap: 4px;
-  text-align: center;
-  border-radius: 10px;
-  border: 1.5px dashed var(--border-strong);
-  color: var(--text-2);
-}
-.bigcard__orig small {
-  color: var(--text-3);
-}
-.bigcard--original {
-  cursor: pointer;
+  top: 10px;
+  right: 46px;
+  width: 20px;
+  height: 20px;
+  box-shadow: 0 0 0 2px oklch(0.13 0.006 70 / 0.6);
 }
 .bigcard--hidden,
 .bigcard--drop {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  min-height: 320px;
-  border-style: dashed;
-  border-width: 1.5px;
-  border-color: var(--border-strong);
+  min-height: 100%;
+  aspect-ratio: 3 / 4;
+  border: 1.5px dashed var(--border);
   background: transparent;
+  box-shadow: none;
   color: var(--text-3);
   text-align: center;
+  transition:
+    border-color 160ms var(--ease-out),
+    background-color 160ms var(--ease-out),
+    color 160ms var(--ease-out),
+    transform 180ms var(--ease-out);
 }
 .bigcard--hidden:hover,
 .bigcard--drop:hover {
-  border-color: var(--accent-line);
-  background: var(--accent-soft);
+  border-color: var(--border-strong);
+  background: oklch(0.95 0.008 85 / 0.03);
   color: var(--text-2);
+  box-shadow: none;
 }
 .bigcard__hidden-title {
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
   font-size: var(--fs-title);
+  font-weight: 640;
+  letter-spacing: var(--ls-display);
   color: var(--text-2);
 }
 .bigcard__hidden-sub,
@@ -189,6 +117,12 @@
   font-size: var(--fs-meta);
 }
 .bigcard__plus {
-  font-size: 26px;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--surface-1);
+  font-size: 22px;
   line-height: 1;
 }

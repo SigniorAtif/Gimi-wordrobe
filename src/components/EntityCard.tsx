@@ -34,7 +34,7 @@ export function EntityCard({
     <motion.button
       layout="position"
       type="button"
-      className={`ecard ecard--${entity.category} ${open ? "is-open" : ""} ${pending ? "is-pending" : ""} ${dropHover ? "is-drop-hover" : ""}`}
+      className={`ecard ecard--${entity.category} ${open ? "is-open" : ""} ${pending ? "is-pending" : ""} ${skins.length === 0 ? "is-empty" : ""} ${dropHover ? "is-drop-hover" : ""}`}
       data-entity={entity.id}
       data-nav
       data-drop={`entity:${entity.id}`}
@@ -52,7 +52,7 @@ export function EntityCard({
       }}
     >
       <Flip flipKey={`entity:${entity.id}`} className="ecard__portrait" reduced={reduced} radius={entity.category === "character" ? 24 : 12}>
-        <Portrait entity={entity} cover={view.effectiveSkin} hidden={view.effectiveHidden} size={48} />
+        <Portrait entity={entity} cover={view.effectiveSkin} hidden={view.effectiveHidden} size={46} />
       </Flip>
       <span className="ecard__text">
         <span className="ecard__name">
@@ -92,9 +92,9 @@ export function EntityCard({
                     {on && (
                       <motion.span
                         className="ecard__dot-fill"
-                        initial={{ scale: 0, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1, transition: { type: "spring", stiffness: 600, damping: 22, opacity: tween.micro } }}
-                        exit={{ scale: 0, opacity: 0, transition: tween.micro }}
+                        initial={reduced ? { opacity: 0 } : { scaleX: 0, opacity: 0 }}
+                        animate={{ scaleX: 1, opacity: 1, transition: { ...spring.snappy, opacity: tween.micro } }}
+                        exit={reduced ? { opacity: 0, transition: tween.micro } : { scaleX: 0, opacity: 0, transition: tween.micro }}
                       />
                     )}
                   </AnimatePresence>
