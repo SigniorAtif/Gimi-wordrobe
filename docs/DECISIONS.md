@@ -245,6 +245,25 @@ these fill gaps or record where something had to be interpreted.
 - **Mock backend:** `__mock.failNextGameBanana`, `__mock.gameBananaNsfw` and `__mock.gameBananaMs` drive the
   fetching, failure and NSFW states; mod id 404 answers "This Mod doesn't exist". Dropped files are drawn as
   generated art (the browser can't read them); pasted bytes show as blob URLs.
+- **Review fixes (PR #11):**
+  - **Links are never followed.** `find_folder_previews` skips a skin folder that is, or sits inside, a symlink or
+    a Windows reparse point (`FILE_ATTRIBUTE_REPARSE_POINT`, so junctions too), and symlinked inis are not read.
+    `remove_preview` never sends a symlink, or a file in a linked folder, to the Recycle Bin: that preview only
+    leaves the list. A cloud-placeholder folder is a reparse point too and would be skipped; that fails safe.
+  - **Bounded reads.** An image file is checked by its size (25 MB) and first 16 bytes before the rest is read, and
+    one archive or mod folder tries at most 60 candidates. A file that can't be read (locked, no permission) is
+    skipped as `Unreadable` instead of rolling back the whole add.
+  - **The folder walk stays under the core lock.** On Windows an open handle inside a folder makes Apply's rename of
+    that folder fail, so walking Mods outside the lock could break a concurrent Apply.
+  - **Numbering counts only names this app writes** (1-5 digits, then `.png`, `.jpg`, `.jpeg` or `.webp`, any case)
+    and uses `checked_add`, so a stray `100000.txt` or `4294967295.png` can't block or overflow it.
+  - **GameBanana downloads only what fits.** The command reads the link and the free slots together; a full skin
+    gets `too_many` before any request, and at most `min(free, 12)` images are downloaded, three at a time. With
+    one slot left and a duplicate first image, nothing is added; that's accepted. The ProfilePage call follows no
+    redirects (a 3xx fails); checked live on 2026-10-20 that it answers directly.
+  - **`add_preview` takes any path**, since a dropped or picked image can live anywhere and the webview is our own,
+    but refuses a symlink or anything over 25 MB unread. The add flow's chosen image keeps accepting a link (M5).
+  - **The mock refuses a full skin** with the same `too_many` failure as Rust.
 
 ## M8 NSFW, PIN and shortcuts
 
