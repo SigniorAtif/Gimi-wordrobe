@@ -125,5 +125,6 @@ npm run fixtures                                  # regenerate fixtures/Mods and
 
 ## License
 
-No license has been chosen yet, so the code is all rights reserved by the author. The hash data the build downloads
-stays under GPL-3.0 (see its repository). Mods, previews and names shown in the app belong to their authors.
+[GPL-3.0](LICENSE.md). The hash data the build downloads stays under GPL-3.0 (see its repository). The fix tables
+built from the community scripts are not covered by this license and are never committed. Mods, previews and names
+shown in the app belong to their authors.
