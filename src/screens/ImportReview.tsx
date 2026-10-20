@@ -216,7 +216,7 @@ export function ImportReview() {
           {phase.kind === "reading" ? (
             <>
               <h1 className="imp__title">Reading your mods</h1>
-              <p className="imp__lede">Looking through the Mods folder and the archives in it. Nothing is changed.</p>
+              <p className="imp__lede">Looking through the Mods folder and the archives in it. Your Mods folder isn't changed.</p>
               <AddProgressBar
                 progress={phase.progress ? { ...phase.progress, label: phase.progress.total ? "Reading archives" : "Scanning" } : { done: 0, total: 1, label: "Scanning" }}
               />
