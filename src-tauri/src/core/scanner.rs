@@ -429,13 +429,26 @@ impl<'a> Detector<'a> {
         }
     }
 
+    /// Best name match among the root's own folder name and its ini file names.
+    fn own_name(&self, inis: &[IniFacts], idxs: &[usize], root: &str) -> Option<(f32, usize)> {
+        let mut best: Option<(f32, usize)> = None;
+        for t in &own_texts(inis, idxs, root) {
+            if let Some((s, i)) = self.best_name(t)
+                && best.map(|(b, _)| s > b).unwrap_or(true)
+            {
+                best = Some((s, i));
+            }
+        }
+        best
+    }
+
     /// Entity guess for a group of inis rooted at `root` (SPEC §5 step 4: hash index, learned hashes, names).
     fn detect(&self, inis: &[IniFacts], idxs: &[usize], root: &str, containers: &BTreeSet<String>) -> Option<Guess> {
         let hashes: BTreeSet<&str> = idxs.iter().flat_map(|&i| inis[i].hashes.iter().map(String::as_str)).collect();
         let geometry = idxs.iter().any(|&i| inis[i].geometry);
 
-        // (a) hash index
-        let mut votes: HashMap<usize, (f32, bool)> = HashMap::new();
+        // (a) hash index: (weight, any geometry hit, how many of the mod's hashes hit)
+        let mut votes: HashMap<usize, (f32, bool, usize)> = HashMap::new();
         for h in &hashes {
             let hits = self.ctx.index.lookup(h);
             let distinct: BTreeSet<usize> = hits.iter().map(|x| x.entity).collect();
@@ -444,9 +457,14 @@ impl<'a> Detector<'a> {
             }
             for hit in hits {
                 let w = if hit.is_geometry() { 3.0 } else { 1.0 } / distinct.len() as f32;
-                let v = votes.entry(hit.entity).or_insert((0.0, false));
+                let v = votes.entry(hit.entity).or_insert((0.0, false, 0));
                 v.0 += w;
                 v.1 |= hit.is_geometry();
+            }
+            for e in &distinct {
+                if let Some(v) = votes.get_mut(e) {
+                    v.2 += 1;
+                }
             }
         }
         // ties go to playable characters and weapons over NPC/enemy copies that share hashes
@@ -456,18 +474,29 @@ impl<'a> Detector<'a> {
             IndexGroup::Npc => 1,
             _ => 0,
         };
-        if let Some((&ent, &(_, geo))) =
+        if let Some((&ent, &(_, geo, hit_count))) =
             votes.iter().max_by(|a, b| a.1.0.total_cmp(&b.1.0).then(rank(*a.0).cmp(&rank(*b.0))).then(b.0.cmp(a.0)))
         {
             let ie = self.ctx.index.entity(ent);
-            return Some(Guess {
+            let by_hash = Guess {
                 entity_id: self.library_id_for(&ie.name),
                 name: ie.name.clone(),
                 category: self.ctx.index.category(ent),
                 parent_name: self.ctx.index.parent_name(ent).map(str::to_string),
                 confidence: if geo { 0.95 } else { 0.8 },
                 reason: GuessReason::Hash,
-            });
+            };
+            // one shared hash is weak evidence: mods reuse generic meshes (an eye override for one character can
+            // match another's), so the mod's own folder or ini naming a different entity in full wins over it
+            if hit_count == 1
+                && let Some((s, i)) = self.own_name(inis, idxs, root).filter(|(s, _)| *s >= 0.75)
+            {
+                let by_name = self.guess_from_name(i, 0.5 + 0.3 * s, GuessReason::Name);
+                if by_name.key() != by_hash.key() {
+                    return Some(by_name);
+                }
+            }
+            return Some(by_hash);
         }
 
         // (b) hashes of skins the user already confirmed
@@ -494,28 +523,11 @@ impl<'a> Detector<'a> {
 
         // (c) names: own folder and ini names first, then container ancestors, then other ancestors
         let comps: Vec<&str> = root.split('/').filter(|c| !c.is_empty()).collect();
-        let own = comps.last().copied().unwrap_or("");
-        let mut own_texts: Vec<String> = vec![];
-        if !own.is_empty() && !own.contains('.') && !names::is_generic_part(own) {
-            own_texts.push(own.to_string());
-        }
-        for &i in idxs {
-            let file = inis[i].rel.rsplit('/').next().unwrap_or("");
-            own_texts.push(file.to_string());
-        }
-        let mut best: Option<(f32, usize)> = None;
-        for t in &own_texts {
-            if let Some((s, i)) = self.best_name(t)
-                && best.map(|(b, _)| s > b).unwrap_or(true)
-            {
-                best = Some((s, i));
-            }
-        }
-        if let Some((s, i)) = best.filter(|(s, _)| *s >= 0.55) {
+        if let Some((s, i)) = self.own_name(inis, idxs, root).filter(|(s, _)| *s >= 0.55) {
             return Some(self.guess_from_name(i, 0.5 + 0.3 * s, GuessReason::Name));
         }
         // ancestors, nearest first
-        let distinctive_own = own_texts.first().map(|t| !t.contains('.')).unwrap_or(false);
+        let distinctive_own = own_texts(inis, idxs, root).first().map(|t| !t.contains('.')).unwrap_or(false);
         for depth in (0..comps.len().saturating_sub(1)).rev() {
             let anc = comps[depth];
             let anc_rel = comps[..=depth].join("/");
@@ -543,6 +555,19 @@ impl<'a> Detector<'a> {
             reason: GuessReason::NewName,
         })
     }
+}
+
+/// The root's own folder name (when distinctive) followed by its ini file names.
+fn own_texts(inis: &[IniFacts], idxs: &[usize], root: &str) -> Vec<String> {
+    let own = root.rsplit('/').find(|c| !c.is_empty()).unwrap_or("");
+    let mut out = vec![];
+    if !own.is_empty() && !own.contains('.') && !names::is_generic_part(own) {
+        out.push(own.to_string());
+    }
+    for &i in idxs {
+        out.push(inis[i].rel.rsplit('/').next().unwrap_or("").to_string());
+    }
+    out
 }
 
 fn compatible(a: &Group, b: &Group) -> bool {
@@ -975,6 +1000,39 @@ mod tests {
         let lib = Library::default();
         let r = scan(t.path(), &ScanContext::new(&idx, &lib));
         assert_eq!(r.candidates[0].guess.as_ref().unwrap().name, "Furina");
+    }
+
+    #[test]
+    fn a_lone_shared_hash_loses_to_the_mods_own_name() {
+        // Bennett's beach skin: its eye override shares one hash with another character in the index
+        let idx = test_index();
+        let lib = Library::default();
+        let t = tempfile::tempdir().unwrap();
+        let write = |rel: &str, body: &str| {
+            let p = t.path().join(rel);
+            fs::create_dir_all(p.parent().unwrap()).unwrap();
+            fs::write(p, body).unwrap();
+        };
+        // bf6aef4d is a Fischl position hash; ffff0001.. are unknown (a newer model)
+        write(
+            "BeachDay/BennettAdventure.ini",
+            "[TextureOverrideEye]\nhash = bf6aef4d\n[TextureOverrideBody]\nhash = ffff0001\nib = R\n",
+        );
+        // the same lone hit with no name to go on stays a hash guess
+        write(
+            "Plain/merged.ini",
+            "[TextureOverrideEye]\nhash = bf6aef4d\n[TextureOverrideBody]\nhash = ffff0002\nib = R\n",
+        );
+        // two hits beat a name
+        write(
+            "Two/BennettAlt.ini",
+            "[TextureOverrideA]\nhash = bf6aef4d\n[TextureOverrideB]\nhash = 6428104d\nib = R\n",
+        );
+        let r = scan(t.path(), &ScanContext::new(&idx, &lib));
+        let g = |f: &str| by_folder(&r, f).guess.clone().unwrap();
+        assert_eq!((g("BeachDay").name.as_str(), g("BeachDay").reason), ("Bennett", GuessReason::Name));
+        assert_eq!((g("Plain").name.as_str(), g("Plain").reason), ("Fischl", GuessReason::Hash));
+        assert_eq!((g("Two").name.as_str(), g("Two").reason), ("Fischl", GuessReason::Hash));
     }
 
     #[test]

@@ -24,7 +24,7 @@ function world(): Snapshot {
   return {
     settings: {} as Snapshot["settings"],
     library: { version: 1, entities: [entity("varesa", ["v-safe", "v-lewd"]), entity("furina", ["f-hat"])], skins },
-    disk: { modsPath: null, modsExists: true, skins: {}, active: { varesa: ["v-safe", "v-lewd"], furina: ["f-hat"] }, libraries: [], unknownRoots: [] },
+    disk: { modsPath: null, modsExists: true, skins: {}, active: { varesa: ["v-safe", "v-lewd"], furina: ["f-hat"] }, libraries: [], unknownRoots: [], archives: [] },
     changedOutside: false,
     recovered: null,
     hashIndex: {} as Snapshot["hashIndex"],

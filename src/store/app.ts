@@ -7,7 +7,14 @@ export type Route =
   | { name: "entity"; entityId: string }
   | { name: "skin"; skinId: string }
   | { name: "settings" }
-  | { name: "setup" };
+  | { name: "setup" }
+  /** first-run import / Re-scan review (SPEC §5) */
+  | { name: "import" };
+
+/** First run: an empty library but mods or archives in the Mods folder, so the import review comes first. */
+export function wantsImport(s: Snapshot): boolean {
+  return s.configured && s.library.skins.length === 0 && (s.disk.unknownRoots.length > 0 || s.disk.archives.length > 0);
+}
 
 export function routeKey(r: Route): string {
   switch (r.name) {
@@ -71,7 +78,8 @@ export const useApp = create<AppState>((set, get) => ({
     try {
       const snapshot = await api.load();
       confirmedSettings = snapshot.settings;
-      set({ snapshot, booting: false, route: snapshot.configured ? { name: "home" } : { name: "setup" }, history: [] });
+      const route: Route = !snapshot.configured ? { name: "setup" } : wantsImport(snapshot) ? { name: "import" } : { name: "home" };
+      set({ snapshot, booting: false, route, history: [] });
       if (snapshot.recovered) {
         get().toast({ kind: "info", text: snapshot.recovered.message, ttl: 0 });
       }

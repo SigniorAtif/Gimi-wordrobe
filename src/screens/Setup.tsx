@@ -5,7 +5,7 @@ import type { Loader } from "../api/types";
 import { Field, PathField, RadioOption } from "../components/controls";
 import { riseIn, staggerContainer } from "../motion";
 import { useReduced } from "../lib/useReduced";
-import { useApp } from "../store/app";
+import { useApp, wantsImport } from "../store/app";
 import "./Setup.css";
 
 /** First-run setup (§5 step 1): loader, Mods folder (pre-filled on Windows) and a Library path. */
@@ -66,7 +66,7 @@ export function Setup() {
       };
       const snap = await api.saveSettings(next);
       setSnapshot(snap);
-      replace({ name: "home" });
+      replace(wantsImport(snap) ? { name: "import" } : { name: "home" });
     } catch (e) {
       setError(toFailure(e).message);
     } finally {

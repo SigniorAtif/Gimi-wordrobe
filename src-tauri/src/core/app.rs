@@ -104,6 +104,8 @@ pub struct AppCore {
     /// Disk fingerprint of the last snapshot handed to the UI.
     last_sig: Option<u64>,
     recovered: Option<RecoveryInfo>,
+    /// The review list last handed to the UI, until it is applied (SPEC §5).
+    pub(super) pending_import: Option<super::importer::PlanState>,
 }
 
 impl AppCore {
@@ -124,6 +126,7 @@ impl AppCore {
             settings_error: None,
             last_sig: None,
             recovered: None,
+            pending_import: None,
         };
         if core.settings.is_configured()
             && let Err(e) = settings::validate(&core.settings)
@@ -219,6 +222,7 @@ impl AppCore {
     pub fn snapshot(&self) -> Snapshot {
         let mods = self.mods_dir();
         let stash = self.stash_dir();
+        let archives = self.last_scan.as_ref().map(|s| s.archives.clone()).unwrap_or_default();
         let (libraries, unknown) = match &self.last_scan {
             Some(scan) => (
                 scan.libraries.clone(),
@@ -233,7 +237,10 @@ impl AppCore {
         Snapshot {
             settings: self.settings.clone(),
             library: self.library.clone(),
-            disk: state::disk_state(&self.library, mods.as_deref(), stash.as_deref(), libraries, unknown),
+            disk: super::model::DiskState {
+                archives,
+                ..state::disk_state(&self.library, mods.as_deref(), stash.as_deref(), libraries, unknown)
+            },
             changed_outside: false,
             recovered: self.recovered.clone(),
             hash_index: self.index.info(),
@@ -279,8 +286,8 @@ impl AppCore {
         snap
     }
 
-    /// Re-read the Mods folder. On the very first scan of an empty library every mod root is adopted
-    /// (the review screen of SPEC §5 refines this in the import milestone).
+    /// Re-read the Mods folder. Unknown mod roots are only reported (`disk.unknownRoots`); they join the library through
+    /// the import review (SPEC §5), never silently.
     pub fn rescan(&mut self) -> AppResult<Snapshot> {
         let Some(mods) = self.mods_dir().filter(|m| m.is_dir()) else {
             self.last_scan = None;
@@ -295,11 +302,7 @@ impl AppCore {
             self.last_scan = Some(scan);
             return Ok(self.snapshot());
         }
-        let mut changed = false;
-        if self.library.skins.is_empty() && !scan.candidates.is_empty() {
-            changed |= import::adopt_unowned(&mut self.library, &scan) > 0;
-        }
-        changed |= self.refresh_active_skins(&scan);
+        let mut changed = self.refresh_active_skins(&scan);
         changed |= self.backup_persist(&mods);
         self.last_scan = Some(scan);
         if changed {
@@ -750,6 +753,12 @@ pub mod tests {
         s.mods_path.migoto = Some(mods.to_string_lossy().into());
         s.library_path = lib.to_string_lossy().into();
         core.save_settings(s).unwrap();
+        // what accepting the import review unchanged does for installed mods (most tests start from that library)
+        let scan = core.last_scan.clone().unwrap();
+        if import::adopt_unowned(&mut core.library, &scan) > 0 {
+            core.save_library().unwrap();
+            core.rescan().unwrap();
+        }
         core
     }
 

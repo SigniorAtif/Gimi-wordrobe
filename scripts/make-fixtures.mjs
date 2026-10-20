@@ -6,7 +6,7 @@
 //                                              are kept as committed unless asked)
 //
 // Never point this at a real Mods folder: 3DMigoto loads every .ini under Mods.
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, utimesSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, utimesSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
@@ -209,12 +209,11 @@ writeFileSync(
 );
 
 // ----- sample archives (SPEC §14): zip, 7z, nested weapon, files at the root, junk, a bundled library, malicious -----
+// Each archive is built only when missing (or with --archives), so committed bytes don't churn.
 const ARCH = join(FIX, "archives");
-const ARCHIVE_NAMES = ["mona_starry_skin.zip", "bennett_beach.zip", "varesa_root_files.7z", "evil_traversal.zip", "evil_absolute.zip"];
-const haveArchives = ARCHIVE_NAMES.every((n) => existsSync(join(ARCH, n)));
-if (REBUILD_ARCHIVES || !haveArchives) {
-rmSync(ARCH, { recursive: true, force: true });
+if (REBUILD_ARCHIVES) rmSync(ARCH, { recursive: true, force: true });
 mkdirSync(ARCH, { recursive: true });
+{
 const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==", "base64");
 function tree(files) {
   const dir = join(FIX, ".tmp-arch");
@@ -228,6 +227,7 @@ function tree(files) {
   return dir;
 }
 function pack(name, format, files, extra = []) {
+  if (existsSync(join(ARCH, name))) return;
   const dir = tree(files);
   execFileSync("bsdtar", ["--format", format, ...extra, "-cf", join(ARCH, name), "-C", dir, ...Object.keys(files).map((k) => k.split("/")[0]).filter((v, i, a) => a.indexOf(v) === i)]);
   rmSync(dir, { recursive: true, force: true });
@@ -259,13 +259,43 @@ pack("varesa_root_files.7z", "7zip", {
   "help.txt": "press 3\n",
 });
 
+// Neuvillette's case: one wrapper holding two sibling roots; the Tome recolor is a weapon skin of its own, and the
+// patreon promo image may be a preview but never the cover
+pack("neuvillette_wedding.zip", "zip", {
+  "NeuvilletteWedding/NeuvilletteWedding/Neuvillette.ini": modelIni({ name: "Neuvillette", hashes: ["cad3a022", "550c9ae1", "f055eadd"], keys: [{ label: "Veil", key: "no_modifiers 4" }] }),
+  "NeuvilletteWedding/TomeOfTheEternalFlowGoldRecolor/Tome.ini": textureIni({ name: "TomeGold", hashes: ["788a5c69"] }),
+  "NeuvilletteWedding/www.patreon.com annplan.png": PNG,
+  "NeuvilletteWedding/preview.png": PNG,
+});
+
+// Fischl's case: Oz (an extra) nested inside the Fischl root
+pack("fischl_hexenzirkel.zip", "zip", {
+  "FischlHexenzirkel/Fischl.ini": modelIni({ name: "Fischl", hashes: ["bf6aef4d", "e5ac321c", "6428104d"] }),
+  "FischlHexenzirkel/OzMod/Oz.ini": modelIni({ name: "Oz", hashes: ["d5adb4b4", "597f12da"] }),
+});
+
 // malicious: a ../ entry and an absolute path; both must be rejected with nothing written
-{
+if (REBUILD_ARCHIVES || !existsSync(join(ARCH, "evil_traversal.zip")) || !existsSync(join(ARCH, "evil_absolute.zip"))) {
   const dir = tree({ "evil.ini": textureIni({ name: "Evil", hashes: ["e0000001"] }) });
   execFileSync("bsdtar", ["--format", "zip", "-s", ",^,../,", "-cf", join(ARCH, "evil_traversal.zip"), "-C", dir, "evil.ini"]);
   execFileSync("bsdtar", ["--format", "zip", "-P", "-s", ",^,/tmp/skin-switcher-evil/,", "-cf", join(ARCH, "evil_absolute.zip"), "-C", dir, "evil.ini"]);
   rmSync(dir, { recursive: true, force: true });
 }
 }
+
+// ----- the archive library inside Mods (SPEC §5): unextracted archives in per-character folders, with the user's
+// spellings ("Charecters and wepon", "Benny", "Neuvilette", "Veresa/nsfw") -----
+const LIB = "Charecters and wepon";
+for (const [dir, name] of [
+  ["Benny", "bennett_beach.zip"],
+  ["Mona", "mona_starry_skin.zip"],
+  ["Neuvilette", "neuvillette_wedding.zip"],
+  ["Fischl", "fischl_hexenzirkel.zip"],
+  ["Veresa/nsfw", "varesa_root_files.7z"],
+]) {
+  mkdirSync(join(MODS, LIB, dir), { recursive: true });
+  copyFileSync(join(ARCH, name), join(MODS, LIB, dir, name));
+}
+write(`${LIB}/desktop.ini`, "[.ShellClassInfo]\nIconResource=C:\\Windows\\System32\\shell32.dll,4\n");
 
 console.log(`fixtures written to ${MODS} and ${ARCH}`);

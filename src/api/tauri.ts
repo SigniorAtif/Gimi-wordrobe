@@ -6,7 +6,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { openUrl as openExternal } from "@tauri-apps/plugin-opener";
 import { toFailure, type Api } from "./api";
-import type { AddProgress, AddSkinResult, ApplyProgress, ApplyResult, ArchiveSummary, FirstRunDefaults, Settings, Snapshot } from "./types";
+import type { AddProgress, AddSkinResult, ApplyProgress, ApplyResult, ArchiveSummary, FirstRunDefaults, ImportPlan, ImportResult, Settings, Snapshot } from "./types";
 
 async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
   try {
@@ -57,6 +57,24 @@ export const api: Api = {
     const unlisten = onProgress ? await listen<AddProgress>("add-progress", (e) => onProgress(e.payload)) : null;
     try {
       const r = await call<AddSkinResult>("add_skin", { request });
+      libraryRoot = r.snapshot.settings.libraryPath;
+      return r;
+    } finally {
+      unlisten?.();
+    }
+  },
+  async planImport(onProgress) {
+    const unlisten = onProgress ? await listen<AddProgress>("import-progress", (e) => onProgress(e.payload)) : null;
+    try {
+      return await call<ImportPlan>("plan_import");
+    } finally {
+      unlisten?.();
+    }
+  },
+  async applyImport(request, onProgress) {
+    const unlisten = onProgress ? await listen<AddProgress>("import-progress", (e) => onProgress(e.payload)) : null;
+    try {
+      const r = await call<ImportResult>("apply_import", { request });
       libraryRoot = r.snapshot.settings.libraryPath;
       return r;
     } finally {

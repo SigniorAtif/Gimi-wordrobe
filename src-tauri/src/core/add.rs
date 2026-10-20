@@ -55,6 +55,9 @@ pub struct NewEntity {
     pub category: Category,
     #[serde(default)]
     pub parent_id: Option<String>,
+    /// Parent by name when it may not exist yet (Oz under a Fischl created by the same import).
+    #[serde(default)]
+    pub parent_name: Option<String>,
     #[serde(default)]
     pub portrait_path: Option<String>,
 }
@@ -295,7 +298,7 @@ impl AppCore {
         result
     }
 
-    fn resolve_target(&mut self, t: &AddTarget) -> AppResult<String> {
+    pub(super) fn resolve_target(&mut self, t: &AddTarget) -> AppResult<String> {
         if let Some(id) = t.entity_id.as_ref().filter(|id| self.library.entity(id).is_some()) {
             return Ok(id.clone());
         }
@@ -305,8 +308,12 @@ impl AppCore {
         if name.is_empty() {
             return Err(AppError::new("no_entity", "The new character needs a name."));
         }
+        let parent = ne.parent_id.clone().filter(|p| !p.is_empty() && self.library.entity(p).is_some()).or_else(|| {
+            let p = ne.parent_name.as_deref().map(str::trim).filter(|p| !p.is_empty())?;
+            Some(self.library.ensure_entity(p, Category::Character, None))
+        });
         let count = self.library.entities.len();
-        let id = self.library.ensure_entity(name, ne.category, ne.parent_id.clone().filter(|p| !p.is_empty()));
+        let id = self.library.ensure_entity(name, ne.category, parent);
         // the name may match an existing entry: only give it the portrait when it has none, and never write over a file
         let created = self.library.entities.len() > count;
         let has_portrait = self.library.entity(&id).map(|e| e.portrait.is_some()).unwrap_or(false);
@@ -656,6 +663,7 @@ mod tests {
                     name: "Bennett".into(),
                     category: Category::Character,
                     parent_id: None,
+                    parent_name: None,
                     portrait_path: None,
                 }),
                 skin_name: "Beach Day".into(),
@@ -672,6 +680,7 @@ mod tests {
                     name: "Skyward Blade".into(),
                     category: Category::Weapon,
                     parent_id: None,
+                    parent_name: None,
                     portrait_path: None,
                 }),
                 skin_name: "Bennett Beach Day".into(),
@@ -790,6 +799,7 @@ mod tests {
                     name: "Mona".into(),
                     category: Category::Character,
                     parent_id: None,
+                    parent_name: None,
                     portrait_path: Some(new_img.to_string_lossy().into()),
                 }),
                 skin_name: "Again".into(),

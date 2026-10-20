@@ -38,6 +38,8 @@ pub fn run() {
             commands::pick_image,
             commands::analyze_archive,
             commands::add_skin,
+            commands::plan_import,
+            commands::apply_import,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

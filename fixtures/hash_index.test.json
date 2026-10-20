@@ -54,6 +54,34 @@
    "path": "PlayerCharacterData/MonaCN"
   },
   {
+   "key": "Neuvillette",
+   "name": "Neuvillette",
+   "group": "character",
+   "base": null,
+   "path": "PlayerCharacterData/Neuvillette"
+  },
+  {
+   "key": "Oz",
+   "name": "Oz",
+   "group": "npc",
+   "base": null,
+   "path": "NPCData/Oz"
+  },
+  {
+   "key": "Oz",
+   "name": "Oz",
+   "group": "skill",
+   "base": null,
+   "path": "SkillData/Oz"
+  },
+  {
+   "key": "Fischl",
+   "name": "Fischl",
+   "group": "character",
+   "base": null,
+   "path": "PlayerCharacterData/Fischl"
+  },
+  {
    "key": "Bennett",
    "name": "Bennett",
    "group": "character",
@@ -80,13 +108,6 @@
    "group": "character",
    "base": null,
    "path": "PlayerCharacterData/GaMing"
-  },
-  {
-   "key": "Oz",
-   "name": "Oz",
-   "group": "npc",
-   "base": null,
-   "path": "NPCData/Oz"
   }
  ],
  "hashes": {
@@ -186,6 +207,25 @@
     ""
    ]
   ],
+  "550c9ae1": [
+   [
+    7,
+    "draw_vb",
+    ""
+   ]
+  ],
+  "597f12da": [
+   [
+    8,
+    "ib",
+    ""
+   ],
+   [
+    9,
+    "ib",
+    ""
+   ]
+  ],
   "5b4cdc9c": [
    [
     3,
@@ -200,6 +240,13 @@
     ""
    ]
   ],
+  "6428104d": [
+   [
+    10,
+    "ib",
+    ""
+   ]
+  ],
   "65a4831f": [
    [
     2,
@@ -209,7 +256,7 @@
   ],
   "6cff51b4": [
    [
-    7,
+    11,
     "position_vb",
     ""
    ]
@@ -223,19 +270,19 @@
   ],
   "788a5c69": [
    [
-    8,
+    12,
     "texture:Diffuse",
     ""
    ],
    [
-    8,
+    12,
     "texture:Diffuse",
     ""
    ]
   ],
   "7a1dc890": [
    [
-    9,
+    13,
     "position_vb",
     ""
    ]
@@ -263,7 +310,7 @@
   ],
   "8b5fc47d": [
    [
-    10,
+    14,
     "draw_vb",
     ""
    ]
@@ -284,21 +331,21 @@
   ],
   "a8191396": [
    [
-    9,
+    13,
     "texcoord_vb",
     ""
    ]
   ],
   "acde80a4": [
    [
-    7,
+    11,
     "texcoord_vb",
     ""
    ]
   ],
   "b043715a": [
    [
-    9,
+    13,
     "blend_vb",
     ""
    ]
@@ -310,6 +357,13 @@
     ""
    ]
   ],
+  "bf6aef4d": [
+   [
+    10,
+    "position_vb",
+    ""
+   ]
+  ],
   "c6358586": [
    [
     2,
@@ -317,9 +371,16 @@
     "Body"
    ]
   ],
-  "cdc66323": [
+  "cad3a022": [
    [
     7,
+    "position_vb",
+    ""
+   ]
+  ],
+  "cdc66323": [
+   [
+    11,
     "ib",
     ""
    ]
@@ -340,7 +401,7 @@
   ],
   "d4acf3f7": [
    [
-    7,
+    11,
     "blend_vb",
     ""
    ]
@@ -352,9 +413,16 @@
     ""
    ]
   ],
+  "d5adb4b4": [
+   [
+    8,
+    "position_vb",
+    ""
+   ]
+  ],
   "d75308d8": [
    [
-    9,
+    13,
     "ib",
     ""
    ]
@@ -387,6 +455,13 @@
     ""
    ]
   ],
+  "e5ac321c": [
+   [
+    10,
+    "draw_vb",
+    ""
+   ]
+  ],
   "e70695e0": [
    [
     3,
@@ -405,6 +480,13 @@
    [
     1,
     "blend_vb",
+    ""
+   ]
+  ],
+  "f055eadd": [
+   [
+    7,
+    "ib",
     ""
    ]
   ],

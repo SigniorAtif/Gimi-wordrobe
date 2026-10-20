@@ -4,7 +4,7 @@ import { spring, tween } from "../motion";
 import { useReduced } from "../lib/useReduced";
 import { useApp } from "../store/app";
 
-export type PageKind = "home" | "entity" | "skin" | "settings" | "setup";
+export type PageKind = "home" | "entity" | "skin" | "settings" | "setup" | "import";
 
 /**
  * One routed screen. Pages overlap during transitions (AnimatePresence "sync" mode) so shared
@@ -53,7 +53,7 @@ function pageVariants(kind: PageKind): Variants {
         reduced ? { opacity: 0, transition: tween.small } : { opacity: 0, scale: 0.97, transition: tween.medium },
     };
   }
-  if (kind === "settings" || kind === "setup") {
+  if (kind === "settings" || kind === "setup" || kind === "import") {
     return {
       enter: ({ reduced }: Custom) => (reduced ? { opacity: 0 } : { opacity: 0, y: 12 }),
       center: { opacity: 1, y: 0, transition: { ...spring.gentle, opacity: tween.medium } },

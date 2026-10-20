@@ -9,6 +9,7 @@ pub mod fsutil;
 pub mod hashindex;
 pub mod hotkeys;
 pub mod import;
+pub mod importer;
 pub mod ini;
 pub mod library;
 pub mod model;

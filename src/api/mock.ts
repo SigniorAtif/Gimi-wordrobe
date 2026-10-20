@@ -2,7 +2,7 @@
 // URL flags: ?firstrun=1 starts unconfigured; ?pages=1 starts in Pages layout; ?reduced=1 forces reduced motion.
 import { ApiFailure, type Api } from "./api";
 import { buildMockWorld, coverArt, MOCK_LIBRARIES, MOCK_SETTINGS, type MockWorld } from "./mockData";
-import type { AddTarget, ArchiveSummary, DiskState, FileDropEvent, Settings, Snapshot } from "./types";
+import type { AddTarget, ArchiveSummary, Category, DiskState, EntityGuess, FileDropEvent, ImportItem, ImportPlan, Settings, Snapshot } from "./types";
 
 const params = new URLSearchParams(typeof location !== "undefined" ? location.search : "");
 
@@ -37,6 +37,81 @@ export const mockControls = {
 
 const wait = (ms = mockControls.latencyMs) => new Promise((r) => setTimeout(r, ms));
 
+// ----- ?import=1: an empty library and a first-run review that mirrors the real cases (SPEC §5) -----
+const g = (name: string, category: Category, reason: EntityGuess["reason"] = "hash", parentName?: string): EntityGuess => ({
+  entityId: null,
+  name,
+  category,
+  confidence: reason === "hash" ? 1 : reason === "name" ? 0.7 : 0.3,
+  reason,
+  ...(parentName ? { parentName } : {}),
+});
+const inst = (folders: string[], guess: EntityGuess, skinName: string, hotkeys = 1, nsfw = false): ImportItem => ({
+  key: `mods:${folders.join("|")}`,
+  source: { kind: "installed", folders },
+  guess,
+  skinName,
+  nsfw,
+  hotkeys,
+  images: 0,
+  own: false,
+});
+const arch = (archive: string, root: string, guess: EntityGuess, skinName: string, o: Partial<ImportItem> & { main?: boolean; nested?: boolean; folders?: string[] } = {}): ImportItem => ({
+  key: `archive:${archive}#${root}`,
+  source: { kind: "archive", archive, root, folders: o.folders ?? [root], main: o.main ?? false, nested: o.nested ?? false },
+  guess,
+  skinName,
+  nsfw: o.nsfw ?? false,
+  hotkeys: o.hotkeys ?? 1,
+  images: o.images ?? 0,
+  parent: o.main ? null : `archive:${archive}#`,
+  own: o.own ?? false,
+});
+const LIB = "Charecters and wepon";
+const IMPORT_PLAN: ImportPlan = {
+  items: [
+    inst(["Furina/Remembrance"], g("Furina", "character"), "Remembrance", 2),
+    inst(["Furina/Casual"], g("Furina", "character"), "Casual"),
+    inst(["paimon_cc116"], g("Paimon", "character"), "CC116", 3),
+    inst(["sandrone_marionette_by_neyori/Face", "sandrone_marionette_by_neyori/outfit"], g("Sandrone", "character"), "Marionette", 5),
+    inst(["sandrone_marionette_by_neyori/A Teaspoon of Transcendence"], g("A Teaspoon of Transcendence", "weapon", "folder"), "Marionette"),
+    inst(["Kazuha/Multi"], g("Kazuha", "character", "name"), "Multi", 3),
+    inst(["Odette"], g("Odette", "character", "folder"), "Black Swan", 0),
+    arch(`${LIB}/Benny/bennettbeachday.zip`, "", g("Bennett", "character"), "Beach Day", { main: true, images: 2 }),
+    arch(`${LIB}/Benny/bennettbeachday.zip`, "TravelerHandySword", g("Skyward Blade", "weapon"), "Bennett Beach Day", { nested: true, own: true, hotkeys: 0 }),
+    arch(`${LIB}/Fischl/fischlhexenzirkel.zip`, "", g("Fischl", "character"), "Hexenzirkel", { main: true, images: 3 }),
+    arch(`${LIB}/Fischl/fischlhexenzirkel.zip`, "OzMod", g("Oz", "extra", "hash", "Fischl"), "Fischl Hexenzirkel", { nested: true, own: true }),
+    arch(`${LIB}/Neuvilette/neuvilletteweddingrelease.zip`, "NeuvilletteWedding", g("Neuvillette", "character"), "Wedding", { main: true, images: 1 }),
+    arch(`${LIB}/Neuvilette/neuvilletteweddingrelease.zip`, "TomeOfTheEternalFlowGoldRecolor", g("Tome of the Eternal Flow", "weapon"), "Neuvillette Wedding", { own: true, hotkeys: 0 }),
+    arch(`${LIB}/Veresa/sfw/varesa_by_neyori_e0d4f.zip`, "", g("Varesa", "character"), "By Neyori", { main: true, folders: ["Face", "Outfit"], images: 2, hotkeys: 2 }),
+    arch(`${LIB}/Veresa/nsfw/weebovz_-_cow_girl_og_varesa_toggle.rar`, "", g("Varesa", "character", "name"), "Cow Girl", { main: true, nsfw: true, images: 1 }),
+    arch(`${LIB}/Diluc/dilucinwhitebetterhair.rar`, "", g("Diluc", "character"), "In White Better Hair", { main: true, images: 6 }),
+  ],
+  archives: [
+    ...[
+      "Benny/bennettbeachday.zip",
+      "Fischl/fischlhexenzirkel.zip",
+      "Neuvilette/neuvilletteweddingrelease.zip",
+      "Veresa/sfw/varesa_by_neyori_e0d4f.zip",
+      "Veresa/nsfw/weebovz_-_cow_girl_og_varesa_toggle.rar",
+      "Diluc/dilucinwhitebetterhair.rar",
+    ].map((p) => ({ path: `${LIB}/${p}`, size: 48_000_000, error: null })),
+    { path: `${LIB}/Charlotte/bearcharlotte_part.zip`, size: 1_200_000, error: "This archive can't be read: Truncated input file (needed 1048576 bytes, only 0 available)" },
+  ],
+  stray: ["paimon_cc116.zip", "sandrone_marionette_by_neyori.zip"],
+};
+// a split's parent is the main root of the same archive, whatever its folder is called
+for (const it of IMPORT_PLAN.items) {
+  if (it.source.kind !== "archive" || it.source.main) continue;
+  const archive = it.source.archive;
+  it.parent = IMPORT_PLAN.items.find((m) => m.source.kind === "archive" && m.source.main && m.source.archive === archive)?.key ?? null;
+}
+let importPending = params.get("import") === "1";
+if (importPending) {
+  world.library = { version: 1, entities: [], skins: [] };
+  world.active.clear();
+}
+
 function diskState(): DiskState {
   const skins: DiskState["skins"] = {};
   const active: DiskState["active"] = {};
@@ -51,7 +126,8 @@ function diskState(): DiskState {
     skins,
     active,
     libraries: MOCK_LIBRARIES,
-    unknownRoots: [],
+    unknownRoots: importPending ? IMPORT_PLAN.items.flatMap((i) => (i.source.kind === "installed" ? [i.source.folders[0]] : [])) : [],
+    archives: importPending ? [...IMPORT_PLAN.archives.map((a) => a.path), ...IMPORT_PLAN.stray] : [],
   };
 }
 
@@ -253,6 +329,67 @@ export const api: Api = {
       world.active.add(ids[ids.length - 1]);
     }
     return { snapshot: snapshot(), skinIds: ids, warnings: [] };
+  },
+  async planImport(onProgress) {
+    const archives = importPending ? IMPORT_PLAN.archives : [];
+    for (let i = 0; i < archives.length; i++) {
+      onProgress?.({ done: i, total: archives.length, label: archives[i].path });
+      await wait(220);
+    }
+    await wait(120);
+    return importPending ? structuredClone(IMPORT_PLAN) : { items: [], archives: [], stray: [] };
+  },
+  async applyImport(req, onProgress) {
+    const entityFor = (t: AddTarget): string => {
+      if (t.entityId && world.library.entities.some((e) => e.id === t.entityId)) return t.entityId;
+      const ne = t.newEntity;
+      if (!ne) throw new ApiFailure("no_entity", "Pick a character, weapon or extra.");
+      const ensure = (name: string, category: Category, parentId?: string) => {
+        const found = world.library.entities.find((e) => e.name.toLowerCase() === name.toLowerCase());
+        if (found) return found.id;
+        const id = name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+        world.library.entities.push({ id, name, category, parentId, skinIds: [], aliases: [] });
+        return id;
+      };
+      const parent = ne.parentId ?? (ne.parentName ? ensure(ne.parentName, "character") : undefined);
+      return ensure(ne.name, ne.category, parent);
+    };
+    const keyToSkin = new Map<string, string>();
+    const add = (key: string, t: AddTarget, folders: string[], nsfw: boolean, on: boolean, images: number) => {
+      const entityId = entityFor(t);
+      const id = `${entityId}--${t.skinName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+      const previews = Array.from({ length: Math.min(images, 3) }, (_, n) => {
+        const file = `previews/${id}/${n + 1}.svg`;
+        world.images.set(file, coverArt(id, n));
+        return { file, source: "archive" as const };
+      });
+      world.library.skins.push({ id, entityId, name: t.skinName, folders, nsfw, previews, hotkeys: [], hashes: [], addedAt: new Date().toISOString() });
+      world.library.entities.find((e) => e.id === entityId)!.skinIds.push(id);
+      if (on) world.active.add(id);
+      keyToSkin.set(key, id);
+    };
+    const chosen = req.choices.filter((c) => c.include);
+    for (let i = 0; i < chosen.length; i++) {
+      const c = chosen[i];
+      const item = IMPORT_PLAN.items.find((it) => it.key === c.key);
+      if (!item) continue;
+      onProgress?.({ done: i, total: chosen.length, label: `Adding ${i + 1} of ${chosen.length}` });
+      await wait(90);
+      if (item.source.kind === "installed") add(c.key, c, item.source.folders, c.nsfw, true, 0);
+      else if (item.source.main || c.own) {
+        const parent = item.parent ? req.choices.find((p) => p.key === item.parent) : null;
+        if (parent && !parent.include) continue;
+        add(c.key, c, [`${c.skinName}`], item.source.main ? c.nsfw : (parent?.nsfw ?? c.nsfw), false, item.images);
+      }
+    }
+    for (const k of req.keepActive) {
+      const id = keyToSkin.get(k) ?? k;
+      const skin = world.library.skins.find((s) => s.id === id);
+      if (!skin) continue;
+      for (const s of world.library.skins.filter((x) => x.entityId === skin.entityId && x.id !== id)) world.active.delete(s.id);
+    }
+    importPending = false;
+    return { snapshot: snapshot(), added: keyToSkin.size, warnings: [] };
   },
   async onFileDrop(handler) {
     dropHandlers.add(handler);

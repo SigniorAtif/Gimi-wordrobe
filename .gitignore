@@ -30,3 +30,6 @@ desktop.ini
 # Local tool caches
 .code-review-graph/
 !fixtures/**/desktop.ini
+
+# Local agent worktrees and tool state
+.claude/

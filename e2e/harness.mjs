@@ -13,12 +13,16 @@ export const BIN = process.env.SKIN_SWITCHER_E2E_BIN ?? join(homedir(), ".cache/
 const DRIVER = process.env.TAURI_DRIVER ?? join(homedir(), ".cargo/bin/tauri-driver");
 const WORLDS = join(homedir(), ".cache/skin-switcher-e2e/worlds");
 
-/** A fresh world: Mods (fixture copy), d3dx_user.ini, Library and a config dir with settings pointing at them. */
-export function makeWorld(name) {
+/**
+ * A fresh world: Mods (fixture copy), d3dx_user.ini, Library and a config dir with settings pointing at them.
+ * Only the import test keeps the archive library in Mods; the others start from the installed mods alone.
+ */
+export function makeWorld(name, { archives = false } = {}) {
   const dir = join(WORLDS, name);
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(join(dir, "cfg"), { recursive: true });
   cpSync(join(root, "fixtures/Mods"), join(dir, "Mods"), { recursive: true });
+  if (!archives) rmSync(join(dir, "Mods/Charecters and wepon"), { recursive: true, force: true });
   cpSync(join(root, "fixtures/d3dx_user.ini"), join(dir, "d3dx_user.ini"));
   const settings = {
     activeLoader: "3dmigoto",
@@ -103,6 +107,18 @@ export async function click(browser, selector) {
   const el = await waitFor(browser, selector);
   await el.waitForClickable({ timeout: 10000 });
   await el.click();
+}
+
+/** First run opens the import review (SPEC §5): take every mod as proposed, leave archives where they are. */
+export async function importAll(browser) {
+  await waitFor(browser, ".imp__foot .btn--primary", 30000);
+  for (const box of await browser.$$(".imp-check input")) if (await box.isSelected()) await box.click();
+  await click(browser, ".imp__foot .btn--primary");
+  const toast = await waitFor(browser, ".toast--success", 30000);
+  const text = await toast.getText();
+  await click(browser, ".toast--success .toast__close");
+  await toast.waitForExist({ reverse: true, timeout: 5000 });
+  return text;
 }
 
 export function sleep(ms) {
