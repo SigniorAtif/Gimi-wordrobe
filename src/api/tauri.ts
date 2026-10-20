@@ -78,6 +78,7 @@ export const api: Api = {
   // file pickers run in Rust so debug builds can answer them for the e2e tests
   pickArchive: () => call<string | null>("pick_archive"),
   pickImage: () => call<string | null>("pick_image"),
+  pickScript: () => call<string | null>("pick_script"),
   analyzeArchive: (path) => call<ArchiveSummary>("analyze_archive", { path }),
   async addSkin(request, onProgress) {
     const unlisten = onProgress ? await listen<AddProgress>("add-progress", (e) => onProgress(e.payload)) : null;

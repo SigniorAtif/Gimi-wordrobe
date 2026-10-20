@@ -57,6 +57,8 @@ export interface Api {
   /** Pick an archive (.zip / .rar / .7z) or an image with the system dialog. */
   pickArchive(): Promise<string | null>;
   pickImage(): Promise<string | null>;
+  /** A fixer tool (.exe, .bat, .cmd, .py, .ps1) for Settings › Fixer scripts. */
+  pickScript(): Promise<string | null>;
   /** List and analyse an archive for the add dialogs (refuses unsafe archives). */
   analyzeArchive(path: string): Promise<ArchiveSummary>;
   /** Extract & add; skins land inactive unless makeActive. */

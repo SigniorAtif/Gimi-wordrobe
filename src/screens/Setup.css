@@ -42,3 +42,8 @@
   color: var(--danger);
   font-size: var(--fs-sm);
 }
+.setup__fixers {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+}

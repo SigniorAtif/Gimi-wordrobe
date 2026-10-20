@@ -82,6 +82,14 @@ export interface Settings {
   layout: LayoutMode;
   reduceMotion: ReduceMotion;
   nsfw: NsfwSettings;
+  /** Fixer tools run, in this order, on every newly added skin. */
+  fixerScripts?: FixerScript[];
+}
+
+/** A fixer tool the user downloaded (.exe, .bat, .cmd, .py or .ps1). */
+export interface FixerScript {
+  path: string;
+  enabled: boolean;
 }
 
 /** Where a skin's folders currently are on disk. Active = all folders in Mods, none DISABLED. */
@@ -285,6 +293,8 @@ export interface AddSkinResult {
   /** Every skin added; the main skin is the last. */
   skinIds: string[];
   warnings: string[];
+  /** What the fixer scripts did ("Ran 2 fixer scripts…"); null when none ran. Failures come as warnings. */
+  fixNote: string | null;
 }
 
 export interface AddProgress {
