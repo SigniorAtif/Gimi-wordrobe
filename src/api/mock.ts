@@ -148,6 +148,7 @@ if (importPending) {
 
 // ----- previews, with the Rust side's rules (core/previews.rs) -----
 const MAX_PREVIEWS = 30;
+const MAX_GB_IMAGES = 12;
 const MAX_IMAGE_BYTES = 25 * 1024 * 1024;
 /** skinId -> what its previews were made from (a path, the bytes' hash, a GameBanana image), to skip duplicates */
 const previewSources = new Map<string, Set<string>>();
@@ -156,6 +157,13 @@ function findSkin(skinId: string): Skin {
   const s = world.library.skins.find((k) => k.id === skinId);
   if (!s) throw new ApiFailure("unknown_skin", "That skin no longer exists.");
   return s;
+}
+
+/** How many more previews the skin can take; a full skin is refused with `too_many` (Rust's `preview_room`). */
+function previewRoom(s: Skin): number {
+  const room = MAX_PREVIEWS - s.previews.length;
+  if (room <= 0) throw new ApiFailure("too_many", `This skin already has ${MAX_PREVIEWS} previews. Remove one first.`);
+  return room;
 }
 
 function imageType(bytes: Uint8Array): "png" | "jpg" | "webp" | null {
@@ -183,7 +191,7 @@ function storePreview(s: Skin, key: string, ext: string, url: string, source: Pr
   const seen = previewSources.get(s.id) ?? new Set<string>();
   previewSources.set(s.id, seen);
   if (seen.has(key)) return false;
-  if (s.previews.length >= MAX_PREVIEWS) throw new ApiFailure("too_many", `This skin already has ${MAX_PREVIEWS} previews. Remove one first.`);
+  previewRoom(s);
   const next = Math.max(0, ...s.previews.map((p) => parseInt(p.file.split("/").pop() ?? "", 10) || 0)) + 1;
   const file = `previews/${s.id}/${String(next).padStart(2, "0")}.${ext}`;
   world.images.set(file, url);
@@ -492,6 +500,8 @@ export const api: Api = {
     const s = findSkin(skinId);
     const id = gameBananaId(s.gameBananaUrl ?? "");
     if (!id) throw new ApiFailure("no_link", "Add the skin's GameBanana link first.");
+    // like Rust: a full skin is refused before anything is downloaded, and only the images that fit are fetched
+    const room = Math.min(previewRoom(s), MAX_GB_IMAGES);
     await wait(mockControls.gameBananaMs);
     if (mockControls.failNextGameBanana) {
       mockControls.failNextGameBanana = false;
@@ -499,8 +509,7 @@ export const api: Api = {
     }
     if (id === 404) throw new ApiFailure("gamebanana", "GameBanana says: This Mod doesn't exist");
     let added = 0;
-    for (const n of [1, 2, 3]) {
-      if (s.previews.length >= MAX_PREVIEWS) break;
+    for (const n of [1, 2, 3].slice(0, room)) {
       if (storePreview(s, `gb:${id}:${n}`, "jpg", coverArt(`gb-${id}`, n), "gamebanana")) added++;
     }
     s.author ??= "mockauthor";
@@ -512,7 +521,8 @@ export const api: Api = {
   async findFolderPreviews(skinId) {
     await wait();
     const s = findSkin(skinId);
-    const added = s.previews.length < MAX_PREVIEWS && storePreview(s, `folder:${skinId}`, "png", coverArt(`folder-${skinId}`), "archive") ? 1 : 0;
+    previewRoom(s);
+    const added = storePreview(s, `folder:${skinId}`, "png", coverArt(`folder-${skinId}`), "archive") ? 1 : 0;
     return { snapshot: snapshot(), added };
   },
   async addPreview(skinId, path) {

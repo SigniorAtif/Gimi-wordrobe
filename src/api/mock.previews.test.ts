@@ -89,4 +89,26 @@ describe("mock previews (VITE_MOCK=1 mirrors core/previews.rs)", () => {
     expect((await api.findFolderPreviews(id)).added).toBe(1);
     expect((await api.findFolderPreviews(id)).added).toBe(0);
   });
+
+  it("refuses a full skin with too_many, like Rust", async () => {
+    const id = mockControls.world.library.skins[3].id;
+    await api.updateSkin(id, { gameBananaUrl: "https://gamebanana.com/mods/321" });
+    // one slot left: GameBanana fills just that one
+    for (let n = (await skinOf(id)).previews.length; n < 29; n++) {
+      await api.pastePreview(id, new Uint8Array([...JPG, n & 0xff, n >> 8]));
+    }
+    expect((await api.fetchGameBananaPreviews(id)).added).toBe(1);
+    expect((await skinOf(id)).previews).toHaveLength(30);
+    let failure: ApiFailure | undefined;
+    try {
+      await api.fetchGameBananaPreviews(id);
+    } catch (e) {
+      failure = e as ApiFailure;
+    }
+    expect(failure?.code).toBe("too_many");
+    expect(failure?.message).toBe("This skin already has 30 previews. Remove one first.");
+    expect(await code(api.findFolderPreviews(id))).toBe("too_many");
+    expect(await code(api.pastePreview(id, new Uint8Array([...JPG, 0xee])))).toBe("too_many");
+    expect((await skinOf(id)).previews).toHaveLength(30);
+  });
 });
