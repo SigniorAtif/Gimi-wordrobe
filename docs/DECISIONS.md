@@ -390,7 +390,10 @@ UI:
   ordered list of tools the user downloaded, and Setup and Settings link to the recommended ones' pages.
 - **When they run:** on every add, in the extracted copy in `<Library>/tmp`, after unticked roots are removed and
   before the scan, so detection sees the hashes they update. Not during the add dialog's analysis (only the inis are
-  extracted there, and running packed .exes twice is slow). Installed mods aren't touched.
+  extracted there, and running packed .exes twice is slow).
+- **Installed mods on request:** "Run fixer scripts" (Settings › Fixer scripts and the skin detail page) runs the
+  enabled tools once over the whole Mods folder, as running them there by hand would, so every active mod is fixed;
+  stashed skins aren't touched. A re-scan follows, so the library picks up the updated hashes.
 - **How they run** (`core/fixers.rs`): .exe/.bat/.cmd directly, .py through `py -3` or `python`, .ps1 through
   PowerShell; no console window, the skin's folder as the working folder, a stream of Enter presses on stdin (both
   tools wait for Enter at start and end), five minutes each before the process tree is killed. A failing or missing

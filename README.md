@@ -37,7 +37,8 @@ keeps exactly one active skin per character, waits until you press **Apply**, an
   guess before anything moves.
 - **Character detection by hash** from the GI-Model-Importer hash data, then by learned hashes, then by name.
 - **Fixer scripts.** Add the community fixer tools you use (Settings › Fixer scripts, or during setup) and every new
-  skin goes through them, in your order, before it's added. Setup and Settings link to the recommended ones.
+  skin goes through them, in your order, before it's added. **Run fixer scripts** (Settings or a skin's page) runs them
+  once over the whole Mods folder for mods already installed. Setup and Settings link to the recommended ones.
 - **Hotkey conflicts** between enabled skins show before you apply.
 - **Previews** from the archive's own images, or an image you drop on the add dialog or browse to.
 - **18+ skins hidden by default**. The 18+ chip in the toolbar shows or hides them.
