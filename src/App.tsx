@@ -43,7 +43,7 @@ export default function App() {
   return (
     <MotionConfig reducedMotion={motionMode}>
       <LayoutGroup>
-        <div className="app" style={{ ["--pending-offset" as string]: pendingShown ? "84px" : "0px" }}>
+        <div className="app" style={{ ["--pending-offset" as string]: pendingShown ? "104px" : "0px" }}>
           <main className="app__main">
             <AnimatePresence initial={false} custom={{ dir: navDir, reduced }}>
               {snapshot ? (

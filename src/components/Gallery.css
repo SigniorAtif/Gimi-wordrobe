@@ -21,7 +21,7 @@
   width: 100%;
   height: 100%;
   object-fit: contain;
-  background: oklch(0.1 0.006 275);
+  background: var(--bg-deep);
 }
 .gallery__empty {
   position: absolute;
@@ -53,7 +53,7 @@
   bottom: 8px;
   padding: 2px 8px;
   border-radius: 6px;
-  background: oklch(0.12 0.01 275 / 0.7);
+  background: var(--on-art);
   font-size: 10.5px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -66,8 +66,8 @@
   height: 34px;
   margin-top: -17px;
   border-radius: 50%;
-  border: 1px solid oklch(1 0 0 / 0.12);
-  background: oklch(0.13 0.01 275 / 0.7);
+  border: 1px solid var(--on-art-line);
+  background: var(--on-art);
   color: var(--text);
   font-size: 20px;
   line-height: 1;

@@ -14,8 +14,11 @@
   border-bottom: 1px solid var(--border-soft);
 }
 .settings__title {
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+  letter-spacing: var(--ls-display);
   margin: 0;
-  font-size: var(--fs-title);
+  font-size: var(--fs-page);
   font-weight: 650;
 }
 .settings__saved {
@@ -50,6 +53,9 @@
   grid-column: 1 / -1;
 }
 .settings__section-title {
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+  letter-spacing: var(--ls-display);
   margin: 0;
   font-size: var(--fs-title);
   font-weight: 650;

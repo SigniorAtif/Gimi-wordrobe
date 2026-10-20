@@ -45,7 +45,7 @@
   animation: cover-sweep 1.4s var(--ease-out) infinite;
 }
 .cover-shimmer--overlay {
-  background: oklch(0.12 0.01 275 / 0.25);
+  background: oklch(0.12 0.005 70 / 0.25);
 }
 .cover-shimmer--overlay::before {
   background: linear-gradient(100deg, transparent 30%, oklch(1 0 0 / 0.12) 50%, transparent 70%);
@@ -96,7 +96,7 @@ body.dragging-image [data-drop^="skin:"]::after {
 }
 body.dragging-image [data-drop^="skin:"][data-drop-hover]::after {
   border-color: var(--accent);
-  box-shadow: 0 0 22px oklch(0.73 0.125 278 / 0.4);
+  box-shadow: 0 0 22px var(--accent-line);
   animation: none;
 }
 body.dragging-image [data-drop^="skin:"][data-drop-hover] {

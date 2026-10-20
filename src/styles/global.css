@@ -1,4 +1,6 @@
 @import "@fontsource-variable/inter";
+/* display face for names and titles: weight, width and optical-size axes */
+@import "@fontsource-variable/bricolage-grotesque/standard.css";
 @import "./tokens.css";
 
 *,
@@ -64,9 +66,21 @@ img {
 .caps {
   font-size: var(--fs-caps);
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--ls-caps);
   text-transform: uppercase;
   color: var(--text-3);
+}
+
+/* Names and titles (entity names, page titles, skin titles). Optical sizing tunes the face to each size. */
+.display {
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+  letter-spacing: var(--ls-display);
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--text);
 }
 
 .visually-hidden {
@@ -81,5 +95,5 @@ img {
 /* Scrollbars: thin and quiet, native behaviour */
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--surface-3) transparent;
+  scrollbar-color: var(--border-strong) transparent;
 }

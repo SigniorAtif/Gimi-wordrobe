@@ -9,16 +9,16 @@
 .modal__backdrop {
   position: absolute;
   inset: 0;
-  background: oklch(0.08 0.01 275 / 0.62);
+  background: var(--backdrop);
 }
 .modal__dialog {
   position: relative;
   max-width: 100%;
   max-height: calc(100vh - 48px);
   overflow: auto;
-  border-radius: 16px;
+  border-radius: var(--r-sheet);
   background: var(--surface-2);
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--border);
   box-shadow: var(--shadow-3);
 }
 .confirm {
@@ -29,12 +29,16 @@
 }
 .confirm__title {
   margin: 0;
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
   font-size: var(--fs-title);
   font-weight: 650;
+  letter-spacing: var(--ls-display);
 }
 .confirm__body {
   color: var(--text-2);
   font-size: var(--fs-sm);
+  max-width: 60ch;
 }
 .confirm__actions {
   display: flex;

@@ -1,62 +1,90 @@
+/* Pending changes: a confident bottom sheet. A big count, a readable from → to diff, and Apply. */
 .pending {
   position: fixed;
-  left: var(--s-4);
-  right: var(--s-4);
-  bottom: var(--s-4);
+  left: var(--s-3);
+  right: var(--s-3);
+  bottom: var(--s-3);
   z-index: 40;
   display: flex;
   align-items: center;
-  gap: var(--s-4);
+  gap: var(--s-5);
   min-height: var(--pending-h);
-  padding: 10px 12px 10px 18px;
-  border-radius: 16px;
-  background: var(--surface-3);
-  border: 1px solid var(--border-strong);
-  box-shadow: var(--shadow-3);
+  padding: 12px 14px 12px 22px;
+  border-radius: var(--r-sheet);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-3), inset 0 1px 0 oklch(0.95 0.008 85 / 0.05);
   overflow: hidden;
 }
 .pending__count {
   flex: none;
-  /* inline-flex drops the space before "pending" */
-  gap: 0.4em;
-  height: 22px;
-  padding: 0 8px;
-  font-size: 10.5px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding-right: var(--s-5);
+  border-right: 1px solid var(--border-soft);
+}
+.pending__num {
+  font-family: var(--font-display);
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--pending);
+}
+.pending__label {
+  color: var(--text-2);
 }
 .pending__items {
   flex: 1;
   min-width: 0;
   display: flex;
-  gap: 6px 18px;
+  align-items: center;
+  gap: 28px;
   margin: 0;
   padding: 0;
   list-style: none;
   overflow: hidden;
   white-space: nowrap;
-  mask-image: linear-gradient(to right, black 88%, transparent);
+  mask-image: linear-gradient(to right, black calc(100% - 48px), transparent);
 }
 .pending__item {
-  font-size: var(--fs-sm);
-  color: var(--text-2);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
 }
 .pending__entity {
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+  font-size: var(--fs-body);
+  font-weight: 650;
   color: var(--text);
-  font-weight: 600;
+}
+.pending__diff {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 7px;
+  font-size: var(--fs-sm);
+}
+.pending__from {
+  color: var(--text-3);
 }
 .pending__arrow {
-  color: var(--text-3);
+  color: var(--text-4);
 }
 .pending__to {
   color: var(--pending);
-  font-weight: 560;
+  font-weight: 600;
 }
 .pending__actions {
   flex: none;
   display: flex;
+  align-items: center;
   gap: var(--s-2);
 }
 .pending__apply {
-  min-width: 148px;
+  min-width: 156px;
   overflow: hidden;
 }
 .pending__apply.is-done {
@@ -75,7 +103,22 @@
   left: 0;
   right: 0;
   bottom: 0;
-  height: 2px;
+  height: 3px;
   transform-origin: left;
   background: var(--accent);
+}
+@media (max-width: 1179px) {
+  .pending {
+    gap: var(--s-4);
+    padding-left: 18px;
+  }
+  .pending__count {
+    padding-right: var(--s-4);
+  }
+  .pending__items {
+    gap: 20px;
+  }
+  .pending__apply {
+    min-width: 132px;
+  }
 }

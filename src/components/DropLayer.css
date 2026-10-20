@@ -44,13 +44,13 @@ body.dragging-archive [data-drop^="new:"]::after {
   inset: -3px;
   border-radius: calc(var(--r-card) + 3px);
   border: 1.5px dashed var(--accent-line);
-  box-shadow: 0 0 18px oklch(0.73 0.125 278 / 0.25);
+  box-shadow: 0 0 18px var(--accent-glow);
   pointer-events: none;
   animation: drop-pulse 1.6s ease-in-out infinite;
 }
 body.dragging-archive [data-drop].is-drop-hover::after {
   border-color: var(--accent);
-  box-shadow: 0 0 24px oklch(0.73 0.125 278 / 0.45);
+  box-shadow: 0 0 26px var(--accent-glow);
   animation: none;
   opacity: 1;
 }

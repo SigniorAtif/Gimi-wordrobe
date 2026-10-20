@@ -59,14 +59,18 @@ export const Toolbar = forwardRef<HTMLInputElement, { animateIn?: boolean; onAdd
           ))}
         </div>
         <div className="toolbar__spacer" />
-        <button type="button" className={`nsfw-chip ${nsfwVisible ? "is-visible" : ""}`} onClick={onToggleNsfw} aria-pressed={nsfwVisible}>
-          18+ {nsfwVisible ? "VISIBLE" : "HIDDEN"} · {hotkey.toUpperCase()}
-          {nsfwVisible ? " TO HIDE" : ""}
+        <button type="button" className={`nsfw-chip ${nsfwVisible ? "is-visible" : ""}`} onClick={onToggleNsfw} aria-pressed={nsfwVisible} title={`${nsfwVisible ? "Hide" : "Show"} 18+ skins (${hotkey})`}>
+          18+ {nsfwVisible ? "VISIBLE" : "HIDDEN"}
+          <span className="toolbar__nsfw-key">
+            {" "}
+            · {hotkey.toUpperCase()}
+            {nsfwVisible ? " TO HIDE" : ""}
+          </span>
         </button>
         <button className="btn" onClick={onAdd} disabled={!onAdd}>
           + Add
         </button>
-        <button className="btn" onClick={() => navigate({ name: "settings" })}>
+        <button className="btn btn--ghost" onClick={() => navigate({ name: "settings" })}>
           Settings
         </button>
       </motion.header>

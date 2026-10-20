@@ -44,9 +44,10 @@ export function PendingBar() {
           animate={{ y: 0, opacity: 1, transition: { ...spring.smooth, opacity: tween.small } }}
           exit={reduced ? { opacity: 0, transition: tween.small } : { y: "110%", opacity: 0, transition: { ...spring.smooth, opacity: tween.small } }}
         >
-          <span className="pending__count tag tag--pending">
-            <AnimatedNumber value={items.length} /> pending
-          </span>
+          <div className="pending__count" aria-label={`${items.length} pending`}>
+            <AnimatedNumber value={items.length} className="pending__num" />
+            <span className="pending__label caps">pending</span>
+          </div>
           <ul className="pending__items">
             <AnimatePresence initial={false} mode="popLayout">
               {items.map((it) => (
@@ -58,14 +59,20 @@ export function PendingBar() {
                   animate={{ opacity: 1, x: 0, transition: spring.snappy }}
                   exit={reduced ? { opacity: 0 } : { opacity: 0, scale: 0.9, transition: tween.small }}
                 >
-                  <span className="pending__entity">{it.entityName}:</span> {it.from} <span className="pending__arrow">→</span>{" "}
-                  <span className="pending__to">{it.to}</span>
+                  <span className="pending__entity">{it.entityName}</span>
+                  <span className="pending__diff">
+                    <span className="pending__from">{it.from}</span>
+                    <span className="pending__arrow" aria-label="to">
+                      →
+                    </span>
+                    <span className="pending__to">{it.to}</span>
+                  </span>
                 </motion.li>
               ))}
             </AnimatePresence>
           </ul>
           <div className="pending__actions">
-            <button className="btn" onClick={discard} disabled={busy}>
+            <button className="btn btn--ghost" onClick={discard} disabled={busy}>
               Discard
             </button>
             <ApplyButton state={applyState} reduced={reduced} onApply={() => void apply()} />
@@ -95,7 +102,7 @@ function ApplyButton({ state, reduced, onApply }: { state: ApplyState; reduced: 
         : "Apply";
   return (
     <button
-      className={`btn btn--primary pending__apply is-${state.phase}`}
+      className={`btn btn--primary btn--lg pending__apply is-${state.phase}`}
       onClick={onApply}
       disabled={busy}
       aria-live="polite"

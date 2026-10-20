@@ -1,48 +1,62 @@
+/* C1 compact card. Quiet by default; weight comes from state: a pending pick tints it, an open shelf attaches it,
+   an entity with no skins steps back. */
 .ecard {
   position: relative;
   display: flex;
   align-items: center;
   gap: var(--s-3);
-  min-height: 76px;
-  padding: 12px 12px;
+  min-height: 74px;
+  padding: 11px 12px 11px 11px;
   border-radius: var(--r-card);
-  border: 1px solid var(--border-soft);
+  border: 1px solid transparent;
   background: var(--surface-1);
   text-align: left;
-  box-shadow: var(--shadow-1);
   transition:
     border-color 160ms var(--ease-out),
     box-shadow 200ms var(--ease-out),
-    background-color 160ms var(--ease-out);
+    background-color 200ms var(--ease-out),
+    scale 200ms var(--ease-out);
 }
 .ecard:hover {
-  border-color: var(--border);
+  border-color: var(--border-soft);
+  background: oklch(0.225 0.008 70);
   box-shadow: var(--shadow-2);
 }
 /* the card's own shadow would hide the global focus ring */
 .ecard:focus-visible {
   box-shadow: var(--focus-ring), var(--shadow-2);
 }
+.ecard.is-pending {
+  background: color-mix(in oklch, var(--pending) 7%, var(--surface-1));
+  border-color: var(--pending-line);
+}
 .ecard.is-open {
-  border-color: var(--accent-line);
+  border-color: var(--border-soft);
+  border-bottom-color: transparent;
   background: var(--surface-2);
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;
+  box-shadow: none;
 }
-.ecard.is-drop-target {
-  border-style: dashed;
+.ecard.is-open.is-pending {
+  border-color: var(--pending-line);
+  border-bottom-color: transparent;
 }
 .ecard__text {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 2px;
   min-width: 0;
   flex: 1;
 }
 .ecard__name {
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+  font-stretch: 94%;
   font-weight: 640;
-  font-size: var(--fs-body);
-  line-height: 1.25;
+  font-size: 15px;
+  letter-spacing: -0.005em;
+  line-height: 1.2;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -50,16 +64,20 @@
   padding-right: 4px;
 }
 .ecard__caret {
-  color: var(--accent-strong);
-  font-size: 11px;
+  color: var(--text-3);
+  font-size: 10px;
 }
 .ecard__sub {
   position: relative;
   display: block;
   height: 17px;
   overflow: hidden;
-  font-size: var(--fs-meta);
+  font-size: var(--fs-sm);
   color: var(--text-2);
+  transition: color 200ms var(--ease-out);
+}
+.ecard.is-pending .ecard__sub {
+  color: var(--pending);
 }
 .ecard__sub-text {
   display: block;
@@ -67,65 +85,66 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* The rail: one short tick per visible skin, the chosen one filled. Reads as "which of n" at a glance. */
 .ecard__dots {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
-  margin-top: 4px;
+  gap: 3px;
+  margin-top: 5px;
+  max-width: calc(100% - 64px);
 }
 .ecard__dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  border: 1.2px solid var(--text-4);
-  display: grid;
-  place-items: center;
-  transition: border-color 160ms var(--ease-out);
-}
-.ecard__dot.is-on {
-  border-color: var(--accent);
-}
-.ecard__dot.is-pending {
-  border-color: var(--pending);
+  position: relative;
+  width: 12px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--surface-3);
+  overflow: hidden;
 }
 .ecard__dot-fill {
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
   background: var(--accent);
+  transform-origin: 0 50%;
 }
 .ecard__dot.is-pending .ecard__dot-fill {
   background: var(--pending);
 }
-/* neither badge may squeeze the name: "!" sits on the portrait's corner, PENDING bottom-right beside the dots */
+
+/* "!" sits on the portrait's corner, PENDING bottom-right on the rail's line; neither squeezes the name */
 .ecard__badges {
   display: contents;
 }
 .ecard__badges .ecard__alert {
   position: absolute;
-  /* the 48px portrait is vertically centred after 12px of padding */
-  top: calc(50% - 30px);
-  left: 46px;
-  box-shadow: 0 0 0 2px var(--surface-1);
+  top: calc(50% - 25px);
+  left: 43px;
+  box-shadow: 0 0 0 2.5px var(--surface-1);
+}
+.ecard:hover .ecard__badges .ecard__alert {
+  box-shadow: 0 0 0 2.5px oklch(0.225 0.008 70);
 }
 .ecard.is-open .ecard__badges .ecard__alert {
-  box-shadow: 0 0 0 2px var(--surface-2);
+  box-shadow: 0 0 0 2.5px var(--surface-2);
 }
 .ecard__badges .tag {
   position: absolute;
-  right: 8px;
-  bottom: 8px;
+  right: 10px;
+  bottom: 10px;
 }
 .ecard__alert {
   display: grid;
   place-items: center;
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
   background: var(--danger);
   color: var(--danger-ink);
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 800;
+  line-height: 1;
 }
 .ecard__tab {
   position: absolute;
@@ -135,9 +154,12 @@
   height: calc(var(--s-3) + 2px);
   transform-origin: top;
   background: var(--surface-2);
-  border-left: 1px solid var(--accent-line);
-  border-right: 1px solid var(--accent-line);
+  border-left: 1px solid var(--border-soft);
+  border-right: 1px solid var(--border-soft);
   z-index: 2;
+}
+.ecard.is-pending .ecard__tab {
+  border-color: var(--pending-line);
 }
 .ecard__portrait {
   display: inline-flex;
@@ -148,14 +170,20 @@
 .ecard--extra .ecard__portrait {
   border-radius: 12px;
 }
+/* nothing to switch yet: the card steps back */
+.ecard.is-empty:not(:hover) .ecard__portrait {
+  opacity: 0.55;
+  filter: saturate(0.4);
+}
+.ecard.is-empty .ecard__sub {
+  color: var(--text-3);
+}
+.ecard__portrait {
+  transition:
+    opacity 200ms var(--ease-out),
+    filter 200ms var(--ease-out);
+}
 .ecard.is-drop-hover {
   scale: 1.03;
   box-shadow: var(--shadow-3);
-}
-.ecard {
-  transition:
-    border-color 160ms var(--ease-out),
-    box-shadow 200ms var(--ease-out),
-    background-color 160ms var(--ease-out),
-    scale 200ms var(--ease-out);
 }

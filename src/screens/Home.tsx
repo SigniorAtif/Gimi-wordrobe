@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { Category, Snapshot } from "../api/types";
 import { AnimatedNumber } from "../components/AnimatedNumber";
+import { HangerArt } from "../components/EmptyArt";
 import { EntityCard } from "../components/EntityCard";
 import { PageCard } from "../components/PageCard";
 import { MenuItem, Popover, type Anchor } from "../components/Popover";
@@ -98,14 +99,38 @@ export function Home({ snapshot }: { snapshot: Snapshot }) {
       <Toolbar ref={searchRef} animateIn={replay} onAdd={() => void browse()} onToggleNsfw={toggleNsfw} />
       <motion.div className="home" variants={staggerContainer(total, reduced, 0.12)} initial={replay ? "hidden" : false} animate="show">
         {empty ? (
-          <motion.div className="home__empty" variants={riseIn(reduced)}>
-            <h2>No skins found yet</h2>
-            <p>Skin Switcher looks for mods in {snapshot.disk.modsPath ?? "your Mods folder"}. Add an archive, or check the folder in Settings.</p>
+          <motion.div className="home__empty empty" variants={riseIn(reduced)}>
+            <HangerArt />
+            <h2 className="empty__title">No skins found yet</h2>
+            <p className="empty__text">
+              Skin Switcher looks for mods in {snapshot.disk.modsPath ?? "your Mods folder"}. Drop an archive anywhere in this window, or
+              check the folder in Settings.
+            </p>
+            <div className="empty__actions">
+              <button className="btn btn--primary" onClick={() => void browse()}>
+                + Add a skin
+              </button>
+              <button className="btn" onClick={() => navigate({ name: "settings" })}>
+                Open Settings
+              </button>
+            </div>
           </motion.div>
         ) : total === 0 ? (
-          <motion.div className="home__empty" initial={{ opacity: 0 }} animate={{ opacity: 1, transition: tween.small }}>
-            <h2>Nothing matches</h2>
-            <p>Try another search or filter.</p>
+          <motion.div className="home__empty empty" initial={{ opacity: 0 }} animate={{ opacity: 1, transition: tween.small }}>
+            <HangerArt />
+            <h2 className="empty__title">Nothing matches</h2>
+            <p className="empty__text">{query ? `No skins, characters or authors match "${query}" here.` : "Nothing in this view yet."} Try another search or filter.</p>
+            <div className="empty__actions">
+              <button
+                className="btn"
+                onClick={() => {
+                  useHome.getState().setQuery("");
+                  useHome.getState().setChip("all");
+                }}
+              >
+                Clear search and filters
+              </button>
+            </div>
           </motion.div>
         ) : null}
           <AnimatePresence initial={false}>
@@ -121,8 +146,8 @@ export function Home({ snapshot }: { snapshot: Snapshot }) {
                   exit={{ opacity: 0, transition: tween.small }}
                   transition={spring.smooth}
                 >
-                  <motion.h2 className="caps home__heading" variants={riseIn(reduced)}>
-                    {CATEGORY_LABEL[cat]} <span className="home__count">· <AnimatedNumber value={views.length} /></span>
+                  <motion.h2 className="home__heading" variants={riseIn(reduced)}>
+                    {CATEGORY_LABEL[cat]} <AnimatedNumber value={views.length} className="home__count" />
                   </motion.h2>
                   {layout === "pages" ? (
                     <PagesGrid

@@ -11,6 +11,9 @@
   border-bottom: 1px solid var(--border-soft);
 }
 .a4__title {
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+  letter-spacing: var(--ls-display);
   margin: 0;
   font-size: var(--fs-title);
   font-weight: 650;

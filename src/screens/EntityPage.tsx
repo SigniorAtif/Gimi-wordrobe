@@ -3,6 +3,7 @@ import { useCallback, useState, type MouseEvent } from "react";
 import { api, toFailure } from "../api";
 import type { Skin } from "../api/types";
 import { RadioDot } from "../components/controls";
+import { Ambient, coverUrl } from "../components/Ambient";
 import { Cover } from "../components/Cover";
 import { ConfirmDialog } from "../components/Modal";
 import { MenuItem, MenuSeparator, Popover, type Anchor } from "../components/Popover";
@@ -95,11 +96,12 @@ export function EntityPage({ entityId }: { entityId: string }) {
   return (
     <div className="epage">
       <header className="epage__header">
-        <button className="btn" onClick={back}>
+        <Ambient url={coverUrl(view.effectiveSkin, view.effectiveHidden)} variant="header" />
+        <button className="btn btn--ghost epage__back" onClick={back}>
           ← All characters
         </button>
-        <Flip flipKey={`entity:${entity.id}`} className="epage__portrait" reduced={reduced} radius={entity.category === "character" ? 28 : 14}>
-          <Portrait entity={entity} cover={view.effectiveSkin} hidden={view.effectiveHidden} size={56} />
+        <Flip flipKey={`entity:${entity.id}`} className="epage__portrait" reduced={reduced} radius={entity.category === "character" ? 34 : 16}>
+          <Portrait entity={entity} cover={view.effectiveSkin} hidden={view.effectiveHidden} size={68} />
         </Flip>
         <div className="epage__titles">
           <h1 className="epage__name">{entity.name}</h1>

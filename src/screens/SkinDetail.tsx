@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, toFailure } from "../api";
 import type { Skin, Snapshot } from "../api/types";
+import { Ambient, coverUrl } from "../components/Ambient";
 import { rememberFlipKey } from "../components/Flip";
 import { Gallery } from "../components/Gallery";
 import { ConflictRows, HotkeyTable } from "../components/Hotkeys";
@@ -84,6 +85,7 @@ export function SkinDetail({ skinId }: { skinId: string }) {
         </button>
       </header>
       <div className="detail__body">
+        <Ambient url={coverUrl(skin)} variant="detail" />
         <Gallery skin={skin} reduced={reduced} keyboard flip />
         <motion.section
           className="detail__panel"

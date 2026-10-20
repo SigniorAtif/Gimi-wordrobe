@@ -1,0 +1,30 @@
+/* Ambient glow layers. The colour arrives as --ambient (low lightness, capped chroma); each variant mixes it in at
+   55% or less, so text on top keeps its contrast. The host needs position: relative and its content z-index: 1. */
+.ambient {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+}
+.ambient__glow {
+  position: absolute;
+  inset: 0;
+}
+/* a light behind the strip, like a lit closet; faint at the top edge where the card's tab joins */
+.ambient--shelf .ambient__glow {
+  background:
+    radial-gradient(48% 75% at 24% 72%, color-mix(in oklch, var(--ambient) 55%, transparent), transparent 74%),
+    radial-gradient(42% 70% at 78% 100%, color-mix(in oklch, var(--ambient) 26%, transparent), transparent 72%);
+}
+.ambient--header .ambient__glow {
+  background:
+    radial-gradient(38% 260% at 4% 50%, color-mix(in oklch, var(--ambient) 55%, transparent), transparent 75%),
+    radial-gradient(30% 200% at 60% 0%, color-mix(in oklch, var(--ambient) 14%, transparent), transparent 70%);
+}
+.ambient--detail .ambient__glow {
+  background:
+    radial-gradient(48% 70% at 22% 0%, color-mix(in oklch, var(--ambient) 50%, transparent), transparent 74%),
+    radial-gradient(40% 60% at 85% 10%, color-mix(in oklch, var(--ambient) 16%, transparent), transparent 70%);
+}

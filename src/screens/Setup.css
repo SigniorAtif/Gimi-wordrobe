@@ -16,10 +16,12 @@
   box-shadow: var(--shadow-3);
 }
 .setup__title {
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+  letter-spacing: var(--ls-display);
   margin: 0;
-  font-size: var(--fs-detail);
+  font-size: var(--fs-display);
   font-weight: 680;
-  letter-spacing: -0.01em;
 }
 .setup__lead {
   margin: 6px 0 0;

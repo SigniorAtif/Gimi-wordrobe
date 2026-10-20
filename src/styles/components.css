@@ -1,9 +1,10 @@
-/* Base component vocabulary: buttons, chips, inputs, tags, keycaps, toggles, radios. */
+/* Base component vocabulary: buttons, chips, inputs, tags, keycaps, toggles, radios.
+   Screens and components build on these, so new pieces pick up the look by using the classes. */
 
 .btn {
-  --btn-bg: var(--surface-2);
+  --btn-bg: var(--surface-1);
   --btn-fg: var(--text);
-  --btn-border: var(--border);
+  --btn-border: var(--border-soft);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -15,20 +16,24 @@
   background: var(--btn-bg);
   color: var(--btn-fg);
   font-size: var(--fs-sm);
-  font-weight: 550;
+  font-weight: 560;
   white-space: nowrap;
   transition:
-    background-color 120ms var(--ease-out),
-    border-color 120ms var(--ease-out),
-    color 120ms var(--ease-out),
-    opacity 120ms var(--ease-out);
+    background-color 140ms var(--ease-out),
+    border-color 140ms var(--ease-out),
+    color 140ms var(--ease-out),
+    opacity 140ms var(--ease-out),
+    transform 120ms var(--ease-out);
 }
 .btn:hover {
-  --btn-bg: var(--surface-hover);
-  --btn-border: var(--border-strong);
+  --btn-bg: var(--surface-2);
+  --btn-border: var(--border);
+}
+.btn:active:not(:disabled) {
+  transform: scale(0.98);
 }
 .btn:disabled {
-  opacity: 0.45;
+  opacity: 0.42;
   pointer-events: none;
 }
 .btn--primary {
@@ -44,21 +49,32 @@
 .btn--ghost {
   --btn-bg: transparent;
   --btn-border: transparent;
-  color: var(--text-2);
+  --btn-fg: var(--text-2);
 }
 .btn--ghost:hover {
-  --btn-bg: var(--surface-2);
+  --btn-bg: var(--surface-1);
   --btn-border: transparent;
-  color: var(--text);
+  --btn-fg: var(--text);
 }
 .btn--danger {
   --btn-bg: var(--danger);
   --btn-fg: var(--danger-ink);
   --btn-border: transparent;
 }
+.btn--danger:hover {
+  --btn-bg: oklch(0.73 0.16 27);
+  --btn-border: transparent;
+}
+.btn--lg {
+  height: 44px;
+  padding: 0 20px;
+  border-radius: 12px;
+  font-size: var(--fs-body);
+}
 .btn--sm {
   height: 30px;
   padding: 0 10px;
+  border-radius: 8px;
   font-size: var(--fs-meta);
 }
 .btn--icon {
@@ -67,6 +83,11 @@
 }
 .btn--icon.btn--sm {
   width: 30px;
+}
+.btn__icon {
+  flex: none;
+  color: currentColor;
+  opacity: 0.85;
 }
 
 .spinner {
@@ -83,38 +104,34 @@
   }
 }
 
+/* Filter chips: quiet text until chosen; the chosen one sits on a sliding neutral pill (layoutId) */
 .chip {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   height: 32px;
-  padding: 0 14px;
+  padding: 0 13px;
   border-radius: var(--r-pill);
-  border: 1px solid var(--border);
+  border: 0;
   background: transparent;
-  color: var(--text-2);
+  color: var(--text-3);
   font-size: var(--fs-sm);
-  font-weight: 520;
+  font-weight: 540;
   position: relative;
-  transition:
-    color 120ms var(--ease-out),
-    border-color 120ms var(--ease-out),
-    background-color 120ms var(--ease-out);
+  transition: color 140ms var(--ease-out);
 }
 .chip:hover {
   color: var(--text);
-  border-color: var(--border-strong);
 }
 .chip[aria-pressed="true"] {
-  color: var(--accent-strong);
-  border-color: transparent;
+  color: var(--text);
 }
 .chip__bg {
   position: absolute;
-  inset: -1px;
+  inset: 0;
   border-radius: inherit;
-  background: var(--accent-soft);
-  border: 1px solid var(--accent-line);
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px var(--border);
   z-index: -1;
 }
 
@@ -123,24 +140,28 @@
   width: 100%;
   padding: 0 12px;
   border-radius: var(--r-btn);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-soft);
   background: var(--bg-deep);
   color: var(--text);
   font-size: var(--fs-sm);
   transition:
-    border-color 120ms var(--ease-out),
-    box-shadow 120ms var(--ease-out);
+    border-color 140ms var(--ease-out),
+    box-shadow 140ms var(--ease-out),
+    background-color 140ms var(--ease-out);
 }
 .input::placeholder {
   color: var(--text-4);
 }
 .input:hover {
-  border-color: var(--border-strong);
+  border-color: var(--border);
 }
 .input:focus-visible,
 .input:focus {
   border-color: var(--accent-line);
   box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.input:disabled {
+  opacity: 0.55;
 }
 .input--mono {
   font-family: var(--font-mono);
@@ -154,15 +175,18 @@ textarea.input {
   line-height: 1.5;
 }
 
+/* Status tags. ACTIVE (jade) and PENDING (yellow) are solid so they read on art; 18+ is a red outline. */
 .tag {
   display: inline-flex;
   align-items: center;
+  flex: none;
   height: 18px;
-  padding: 0 6px;
-  border-radius: 5px;
+  padding: 0 7px;
+  border-radius: var(--r-pill);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.08em;
+  line-height: 1;
   text-transform: uppercase;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
@@ -176,9 +200,9 @@ textarea.input {
   color: var(--pending-ink);
 }
 .tag--nsfw {
-  background: var(--danger-soft);
-  color: var(--danger);
-  border: 1px solid var(--danger-line);
+  background: oklch(0.2 0.03 27 / 0.8);
+  color: oklch(0.8 0.12 27);
+  box-shadow: inset 0 0 0 1px var(--danger-line);
 }
 .tag--muted {
   background: var(--surface-3);
@@ -197,8 +221,9 @@ textarea.input {
   border-bottom-width: 2px;
   background: var(--surface-2);
   color: var(--text);
+  font-family: var(--font);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 620;
   font-variant-numeric: tabular-nums;
 }
 .kbd--sm {
@@ -232,6 +257,9 @@ textarea.input {
   background: var(--accent);
   border-color: transparent;
 }
+.switch:disabled {
+  opacity: 0.45;
+}
 .switch__knob {
   position: absolute;
   top: 2px;
@@ -239,7 +267,7 @@ textarea.input {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: var(--text);
+  background: var(--text-2);
 }
 .switch[aria-checked="true"] .switch__knob {
   background: var(--accent-ink);
@@ -255,7 +283,7 @@ textarea.input {
   border: 1.5px solid var(--text-3);
   display: inline-grid;
   place-items: center;
-  transition: border-color 120ms var(--ease-out);
+  transition: border-color 140ms var(--ease-out);
 }
 .radio[data-on="true"] {
   border-color: var(--accent);
@@ -298,4 +326,282 @@ textarea.input {
 .link:disabled {
   color: var(--text-4);
   cursor: default;
+}
+
+/* The 18+ visibility chip (toolbar, A2, import review). Quiet while hidden, red while visible. */
+.nsfw-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--border-soft);
+  background: transparent;
+  color: var(--text-3);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+  transition:
+    color 160ms var(--ease-out),
+    border-color 160ms var(--ease-out),
+    background-color 160ms var(--ease-out);
+}
+.nsfw-chip:hover {
+  color: var(--text-2);
+  border-color: var(--border);
+}
+.nsfw-chip.is-visible {
+  color: oklch(0.8 0.12 27);
+  border-color: var(--danger-line);
+  background: var(--danger-soft);
+}
+
+/* Empty states: a hanger on an empty rail, a display headline and one helpful line */
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-2);
+  text-align: center;
+  color: var(--text-2);
+}
+.empty__art {
+  color: var(--text-4);
+  margin-bottom: var(--s-2);
+}
+.empty__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+  font-size: var(--fs-page);
+  font-weight: 650;
+  letter-spacing: var(--ls-display);
+  color: var(--text);
+}
+.empty__text {
+  margin: 0;
+  max-width: 46ch;
+  font-size: var(--fs-sm);
+  color: var(--text-3);
+}
+.empty__actions {
+  display: flex;
+  gap: var(--s-2);
+  margin-top: var(--s-3);
+}
+
+/* Art card: a skin card where the cover leads (C2 shelf strip as .skincard, A2 grid as .bigcard).
+   The name plate sits on the cover's scrim; the selection ring is drawn outside the card so it never covers art.
+   Plate text ignores the pointer so clicks reach the full-card radio (.skincard__hit / .bigcard__hit). */
+.skincard,
+.bigcard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 0;
+  gap: 0;
+  border: 0;
+  border-radius: var(--r-art);
+  background: var(--surface-1);
+  text-align: left;
+  box-shadow: var(--shadow-1);
+  transition:
+    transform 180ms var(--ease-out),
+    box-shadow 220ms var(--ease-out);
+}
+.skincard::before,
+.bigcard::before {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  z-index: 3;
+  border-radius: calc(var(--r-art) + 4px);
+  box-shadow: 0 0 0 2px transparent;
+  pointer-events: none;
+  transition: box-shadow 220ms var(--ease-out);
+}
+.skincard:hover,
+.bigcard:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-2);
+}
+.skincard:active,
+.bigcard:active {
+  transform: scale(0.98);
+}
+.skincard.is-selected::before,
+.bigcard.is-selected::before {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+.skincard.is-pending::before,
+.bigcard.is-pending::before {
+  box-shadow: 0 0 0 2px var(--pending);
+}
+.skincard .cover,
+.bigcard .cover {
+  border-radius: var(--r-art);
+}
+.skincard .cover img,
+.bigcard .cover img {
+  transition: filter 260ms var(--ease-out);
+}
+.skincard__hit,
+.bigcard__hit {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+}
+.skincard__hit:focus-visible,
+.bigcard__hit:focus-visible {
+  box-shadow: var(--focus-ring);
+}
+.skincard__meta,
+.bigcard__meta {
+  position: absolute;
+  z-index: 2;
+  left: 10px;
+  right: 10px;
+  bottom: 29px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 7px 7px;
+  min-height: 20px;
+  pointer-events: none;
+}
+/* the ACTIVE / PENDING tag hangs above the name like a garment tag, so long names never fight it */
+.skincard__meta .tag,
+.bigcard__meta .tag {
+  order: -1;
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+.skincard__name,
+.bigcard__name {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+  font-size: 14.5px;
+  font-weight: 640;
+  letter-spacing: -0.005em;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.skincard__author,
+.bigcard__sub {
+  position: absolute;
+  z-index: 2;
+  left: 10px;
+  right: 10px;
+  bottom: 10px;
+  min-height: 16px;
+  font-size: var(--fs-meta);
+  color: var(--text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+.skincard .radio,
+.bigcard .radio {
+  border-color: var(--text-2);
+}
+.skincard .radio[data-on="true"],
+.bigcard .radio[data-on="true"] {
+  border-color: var(--accent);
+}
+.skincard .radio[data-pending="true"],
+.bigcard .radio[data-pending="true"] {
+  border-color: var(--pending);
+}
+/* on-art controls: quiet chips that appear on hover or focus */
+.skincard__more,
+.skincard__info,
+.bigcard__more {
+  position: absolute;
+  z-index: 2;
+  top: 8px;
+  display: grid;
+  place-items: center;
+  height: 26px;
+  border-radius: 8px;
+  border: 1px solid var(--on-art-line);
+  background: var(--on-art);
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1;
+  opacity: 0;
+  transition:
+    opacity 140ms var(--ease-out),
+    background-color 140ms var(--ease-out);
+}
+.skincard__more:hover,
+.skincard__info:hover,
+.bigcard__more:hover {
+  background: oklch(0.24 0.008 70 / 0.9);
+}
+.skincard__more,
+.bigcard__more {
+  right: 8px;
+  width: 30px;
+}
+.skincard__info {
+  right: 44px;
+  width: 26px;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 750;
+}
+.skincard:hover .skincard__more,
+.skincard__more:focus-visible,
+.skincard.is-selected .skincard__more,
+.skincard:hover .skincard__info,
+.skincard__info:focus-visible,
+.bigcard:hover .bigcard__more,
+.bigcard__more:focus-visible {
+  opacity: 1;
+}
+.skincard__nsfw,
+.bigcard__nsfw {
+  position: absolute;
+  z-index: 2;
+  top: 10px;
+  left: 10px;
+}
+/* Original: the bare model. No art, so a quiet patterned tile with the plate on top. */
+.skincard__orig,
+.bigcard__orig {
+  display: grid;
+  place-content: center;
+  gap: 2px;
+  aspect-ratio: 3 / 4;
+  padding-bottom: 22%;
+  border-radius: var(--r-art);
+  background:
+    radial-gradient(70% 50% at 50% 38%, oklch(0.27 0.008 70) 0%, transparent 100%),
+    repeating-linear-gradient(135deg, var(--surface-1) 0 9px, oklch(0.222 0.007 70) 9px 10px);
+  box-shadow: var(--art-edge);
+  text-align: center;
+}
+.skincard__orig-title,
+.bigcard__orig > span {
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+  font-size: var(--fs-title);
+  font-weight: 620;
+  letter-spacing: var(--ls-display);
+  color: var(--text-2);
+}
+.skincard__orig-sub,
+.bigcard__orig small {
+  font-size: var(--fs-meta);
+  color: var(--text-3);
 }

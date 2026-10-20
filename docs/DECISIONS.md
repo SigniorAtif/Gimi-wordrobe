@@ -357,3 +357,26 @@ UI:
   launch, because a pasted block can run line by line and a `throw` on its own line wouldn't stop the next one. The
   backup and rollback run inside one `& { }` block for the same reason. `Snap` hashes file contents and skips only
   the `Library\tmp` folder itself, which the app deletes at every start.
+
+## UI refresh
+
+- **Warm charcoal and jade instead of blue-violet.** The violet accent was the default "gaming app" reflex and the
+  blue tint read as an admin template. Neutrals moved to OKLCH hue 70 at very low chroma; jade (hue 165) sits
+  opposite the warm neutrals and stays clear of PENDING yellow and danger red.
+- **Bricolage Grotesque for names and titles.** Its optical sizes keep it calm at 15px on compact cards and give it
+  character at 36px on the A2 hero. Space Grotesk, Poppins and Montserrat were ruled out as overused; Instrument
+  Sans sat too close to Inter to make a hierarchy. The `standard` axes file (about 130 KB for Latin) is bundled.
+- **Ambient glow tints by hue, not brightness.** Glows stay at lightness 0.30 so `--text-3` keeps 4.5:1 at the
+  glow's peak. The sampler draws a fresh `crossOrigin="anonymous"` image so the visible `<img>` is never affected;
+  Tauri's asset protocol sends CORS headers, and a tainted canvas just means no glow.
+- **One art card primitive** (`.skincard, .bigcard` in `styles/components.css`) instead of new markup, so the M7
+  and M8 branches rebase with few conflicts and their new card parts pick up the look.
+- **The status tag hangs above the name** on skin cards. Beside the name it truncated short names on 150px cards at
+  1000px wide.
+- **Dots became a rail of ticks** on entity cards; ticks read as "which of n" at a glance and fill with a scaleX
+  spring.
+- **Filter chips and the import "New" and "by hash" badges are neutral**, keeping jade for active state only.
+  Detection confidence shows as fill weight (solid for hash, outlined for a folder-name guess).
+- **Sticky headers are opaque**, not blurred: blur behind chrome was decorative glass.
+- **Not done in this pass:** the full SPEC §7 frame-strip audit, the Setup and Import review layout redesign and the
+  Settings two-column layout. They use the new tokens and titles, but their structure is unchanged.

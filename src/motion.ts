@@ -8,6 +8,8 @@ export const spring = {
   smooth: { type: "spring", stiffness: 260, damping: 30, mass: 1 },
   /** page-level moves and shared elements */
   gentle: { type: "spring", stiffness: 170, damping: 26, mass: 1 },
+  /** radio fills: one small overshoot (damping ratio about 0.7), never a bounce */
+  pop: { type: "spring", stiffness: 520, damping: 32, mass: 1 },
 } as const satisfies Record<string, Transition>;
 
 export const duration = {
@@ -24,6 +26,8 @@ export const tween = {
   small: { duration: duration.small, ease: easeOut },
   medium: { duration: duration.medium, ease: easeOut },
   page: { duration: duration.page, ease: easeOut },
+  /** ambient art glow crossfade (symmetric, so old and new colours overlap evenly) */
+  glow: { duration: duration.page, ease: [0.65, 0, 0.35, 1] },
 } as const satisfies Record<string, Transition>;
 
 /** Per-item stagger: 25-35ms, capped so a whole grid finishes within 400ms. */

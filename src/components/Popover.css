@@ -6,7 +6,7 @@
   padding: 5px;
   border-radius: 12px;
   background: var(--surface-3);
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--border);
   box-shadow: var(--shadow-3);
 }
 .menu-item {
@@ -25,7 +25,7 @@
 }
 .menu-item:hover,
 .menu-item:focus-visible {
-  background: var(--surface-hover);
+  background: oklch(0.34 0.009 70);
   box-shadow: none;
 }
 .menu-item:disabled {
@@ -67,6 +67,13 @@
 }
 .menu-heading {
   padding: 6px 10px 4px;
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+  font-size: var(--fs-sm);
+  font-weight: 650;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text);
 }
 /* form panels (C4 add): wider, roomier, no menu padding */
 .popover--dialog {

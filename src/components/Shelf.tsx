@@ -7,6 +7,7 @@ import { nsfwHide, nsfwReveal, spring, staggerDelay, tween } from "../motion";
 import { useApp } from "../store/app";
 import { useHome } from "../store/home";
 import { SkinInfo } from "../screens/SkinDetail";
+import { Ambient, coverUrl } from "./Ambient";
 import { AutoHeight } from "./AutoHeight";
 import { Gallery } from "./Gallery";
 import { RadioDot } from "./controls";
@@ -89,7 +90,7 @@ export function Shelf({
 
   return (
     <motion.div
-      className="shelf"
+      className={`shelf ${pending ? "is-pending" : ""}`}
       data-shelf={entity.id}
       onAnimationComplete={(def) => {
         // once it has opened, bring the whole shelf into view if it ended up below the fold
@@ -106,6 +107,7 @@ export function Shelf({
             { height: 0, opacity: 0, transition: { ...spring.smooth, opacity: { duration: 0.28, ease: [0.55, 0, 0.75, 0.25] } } }
       }
     >
+      <Ambient url={peekSkin ? coverUrl(peekSkin) : coverUrl(view.effectiveSkin, view.effectiveHidden)} variant="shelf" />
       <div className="shelf__inner">
         <header className="shelf__head">
           <h3 className="shelf__title">{entity.name}</h3>
