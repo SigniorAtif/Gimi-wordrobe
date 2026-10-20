@@ -18,7 +18,6 @@
   gap: var(--s-3);
   padding: 0 var(--gutter);
   background: var(--bg);
-  backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--border-soft);
 }
 .detail__crumbs {
@@ -50,6 +49,7 @@
   flex: 1;
 }
 .detail__body {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 640px) minmax(0, 1fr);
   gap: var(--s-7);
@@ -75,10 +75,12 @@
   gap: var(--s-3);
 }
 .info__title {
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+  letter-spacing: var(--ls-display);
   margin: 0;
   font-size: var(--fs-detail);
   font-weight: 680;
-  letter-spacing: -0.01em;
   line-height: 1.15;
 }
 .info--compact .info__title {
@@ -146,4 +148,8 @@ select.input {
   bottom: 8px;
   font-size: 11px;
   color: var(--text-3);
+}
+.detail__body > :not(.ambient) {
+  position: relative;
+  z-index: 1;
 }

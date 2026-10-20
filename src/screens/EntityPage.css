@@ -1,33 +1,52 @@
 .epage {
   min-height: 100%;
 }
+/* the character's hero: portrait, display name, and the active cover's colour glowing from the left */
 .epage__header {
   position: sticky;
   top: 0;
   z-index: 5;
-  min-height: 88px;
+  min-height: 112px;
   display: flex;
   align-items: center;
   gap: var(--s-4);
-  padding: var(--s-3) var(--gutter);
+  padding: var(--s-4) var(--gutter);
   background: var(--bg);
-  backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--border-soft);
+  overflow: hidden;
+}
+.epage__header > :not(.ambient) {
+  position: relative;
+  z-index: 1;
+}
+.epage__back {
+  margin-left: -10px;
+  margin-right: var(--s-2);
 }
 .epage__portrait {
   display: inline-flex;
+  flex: none;
   border-radius: 50%;
+  box-shadow: 0 0 0 3px var(--bg);
 }
 .epage__titles {
   min-width: 0;
 }
 .epage__name {
   margin: 0;
-  font-size: var(--fs-page);
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+  font-size: var(--fs-display);
   font-weight: 680;
+  font-stretch: 94%;
+  letter-spacing: -0.022em;
+  line-height: 1.05;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .epage__meta {
-  margin: 2px 0 0;
+  margin: 6px 0 0;
   font-size: var(--fs-sm);
   color: var(--text-2);
   white-space: nowrap;
@@ -40,12 +59,20 @@
 .epage__grid {
   display: grid;
   grid-template-columns: repeat(var(--cols, 5), minmax(0, 1fr));
-  gap: var(--s-4);
-  padding: var(--s-6) var(--gutter) calc(var(--s-9) + var(--pending-offset, 0px));
+  gap: 20px 18px;
+  padding: var(--s-7) var(--gutter) calc(var(--s-9) + var(--pending-offset, 0px));
   align-items: stretch;
 }
 .epage__grid > div {
   display: flex;
+}
+@media (max-width: 1179px) {
+  .epage__header {
+    gap: var(--s-3);
+  }
+  .epage__name {
+    font-size: var(--fs-detail);
+  }
 }
 /* skin cards: the art card primitive (styles/components.css) at A2 size */
 .bigcard__name {
