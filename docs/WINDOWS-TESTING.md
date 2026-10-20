@@ -425,6 +425,30 @@ Copy-Item -LiteralPath "$Real\Veresa\nsfw\varesa_lewd_-_culott_e_mort_1828d.zip"
    - [ ] Settings warns that switching becomes a copy, and Apply shows progress and still ends with one enabled copy.
          Set the Library back afterwards.
 
+### 5.12 In-mod toggles survive a switch (fixture half)
+
+SPEC §16's toggle check needs the game, so its in-game half waits for 6.4. This half runs on the test world. The
+fixture `d3dx_user.ini` already holds Sandrone's `hat = 2`.
+
+1. Check the line:
+   ```powershell
+   $U = "$T\fixtures\d3dx_user.ini"
+   Select-String -SimpleMatch "outfit\sandrone.ini\hat" $U
+   ```
+2. Pick Sandrone › Original and Apply.
+3. Do what the game does when it exits with her mod off: drop her `Face` and `outfit` lines from the file.
+   ```powershell
+   (Get-Content $U) | Where-Object { $_ -notlike '$\mods\sandrone_marionette_by_neyori\face\*' -and $_ -notlike '$\mods\sandrone_marionette_by_neyori\outfit\*' } | Set-Content $U -Encoding ASCII
+   Select-String -SimpleMatch "outfit\sandrone.ini\hat" $U     # prints nothing now
+   ```
+4. Pick Sandrone's mod again and Apply. Then check the line once more:
+   ```powershell
+   Select-String -SimpleMatch "outfit\sandrone.ini\hat" $U
+   ```
+
+- [ ] Step 1 and step 4 both print the `$\mods\sandrone_marionette_by_neyori\outfit\sandrone.ini\hat` line, and it
+      still ends in `= 2`.
+
 ## 6. The real Mods folder
 
 Only start once every box in sections 4 and 5 is ticked (or you've decided a failure doesn't matter). From here on
@@ -504,6 +528,8 @@ Get-ChildItem -Recurse -Force "D:\mods\3dmigoto\Mods" -Include desktop.ini, ORFi
 - [ ] Start the game through the loader: the active skins load, and F10 (reload) shows no duplicate-ORFix errors.
 
 ### 6.4 In-game toggles survive a switch (SPEC §16)
+
+This is the in-game half of 5.12.
 
 1. Start the game, set a toggle in game (e.g. cycle Sandrone's hat to its third option, `hat = 2`), and exit the
    game.
