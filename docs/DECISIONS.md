@@ -212,7 +212,7 @@ these fill gaps or record where something had to be interpreted.
 - **NSFW visibility is not persisted**: every launch starts hidden (SPEC §11). Counts, search, conflicts and the
   pending bar already leave hidden skins out (`derive.ts`, `conflicts.ts`); Rust only stores the `nsfw` flag.
 - **Toasts and errors name no hidden skin**: `redactHidden` swaps hidden skins' names and folders for "a hidden
-  skin". Over-redacting is the safe direction; names under 3 characters are skipped.
+  skin". Over-redacting is the safe direction; names under 3 characters match only as whole words.
 - **Reveal hotkey rules**: Ctrl and/or Alt (Shift optional) plus exactly one other key, never Ctrl+S, Ctrl+Z, Ctrl+F
   or Alt+F4. Rust (`check_hotkey`) and TS (`revealHotkeyProblem`) apply the same rules and compare combos ignoring
   modifier order. A saved hotkey that breaks them falls back to Ctrl+H on load, instead of flagging the settings
@@ -220,5 +220,16 @@ these fill gaps or record where something had to be interpreted.
 - **Shortcuts resolve to actions** (`resolveShortcut`), and the UI decides what each means for the layout and focus.
   Ctrl/Alt combos work while typing, except Ctrl+Z, which undoes text there. Plain printable keys start a search,
   except I (peek) and Space (pick).
+- **What the soft lock doesn't cover** (from the M8 review, accepted per SPEC §6): anyone who can read
+  `settings.json` can brute-force a 4-digit PIN offline in minutes; the wrong-guess throttle resets when the app
+  restarts; a corrupt `settings.json` falls back to `.bak`, which can hold the previous PIN; and the snapshot still
+  carries hidden skins to the webview, where only the UI hides them. The PIN keeps an onlooker out, nothing more.
+- **An unreadable stored hash counts as no PIN** (it doesn't parse, or its digest isn't full length). Failing the
+  other way would lock both the reveal and the PIN itself behind a PIN nobody can enter.
+- **Ctrl+V, Ctrl+A, Ctrl+C and Ctrl+X are reserved too**, so the reveal hotkey never hijacks paste or text editing.
+- **Shortcut letters come from the physical key** (`e.code`), like the reveal hotkey, so Ctrl+S/F/Z work on
+  non-Latin layouts. The Windows key belongs to the OS: any press with it held is ignored.
+- **Minimize is caught from a resize or a focus loss** while minimized, so one skipped window event can't leave 18+
+  skins showing. Still to confirm on Windows (WINDOWS-TESTING).
 - **Arrow keys move by on-screen geometry** (`spatial.ts`), so no column counts are needed. Sideways distance is
   measured to the candidate's edge and weighted 3x, so Down picks the card below, or the shelf strip under the row.
