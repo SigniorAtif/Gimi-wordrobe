@@ -12,7 +12,7 @@ Build progress for the unattended run. Milestones follow SPEC §15.
 | 5 | Add flow: drag-drop, extraction, A4, C4, new-character | done |
 | 6 | First-run import + review | done |
 | 7 | Previews: archive images, drop/paste, GameBanana | in progress |
-| 8 | NSFW, PIN, auto re-hide, shortcuts, 1000x700 pass, motion polish | todo |
+| 8 | NSFW, PIN, auto re-hide, shortcuts, 1000x700 pass, motion polish | backend done; UI waits for the redesign |
 | 9 | NSIS bundle config + Windows testing guide | todo |
 
 ## How to run (Linux dev)

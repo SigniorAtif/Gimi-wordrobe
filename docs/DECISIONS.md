@@ -193,3 +193,43 @@ these fill gaps or record where something had to be interpreted.
   `d3dx_user.ini` byte-identical before and after): Sandrone by hash, Paimon by hash, A Teaspoon of Transcendence as
   a weapon from the Sandrone folder, Bennett's Skyward Blade split out as a weapon skin, Oz split out under Fischl,
   Tome of the Eternal Flow as a weapon, bundled ORFix copies and desktop.ini skipped; every archive read.
+
+## M8 NSFW, PIN and shortcuts
+
+- **Backend and pure logic only for now.** The frontend is being redesigned, so the PIN dialog, the Settings PIN
+  section, Ctrl+H and auto re-hide wiring and the reveal animation wait for it. The API, mock and helpers are ready.
+- **The PIN is an Argon2id hash** (argon2 0.5 defaults, random salt from the OS) kept in `settings.json` as
+  `nsfw.pinHash`. It is a soft lock, not encryption: deleting `pinHash` from the file removes the PIN, and that is
+  also the way back from a forgotten one. A stored hash that can't be parsed never matches.
+- **The hash never leaves the backend.** The snapshot drops it and says `pinSet` instead. `save_settings` keeps the
+  stored hash whatever the UI sends; only `set_pin` changes it, and changing or removing a PIN needs the current one.
+- **Wrong PINs are throttled**: 5 free tries, then a 30 s lockout that doubles with each further miss, up to 10 min.
+  It counts `set_pin` guesses too and lives in memory, so restarting the app resets it.
+- **argon2 and blake2 build at opt-level 3 in dev and test**, or one PIN check would take seconds there.
+- **Minimize is detected in Rust** (`on_window_event`: a resize while minimized) and sent as a `window-minimized`
+  event, so the webview needs no extra window permission. The mock treats a hidden browser tab as a minimize.
+  Idle re-hide is a frontend timer (`IDLE_MS`, 5 min), since input events only exist in the webview.
+- **NSFW visibility is not persisted**: every launch starts hidden (SPEC §11). Counts, search, conflicts and the
+  pending bar already leave hidden skins out (`derive.ts`, `conflicts.ts`); Rust only stores the `nsfw` flag.
+- **Toasts and errors name no hidden skin**: `redactHidden` swaps hidden skins' names and folders for "a hidden
+  skin". Over-redacting is the safe direction; names under 3 characters match only as whole words.
+- **Reveal hotkey rules**: Ctrl and/or Alt (Shift optional) plus exactly one other key, never Ctrl+S, Ctrl+Z, Ctrl+F
+  or Alt+F4. Rust (`check_hotkey`) and TS (`revealHotkeyProblem`) apply the same rules and compare combos ignoring
+  modifier order. A saved hotkey that breaks them falls back to Ctrl+H on load, instead of flagging the settings
+  file and sending the app back to first-run setup.
+- **Shortcuts resolve to actions** (`resolveShortcut`), and the UI decides what each means for the layout and focus.
+  Ctrl/Alt combos work while typing, except Ctrl+Z, which undoes text there. Plain printable keys start a search,
+  except I (peek) and Space (pick).
+- **What the soft lock doesn't cover** (from the M8 review, accepted per SPEC §6): anyone who can read
+  `settings.json` can brute-force a 4-digit PIN offline in minutes; the wrong-guess throttle resets when the app
+  restarts; a corrupt `settings.json` falls back to `.bak`, which can hold the previous PIN; and the snapshot still
+  carries hidden skins to the webview, where only the UI hides them. The PIN keeps an onlooker out, nothing more.
+- **An unreadable stored hash counts as no PIN** (it doesn't parse, or its digest isn't full length). Failing the
+  other way would lock both the reveal and the PIN itself behind a PIN nobody can enter.
+- **Ctrl+V, Ctrl+A, Ctrl+C and Ctrl+X are reserved too**, so the reveal hotkey never hijacks paste or text editing.
+- **Shortcut letters come from the physical key** (`e.code`), like the reveal hotkey, so Ctrl+S/F/Z work on
+  non-Latin layouts. The Windows key belongs to the OS: any press with it held is ignored.
+- **Minimize is caught from a resize or a focus loss** while minimized, so one skipped window event can't leave 18+
+  skins showing. Still to confirm on Windows (WINDOWS-TESTING).
+- **Arrow keys move by on-screen geometry** (`spatial.ts`), so no column counts are needed. Sideways distance is
+  measured to the candidate's edge and weighted 3x, so Down picks the card below, or the shelf strip under the row.

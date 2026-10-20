@@ -16,6 +16,7 @@ pub mod model;
 pub mod names;
 pub mod paths;
 pub mod persist;
+pub mod pin;
 pub mod scanner;
 pub mod settings;
 pub mod state;

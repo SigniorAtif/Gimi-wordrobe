@@ -319,6 +319,8 @@ pub struct Snapshot {
     pub same_drive: Option<bool>,
     /// Something the user must fix before the app can do its job (unreadable library.json, bad settings file).
     pub notice: Option<String>,
+    /// A PIN guards revealing NSFW skins; the hash itself never leaves the backend.
+    pub pin_set: bool,
 }
 
 #[cfg(test)]

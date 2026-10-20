@@ -1,8 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Entity, Hotkey, Skin, Snapshot } from "../api/types";
 import { clashesFor } from "./conflicts";
 import { entityView } from "./derive";
 import { parseKey } from "./hotkeys";
+import { createIdleTimer, IDLE_MS, redactHidden } from "./nsfw";
 
 const hk = (keys: string): Hotkey => ({ keys, label: "Toggle", kind: "toggle", gated: false, section: "KeyToggle", iniFile: "a.ini", parsed: [parseKey(keys)!] });
 const skin = (id: string, entityId: string, nsfw: boolean, keys: string[] = []): Skin => ({
@@ -31,6 +32,7 @@ function world(): Snapshot {
     configured: true,
     sameDrive: true,
     notice: null,
+    pinSet: false,
   };
 }
 
@@ -50,5 +52,74 @@ describe("hidden NSFW skins leave no trace (SPEC §11)", () => {
     const shown = clashesFor(s, {}, true);
     expect(shown.bySkin.get("f-hat")?.[0].otherSkinId).toBe("v-lewd");
     expect(shown.conflictEntities).toEqual(new Set(["furina", "varesa"]));
+  });
+});
+
+describe("messages don't name hidden skins (SPEC §11)", () => {
+  // the hidden skin has a real-looking name and two folders, one of them disabled
+  function lewdWorld(): Snapshot {
+    const s = world();
+    const k = s.library.skins.find((x) => x.id === "v-lewd")!;
+    k.name = "Cow Girl";
+    k.folders = ["Varesa/CowGirl", "Varesa/DISABLED_CowGirlFace"];
+    return s;
+  }
+
+  it("redacts names and folders, in either path style, while hidden", () => {
+    const s = lewdWorld();
+    expect(redactHidden("Couldn't move Varesa\\CowGirl: access denied", s, false)).toBe("Couldn't move a hidden skin: access denied");
+    expect(redactHidden("Switched to cow girl", s, false)).toBe("Switched to a hidden skin");
+    expect(redactHidden("Missing Varesa/DISABLED_CowGirlFace", s, false)).toBe("Missing a hidden skin");
+    expect(redactHidden("CowGirlFace is gone", s, false)).toBe("a hidden skin is gone");
+  });
+
+  it("leaves visible skins and revealed messages alone", () => {
+    const s = lewdWorld();
+    expect(redactHidden("Switched Varesa to v-safe", s, false)).toBe("Switched Varesa to v-safe");
+    expect(redactHidden("Couldn't move Varesa\\CowGirl", s, true)).toBe("Couldn't move Varesa\\CowGirl");
+    expect(redactHidden("anything", null, false)).toBe("anything");
+  });
+
+  it("redacts short names as whole words only", () => {
+    const s = lewdWorld();
+    const k = s.library.skins.find((x) => x.id === "v-lewd")!;
+    k.name = "Ei";
+    k.folders = ["Ab"];
+    expect(redactHidden("Couldn't move Ei (Ab)", s, false)).toBe("Couldn't move a hidden skin (a hidden skin)");
+    expect(redactHidden("Neither eight nor Abbey", s, false)).toBe("Neither eight nor Abbey");
+  });
+});
+
+describe("idle timer behind auto re-hide (SPEC §11)", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("fires once after the idle time, and input pushes it back", () => {
+    vi.useFakeTimers();
+    const onIdle = vi.fn();
+    const t = createIdleTimer(onIdle, IDLE_MS);
+    vi.advanceTimersByTime(IDLE_MS - 1000);
+    t.bump();
+    vi.advanceTimersByTime(IDLE_MS - 1000);
+    expect(onIdle).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1000);
+    expect(onIdle).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(IDLE_MS * 3);
+    expect(onIdle).toHaveBeenCalledTimes(1);
+  });
+
+  it("does nothing once stopped, even when bumped", () => {
+    vi.useFakeTimers();
+    const onIdle = vi.fn();
+    const t = createIdleTimer(onIdle, 1000);
+    t.stop();
+    t.bump();
+    vi.advanceTimersByTime(5000);
+    expect(onIdle).not.toHaveBeenCalled();
+  });
+
+  it("waits five minutes by default", () => {
+    expect(IDLE_MS).toBe(5 * 60_000);
   });
 });
