@@ -5,10 +5,12 @@ A Windows desktop app for picking which mod skin each Genshin Impact character w
 (3DMigoto). 3DMigoto loads every enabled mod at once, so two skins for one character fight each other. Skin Switcher
 keeps exactly one active skin per character, waits until you press **Apply**, and can undo any switch that fails.
 
-![Shelves layout](https://raw.githubusercontent.com/SigniorAtif/Gimi-wordrobe/pr-assets/m3/shelf.png)
+![Shelves layout (sample data)](https://raw.githubusercontent.com/SigniorAtif/Gimi-wordrobe/pr-assets/m3/shelf.png)
+
+<sub>Shelves layout (sample data: placeholder covers, no real mod art).</sub>
 
 <details>
-<summary>More screenshots (fixture data)</summary>
+<summary>More screenshots (sample data)</summary>
 
 | | |
 |---|---|
