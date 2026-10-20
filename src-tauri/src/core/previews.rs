@@ -242,6 +242,8 @@ pub enum Stored {
     Duplicate,
     /// Not a PNG, JPG or WebP (by content), over the size limit, or not a plain file.
     NotAnImage,
+    /// The file couldn't be read (locked by another program, no permission). Skipped like a non-image.
+    Unreadable,
 }
 
 /// Writes images into `<Library>/previews/<skinId>/` as `01.png`, `02.jpg` …, numbered after the highest number
@@ -313,13 +315,14 @@ impl PreviewWriter {
         }
     }
 
-    /// Copy one image file (an archive's or mod folder's preview). Symlinks are refused.
+    /// Copy one image file (an archive's or mod folder's preview). Symlinks are refused. A file that can't be read
+    /// is skipped, so one locked image never fails a whole add; only writing into the Library can fail it.
     pub fn push_file(&mut self, path: &Path) -> AppResult<Stored> {
         match read_image_file(path) {
             Ok(Some(bytes)) => self.push(&bytes),
             Ok(None) => Ok(Stored::NotAnImage),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Stored::NotAnImage),
-            Err(e) => Err(e.into()),
+            Err(_) => Ok(Stored::Unreadable),
         }
     }
 
@@ -863,6 +866,26 @@ mod tests {
         files.swap(MAX_CANDIDATES_TRIED - 1, MAX_CANDIDATES_TRIED);
         w.push_files(&files, MAX_ARCHIVE_IMAGES).unwrap();
         assert_eq!(w.len(), 1);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn an_unreadable_image_is_skipped_not_fatal() {
+        use std::os::unix::fs::PermissionsExt;
+        let t = tempfile::tempdir().unwrap();
+        let locked = t.path().join("locked.png");
+        fs::write(&locked, PNG).unwrap();
+        fs::set_permissions(&locked, fs::Permissions::from_mode(0o000)).unwrap();
+        if fs::read(&locked).is_ok() {
+            return; // running as root: permissions don't lock anything
+        }
+        let img = t.path().join("shot.jpg");
+        fs::write(&img, JPG).unwrap();
+        let mut w = PreviewWriter::new(t.path(), "s", &[], PreviewSource::Archive).unwrap();
+        assert_eq!(w.push_file(&locked).unwrap(), Stored::Unreadable);
+        w.push_files(&[locked.clone(), img], MAX_ARCHIVE_IMAGES).unwrap();
+        assert_eq!(w.len(), 1, "the readable image after it is still copied");
+        fs::set_permissions(&locked, fs::Permissions::from_mode(0o644)).unwrap();
     }
 
     #[test]
