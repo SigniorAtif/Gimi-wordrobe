@@ -13,6 +13,7 @@ pub mod importer;
 pub mod ini;
 pub mod library;
 pub mod model;
+pub mod modfix;
 pub mod names;
 pub mod paths;
 pub mod persist;
