@@ -305,6 +305,21 @@ these fill gaps or record where something had to be interpreted.
 - **Arrow keys move by on-screen geometry** (`spatial.ts`), so no column counts are needed. Sideways distance is
   measured to the candidate's edge and weighted 3x, so Down picks the card below, or the shelf strip under the row.
 
+UI:
+
+- **The PIN prompt is one Modal in the app shell**, opened by `revealNsfw` when `pinSet`; nothing reveals until
+  `verifyPin` is ok. A check that returns after Cancel doesn't reveal. The lockout end lives in the store, so reopening
+  the prompt (or Settings) keeps counting down; Settings reads `pin_locked`'s seconds from its message.
+- **PIN lock is its own Settings section** with a repeat field, since the PIN can't be seen while typed.
+- **Hiding leaves hidden detail pages** (back to the entity or home) and drops them from the history, closes a peek,
+  and closes skin menus showing a hidden skin. Toasts and errors are redacted at render time.
+- **Shortcuts live in one hook** (`useShortcuts`); the per-screen Esc handlers are gone. Enter goes one level deeper
+  (card, then shelf or A2, then A3 from an A2 skin); the Original card, stubs and drop cards click as usual. Typing
+  appends to the current search. Shortcuts pause while a dialog or menu is open. Arrow targets carry `data-nav`.
+- **Reveal motion**: 18+ cards blur in (8px, staggered 35 ms) and out in 150 ms; exiting cards pop out of the flow
+  (`popLayout`) so the rest glide once. Revealed cards skip `layout`, which otherwise measured them before the
+  placeholder popped out.
+
 ## M9 Packaging
 
 - **NSIS only, per-user install** (`installMode: currentUser`): no admin prompt, installs to

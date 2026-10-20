@@ -1,0 +1,22 @@
+/* PIN prompt before revealing 18+ skins (SPEC §11). The dialog chrome comes from Modal. */
+.pin-prompt {
+  padding: var(--s-6);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-3);
+  text-align: center;
+}
+.pin-prompt__title {
+  margin: 0;
+  font-size: var(--fs-title);
+  font-weight: 650;
+}
+.pin-prompt__lede {
+  margin: calc(var(--s-2) * -1) 0 var(--s-1);
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+.pin-prompt__actions {
+  align-self: stretch;
+}

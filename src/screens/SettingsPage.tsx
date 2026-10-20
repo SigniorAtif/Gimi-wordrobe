@@ -1,32 +1,24 @@
 import { motion } from "motion/react";
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { api, toFailure } from "../api";
 import type { DisableMethod, LayoutMode, Loader, ReduceMotion, Settings, Snapshot } from "../api/types";
 import { Field, PathField, RadioOption, Segmented } from "../components/controls";
 import { HotkeyRecorder } from "../components/HotkeyRecorder";
 import { LayoutPreview } from "../components/LayoutPreview";
+import { PinLock } from "../components/PinLock";
 import { Switch } from "../components/Switch";
 import { riseIn, spring, staggerContainer } from "../motion";
 import { useReduced } from "../lib/useReduced";
 import { useApp } from "../store/app";
 import "./SettingsPage.css";
 
-/** Settings (full page, §6). Changes save instantly; "← Back" / Esc returns to the previous screen. */
+/** Settings (full page, §6). Changes save instantly; "← Back" / Esc returns to the previous screen (useShortcuts). */
 export function SettingsPage() {
   const snapshot = useApp((s) => s.snapshot)!;
   const back = useApp((s) => s.back);
   const save = useApp((s) => s.saveSettings);
   const reduced = useReduced();
   const s = snapshot.settings;
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const t = e.target as HTMLElement;
-      if (e.key === "Escape" && !t.closest("input, textarea")) back();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [back]);
 
   return (
     <div className="settings">
@@ -37,7 +29,7 @@ export function SettingsPage() {
         <h1 className="settings__title">Settings</h1>
         <span className="settings__saved">Changes save automatically</span>
       </header>
-      <motion.div className="settings__grid" variants={staggerContainer(4, reduced)} initial="hidden" animate="show">
+      <motion.div className="settings__grid" variants={staggerContainer(5, reduced)} initial="hidden" animate="show">
         <Section title="Appearance" reduced={reduced} wide>
           <Appearance s={s} snapshot={snapshot} save={save} />
         </Section>
@@ -48,6 +40,9 @@ export function SettingsPage() {
           </Section>
           <Section title="NSFW" reduced={reduced}>
             <NsfwSection s={s} save={save} />
+          </Section>
+          <Section title="PIN lock" reduced={reduced}>
+            <PinLock />
           </Section>
         </div>
         <div className="settings__col">

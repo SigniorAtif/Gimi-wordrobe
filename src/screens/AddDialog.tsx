@@ -29,6 +29,7 @@ import {
 } from "../lib/addDraft";
 import { useReduced } from "../lib/useReduced";
 import { shake, spring, tween } from "../motion";
+import { useRedact } from "../lib/useRedact";
 import { useAdd } from "../store/add";
 import { useApp } from "../store/app";
 import "./AddDialog.css";
@@ -45,6 +46,7 @@ export function AddDialog() {
   const submit = useAdd((s) => s.submit);
   const entities = useApp((s) => s.snapshot?.library.entities) ?? [];
   const nsfwKey = useApp((s) => s.snapshot?.settings.nsfw.hotkey) ?? "Ctrl+H";
+  const redact = useRedact();
   const [draft, setDraft] = useAddDraft(flow, entities, true);
   const [attempted, setAttempted] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -111,7 +113,7 @@ export function AddDialog() {
               </div>
               {flow.error ? (
                   <motion.p key="err" className="a4__error" role="alert" initial={{ opacity: 0 }} animate={{ opacity: 1, transition: tween.small }}>
-                    {flow.error}
+                    {redact(flow.error)}
                   </motion.p>
                 ) : !summary || !draft ? (
                   <div key="loading" className="a4__loading">

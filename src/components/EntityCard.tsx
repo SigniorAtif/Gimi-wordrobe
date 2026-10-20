@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from "motion/react";
 import type { MouseEvent } from "react";
 import type { EntityView } from "../lib/derive";
-import { riseIn, spring, tween } from "../motion";
+import { NSFW_HIDE_S, riseIn, spring, tween } from "../motion";
 import { Flip } from "./Flip";
 import { Portrait } from "./Portrait";
 import "./EntityCard.css";
@@ -36,6 +36,7 @@ export function EntityCard({
       type="button"
       className={`ecard ecard--${entity.category} ${open ? "is-open" : ""} ${pending ? "is-pending" : ""} ${dropHover ? "is-drop-hover" : ""}`}
       data-entity={entity.id}
+      data-nav
       data-drop={`entity:${entity.id}`}
       aria-expanded={open}
       aria-label={`${entity.name}, ${subtitle}${pending ? ", pending" : ""}`}
@@ -73,10 +74,20 @@ export function EntityCard({
         </span>
         {skins.length > 0 && (
           <span className="ecard__dots" aria-hidden>
+            <AnimatePresence initial={false}>
             {skins.map((s) => {
               const on = s.id === effective;
               return (
-                <span key={s.id} className={`ecard__dot ${on ? "is-on" : ""} ${on && pending ? "is-pending" : ""}`}>
+                <motion.span
+                  key={s.id}
+                  className={`ecard__dot ${on ? "is-on" : ""} ${on && pending ? "is-pending" : ""}`}
+                  // 18+ skins' dots come and go with the reveal (SPEC §11 counts only what is shown)
+                  layout="position"
+                  initial={{ opacity: 0, scale: 0.4 }}
+                  animate={{ opacity: 1, scale: 1, transition: tween.small }}
+                  exit={{ opacity: 0, scale: 0.4, transition: { duration: NSFW_HIDE_S } }}
+                  transition={spring.smooth}
+                >
                   <AnimatePresence initial={false}>
                     {on && (
                       <motion.span
@@ -87,9 +98,10 @@ export function EntityCard({
                       />
                     )}
                   </AnimatePresence>
-                </span>
+                </motion.span>
               );
             })}
+            </AnimatePresence>
           </span>
         )}
       </span>

@@ -1,6 +1,7 @@
 import { AnimatePresence, motion, useAnimate } from "motion/react";
 import { useEffect } from "react";
 import { shake, spring, tween } from "../motion";
+import { useRedact } from "../lib/useRedact";
 import { useReduced } from "../lib/useReduced";
 import { useApp, type Toast } from "../store/app";
 import "./Toasts.css";
@@ -22,6 +23,8 @@ export function Toasts() {
 function ToastItem({ toast }: { toast: Toast }) {
   const reduced = useReduced();
   const dismiss = useApp((s) => s.dismissToast);
+  // while 18+ skins are hidden, no toast names one (SPEC §11)
+  const redact = useRedact();
   const [scope, animate] = useAnimate();
 
   useEffect(() => {
@@ -45,8 +48,8 @@ function ToastItem({ toast }: { toast: Toast }) {
           {toast.kind === "success" ? <Check /> : toast.kind === "error" ? "!" : "i"}
         </span>
         <div className="toast__text">
-          <ToastText text={toast.text} />
-          {toast.detail && <div className="toast__detail">{toast.detail}</div>}
+          <ToastText text={redact(toast.text)} />
+          {toast.detail && <div className="toast__detail">{redact(toast.detail)}</div>}
         </div>
         <button className="toast__close" aria-label="Dismiss" onClick={() => dismiss(toast.id)}>
           ×

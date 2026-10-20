@@ -2,7 +2,8 @@ import { AnimatePresence, motion } from "motion/react";
 import type { MouseEvent } from "react";
 import { api } from "../api";
 import { hueFor, type EntityView } from "../lib/derive";
-import { riseIn, spring, tween } from "../motion";
+import { NSFW_HIDE_S, riseIn, spring, tween } from "../motion";
+import { AnimatedNumber } from "./AnimatedNumber";
 import { Flip } from "./Flip";
 import { Portrait } from "./Portrait";
 import "./PageCard.css";
@@ -30,6 +31,7 @@ export function PageCard({
       type="button"
       className={`pcard ${pending ? "is-pending" : ""}`}
       data-entity={entity.id}
+      data-nav
       data-drop={`entity:${entity.id}`}
       aria-label={`${entity.name}, ${subtitle}${pending ? ", pending" : ""}`}
       variants={riseIn(reduced)}
@@ -69,8 +71,18 @@ export function PageCard({
       </span>
       <span className="pcard__foot">
         <span className="pcard__dots" aria-hidden>
+          <AnimatePresence initial={false}>
           {skins.map((s) => (
-            <span key={s.id} className={`ecard__dot ${s.id === effective ? "is-on" : ""} ${s.id === effective && pending ? "is-pending" : ""}`}>
+            <motion.span
+              key={s.id}
+              className={`ecard__dot ${s.id === effective ? "is-on" : ""} ${s.id === effective && pending ? "is-pending" : ""}`}
+              // 18+ skins' dots come and go with the reveal
+              layout="position"
+              initial={{ opacity: 0, scale: 0.4 }}
+              animate={{ opacity: 1, scale: 1, transition: tween.small }}
+              exit={{ opacity: 0, scale: 0.4, transition: { duration: NSFW_HIDE_S } }}
+              transition={spring.smooth}
+            >
               <AnimatePresence initial={false}>
                 {s.id === effective && (
                   <motion.span
@@ -81,11 +93,12 @@ export function PageCard({
                   />
                 )}
               </AnimatePresence>
-            </span>
+            </motion.span>
           ))}
+          </AnimatePresence>
         </span>
         <span className="pcard__count caps num">
-          {skins.length} skin{skins.length === 1 ? "" : "s"}
+          <AnimatedNumber value={skins.length} /> skin{skins.length === 1 ? "" : "s"}
         </span>
       </span>
       <span className="pcard__badges">

@@ -1,5 +1,5 @@
 // Motion tokens (SPEC §7). Every animation in the app pulls from here.
-import type { Transition, Variants } from "motion/react";
+import type { TargetAndTransition, Transition, Variants } from "motion/react";
 
 export const spring = {
   /** small UI: chips, dots, tags, buttons */
@@ -64,7 +64,31 @@ export function staggerContainer(count: number, reduced: boolean, delayChildren 
 export const cardHover = { y: -2, transition: tween.micro } as const;
 export const cardPress = { scale: 0.98, transition: tween.micro } as const;
 
-/** Error toasts shake once, small (4px). */
+/** How long hiding 18+ skins takes (§7 "NSFW reveal": hide reverses quickly). */
+export const NSFW_HIDE_S = 0.15;
+
+/** Exit for an 18+ card when 18+ skins hide: the reveal in reverse, in 150ms. Reduced motion = fade only. */
+export function nsfwHide(reduced: boolean): TargetAndTransition {
+  const transition = { duration: NSFW_HIDE_S, ease: easeOut };
+  return reduced ? { opacity: 0, transition } : { opacity: 0, filter: "blur(8px)", transition };
+}
+
+/**
+ * NSFW reveal (§7): a revealed card fades in from blur(8px) -> 0, staggered by `i`, its index among the revealed
+ * cards; hiding reverses quickly. Reduced motion = a crossfade with no stagger. Spread the result onto a motion element.
+ */
+export function nsfwReveal(reduced: boolean, i = 0): { initial: TargetAndTransition; animate: TargetAndTransition; exit: TargetAndTransition } {
+  return reduced
+    ? { initial: { opacity: 0 }, animate: { opacity: 1, transition: tween.small }, exit: nsfwHide(true) }
+    : {
+        initial: { opacity: 0, filter: "blur(8px)" },
+        // no filter left behind once sharp, so the card renders exactly as before
+        animate: { opacity: 1, filter: "blur(0px)", transition: { ...tween.medium, delay: Math.min(i * 0.035, 0.3) }, transitionEnd: { filter: "none" } },
+        exit: nsfwHide(false),
+      };
+}
+
+/** Error toasts and a wrong PIN shake once, small (4px). */
 export const shake = {
   x: [0, -4, 4, -3, 3, 0],
   transition: { duration: 0.36, ease: "easeInOut" },

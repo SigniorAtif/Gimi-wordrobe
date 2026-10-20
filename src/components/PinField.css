@@ -1,0 +1,71 @@
+/* PIN field: six slots, the last two dashed (a PIN is 4-6 digits); the real input lies invisibly on top */
+.pin {
+  position: relative;
+  display: inline-flex;
+  border-radius: var(--r-btn);
+  cursor: text;
+}
+.pin__input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  opacity: 0;
+  border: 0;
+  padding: 0;
+  font-size: 16px;
+  cursor: text;
+  caret-color: transparent;
+}
+.pin__input:disabled {
+  cursor: not-allowed;
+}
+.pin__slots {
+  display: flex;
+  gap: var(--s-2);
+}
+.pin__slot {
+  width: 36px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-deep);
+  transition:
+    border-color 160ms var(--ease-out),
+    box-shadow 160ms var(--ease-out),
+    opacity 160ms var(--ease-out);
+}
+.pin__slot.is-optional {
+  border-style: dashed;
+}
+.pin:focus-within .pin__slot.is-next {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.pin.is-invalid .pin__slot {
+  border-color: var(--danger-line);
+}
+.pin.is-disabled .pin__slot {
+  opacity: 0.45;
+}
+.pin__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--text);
+}
+
+.pin-msg {
+  min-height: 18px;
+  font-size: var(--fs-meta);
+}
+.pin-msg__text {
+  display: inline-block;
+}
+.pin-msg__text--error {
+  color: var(--danger);
+}
+.pin-msg__text--info {
+  color: var(--text-3);
+}

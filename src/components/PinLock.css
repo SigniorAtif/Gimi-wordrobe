@@ -1,0 +1,29 @@
+/* Settings › PIN lock (SPEC §6). Rows reuse .setting-row from the Settings page. */
+.pin-lock__change {
+  margin-left: auto;
+}
+.pin-form {
+  display: grid;
+  grid-template-columns: 130px minmax(0, 1fr);
+  align-items: center;
+  gap: var(--s-2) var(--s-3);
+  padding-top: var(--s-3);
+}
+.pin-form__field {
+  display: contents;
+}
+.pin-form__label {
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+}
+.pin-form__input {
+  justify-self: start;
+}
+.pin-form__msg,
+.pin-form__actions {
+  grid-column: 2;
+}
+.pin-form__actions {
+  display: flex;
+  gap: var(--s-2);
+}

@@ -36,7 +36,7 @@ export function Home({ snapshot }: { snapshot: Snapshot }) {
   const query = useHome((s) => s.query);
   const chip = useHome((s) => s.chip);
   const nsfwVisible = useHome((s) => s.nsfwVisible);
-  const setNsfwVisible = useHome((s) => s.setNsfwVisible);
+  const toggleNsfw = useHome((s) => s.toggleNsfw);
   const openShelf = useHome((s) => s.openShelf);
   const toggleShelf = useHome((s) => s.toggleShelf);
   const pick = useHome((s) => s.pick);
@@ -89,11 +89,13 @@ export function Home({ snapshot }: { snapshot: Snapshot }) {
     });
   }, [snapshot, picks, nsfwVisible, query, chip]);
   const total = sections.reduce((n, s) => n + s.views.length, 0);
+  // the quick-switch menu follows the live view, so hiding 18+ skins takes them out of an open menu too
+  const menuView = menu ? entityView(snapshot, picks, nsfwVisible, menu.view.entity) : null;
   const empty = snapshot.library.entities.length === 0;
 
   return (
     <>
-      <Toolbar ref={searchRef} animateIn={replay} onAdd={() => void browse()} onToggleNsfw={() => setNsfwVisible(!nsfwVisible)} />
+      <Toolbar ref={searchRef} animateIn={replay} onAdd={() => void browse()} onToggleNsfw={toggleNsfw} />
       <motion.div className="home" variants={staggerContainer(total, reduced, 0.12)} initial={replay ? "hidden" : false} animate="show">
         {empty ? (
           <motion.div className="home__empty" variants={riseIn(reduced)}>
@@ -155,14 +157,14 @@ export function Home({ snapshot }: { snapshot: Snapshot }) {
           </AnimatePresence>
       </motion.div>
       <Popover open={!!menu} anchor={menu?.anchor ?? null} onClose={() => setMenu(null)} label="Quick switch">
-        {menu && (
+        {menuView && (
           <>
-            <div className="caps menu-heading">{menu.view.entity.name}</div>
-            <MenuItem checked={menu.view.effective === null} onSelect={() => { pick(menu.view.entity.id, null); setMenu(null); }}>
+            <div className="caps menu-heading">{menuView.entity.name}</div>
+            <MenuItem checked={menuView.effective === null} onSelect={() => { pick(menuView.entity.id, null); setMenu(null); }}>
               Original
             </MenuItem>
-            {menu.view.skins.map((s) => (
-              <MenuItem key={s.id} checked={menu.view.effective === s.id} onSelect={() => { pick(menu.view.entity.id, s.id); setMenu(null); }}>
+            {menuView.skins.map((s) => (
+              <MenuItem key={s.id} checked={menuView.effective === s.id} onSelect={() => { pick(menuView.entity.id, s.id); setMenu(null); }}>
                 {s.name}
               </MenuItem>
             ))}

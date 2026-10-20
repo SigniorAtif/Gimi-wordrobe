@@ -3,7 +3,7 @@ import { useState, type MouseEvent } from "react";
 import { api, toFailure } from "../api";
 import type { Skin } from "../api/types";
 import type { EntityView } from "../lib/derive";
-import { spring, staggerDelay, tween } from "../motion";
+import { nsfwHide, nsfwReveal, spring, staggerDelay, tween } from "../motion";
 import { useApp } from "../store/app";
 import { useHome } from "../store/home";
 import { SkinInfo } from "../screens/SkinDetail";
@@ -38,7 +38,12 @@ export function Shelf({
   const { entity, skins, effective, onDisk, pending } = view;
   const pick = useHome((s) => s.pick);
   const close = useHome((s) => s.closeShelf);
-  const setNsfwVisible = useHome((s) => s.setNsfwVisible);
+  const revealNsfw = useHome((s) => s.revealNsfw);
+  const nsfwVisible = useHome((s) => s.nsfwVisible);
+  // 18+ cards that mount after a reveal or hide since the shelf opened animate as a reveal (SPEC §7)
+  const nsfwEpoch = useHome((s) => s.nsfwEpoch);
+  const [openedAt] = useState(nsfwEpoch);
+  const revealing = nsfwEpoch !== openedAt;
   const removeSkin = useHome((s) => s.removeSkin);
   const peek = useHome((s) => s.peek);
   const setPeek = useHome((s) => s.setPeek);
@@ -63,13 +68,24 @@ export function Shelf({
     }
   };
 
+  const fadeOut = { opacity: 0, transition: tween.micro };
   const enter = (i: number) =>
-    reduced
-      ? { initial: { opacity: 0 }, animate: { opacity: 1, transition: tween.small } }
-      : {
-          initial: { opacity: 0, x: -18 },
-          animate: { opacity: 1, x: 0, transition: { ...spring.smooth, delay: 0.06 + staggerDelay(i, items, reduced) } },
-        };
+    revealing
+      ? // after a reveal or hide only the 18+ cards move; the stub and the rest fade
+        { initial: { opacity: 0 }, animate: { opacity: 1, transition: tween.small }, exit: fadeOut }
+      : reduced
+        ? { initial: { opacity: 0 }, animate: { opacity: 1, transition: tween.small }, exit: fadeOut }
+        : {
+            initial: { opacity: 0, x: -18 },
+            animate: { opacity: 1, x: 0, transition: { ...spring.smooth, delay: 0.06 + staggerDelay(i, items, reduced) } },
+            exit: fadeOut,
+          };
+  // an 18+ card blurs in when revealed and out when hidden; when the shelf opens it enters like the others
+  const nsfwOrder = skins.filter((k) => k.nsfw).map((k) => k.id);
+  const skinEnter = (skin: Skin, i: number) =>
+    !skin.nsfw ? enter(i) : revealing ? nsfwReveal(reduced, nsfwOrder.indexOf(skin.id)) : { ...enter(i), exit: nsfwHide(reduced) };
+  const cell = { layout: "position" as const, transition: spring.smooth };
+  const hotkey = snapshot.settings.nsfw.hotkey;
 
   return (
     <motion.div
@@ -125,19 +141,23 @@ export function Shelf({
             <LayoutGroup id="peek">
             <div className="peek__list" role="radiogroup" aria-label={`${entity.name} skins`}>
               <div className="caps peek__list-title">{entity.name}'s skins</div>
-              <button type="button" role="radio" aria-checked={effective === null} className={`peek__row ${effective === null ? "is-selected" : ""}`} data-skin="original" onClick={() => pick(entity.id, null)}>
+              <button type="button" role="radio" aria-checked={effective === null} className={`peek__row ${effective === null ? "is-selected" : ""}`} data-skin="original" data-nav onClick={() => pick(entity.id, null)}>
                 <span className="peek__thumb peek__thumb--orig">orig</span>
                 <span className="peek__row-name">Original</span>
                 <AnimatePresence initial={false}>{effective === null && <SelectionTag entityId={entity.id} pending={pending} reduced={reduced} />}</AnimatePresence>
               </button>
+              <AnimatePresence initial={false}>
               {skins.map((s) => (
-                <button
+                <motion.button
                   key={s.id}
                   type="button"
                   role="radio"
                   aria-checked={effective === s.id}
                   className={`peek__row ${effective === s.id ? "is-selected" : ""} ${peek === s.id ? "is-peeked" : ""}`}
                   data-skin={s.id}
+                  data-nav
+                  {...(s.nsfw && revealing ? {} : { layout: "position" as const, transition: spring.smooth })}
+                  {...(s.nsfw ? nsfwReveal(reduced, nsfwOrder.indexOf(s.id)) : { exit: fadeOut })}
                   onClick={() => {
                     pick(entity.id, s.id);
                     setPeek(s.id);
@@ -147,11 +167,12 @@ export function Shelf({
                   <span className="peek__thumb">{s.previews[0] && <img src={api.assetUrl(s.previews[0].file)} alt="" loading="lazy" decoding="async" />}</span>
                   <span className="peek__row-name">{s.name}</span>
                   <AnimatePresence initial={false}>{effective === s.id && <SelectionTag entityId={entity.id} pending={pending} reduced={reduced} />}</AnimatePresence>
-                </button>
+                </motion.button>
               ))}
-              <button className="peek__add" onClick={onAdd} disabled={!onAdd}>
+              </AnimatePresence>
+              <motion.button layout="position" transition={spring.smooth} className="peek__add" onClick={onAdd} disabled={!onAdd}>
                 + Add skin
-              </button>
+              </motion.button>
             </div>
             </LayoutGroup>
             <motion.div className="peek__gallery" initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { ...tween.medium, delay: 0.08 } }}>
@@ -173,17 +194,22 @@ export function Shelf({
         <motion.div
           key="strip"
           className="shelf__strip"
+          layoutScroll
+          // exiting cells pop out of the flow (AnimatePresence popLayout), positioned against the strip
+          style={{ position: "relative" }}
           role="radiogroup"
           aria-label={`${entity.name} skins`}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1, transition: tween.small }}
           exit={{ opacity: 0, transition: tween.micro }}
         >
-          <motion.div className="shelf__cell" {...enter(0)}>
+          <AnimatePresence mode="popLayout">
+          <motion.div key="original" className="shelf__cell" {...cell} {...enter(0)}>
             <OriginalCard entityId={entity.id} selected={effective === null} pending={pending} name={entity.name} reduced={reduced} onPick={() => pick(entity.id, null)} />
           </motion.div>
           {skins.map((s, i) => (
-            <motion.div key={s.id} className="shelf__cell" {...enter(i + 1)}>
+            // a revealed card fades in where it belongs; only the cells around it glide
+            <motion.div key={s.id} className="shelf__cell" {...(s.nsfw && revealing ? {} : cell)} {...skinEnter(s, i + 1)}>
               <SkinCard
                 skin={s}
                 entityId={entity.id}
@@ -199,34 +225,35 @@ export function Shelf({
             </motion.div>
           ))}
           {view.hidden > 0 && whenHidden === "stub" && (
-            <motion.div className="shelf__cell shelf__cell--stub" {...enter(skins.length + 1)}>
-              <button className="shelf__stub" onClick={() => setNsfwVisible(true)} title="Reveal NSFW skins">
+            <motion.div key="stub" className="shelf__cell shelf__cell--stub" {...cell} {...enter(skins.length + 1)}>
+              <button className="shelf__stub" data-nav onClick={revealNsfw} title={`Show ${view.hidden} hidden 18+ skin${view.hidden === 1 ? "" : "s"} (${hotkey})`}>
                 <span className="shelf__stub-count num">+{view.hidden}</span>
-                <span className="shelf__stub-key">CTRL+H</span>
+                <span className="shelf__stub-key">{hotkey.toUpperCase()}</span>
               </button>
             </motion.div>
           )}
           {skins.length === 0 && view.hidden === 0 ? (
-            <motion.div className="shelf__cell shelf__cell--wide" {...enter(1)}>
-              <button className="shelf__empty" onClick={onAdd} disabled={!onAdd}>
+            <motion.div key="empty" className="shelf__cell shelf__cell--wide" {...cell} {...enter(1)}>
+              <button className="shelf__empty" data-nav onClick={onAdd} disabled={!onAdd}>
                 <span className="shelf__empty-title">No skins yet</span>
                 <span className="shelf__empty-sub">Drop a .zip / .rar / .7z here or click to browse</span>
               </button>
             </motion.div>
           ) : (
-            <motion.div className="shelf__cell" {...enter(skins.length + 2)}>
-              <button className="shelf__drop" onClick={onAdd} disabled={!onAdd}>
+            <motion.div key="drop" className="shelf__cell" {...cell} {...enter(skins.length + 2)}>
+              <button className="shelf__drop" data-nav onClick={onAdd} disabled={!onAdd}>
                 <span className="shelf__drop-plus">+</span>
                 Drop archive
               </button>
             </motion.div>
           )}
+          </AnimatePresence>
         </motion.div>
         )}
         </AnimatePresence>
         </AutoHeight>
       </div>
-      <Popover open={!!menu} anchor={menu?.anchor ?? null} onClose={() => setMenu(null)} align="end" label="Skin actions">
+      <Popover open={!!menu && (nsfwVisible || !menu.skin.nsfw)} anchor={menu?.anchor ?? null} onClose={() => setMenu(null)} align="end" label="Skin actions">
         {menu && (
           <>
             <MenuItem disabled={!onDetails} onSelect={() => { setMenu(null); onDetails?.(menu.skin.id); }}>
@@ -250,7 +277,7 @@ export function Shelf({
         )}
       </Popover>
       <ConfirmDialog
-        open={!!confirm}
+        open={!!confirm && (nsfwVisible || !confirm.nsfw)}
         title={`Remove ${confirm?.name ?? ""}?`}
         body={<>Its folder{(confirm?.folders.length ?? 0) > 1 ? "s go" : " goes"} to the Recycle Bin, and it leaves the library. You can restore it from the Recycle Bin.</>}
         confirmLabel="Move to Recycle Bin"
@@ -288,6 +315,7 @@ function OriginalCard({
       aria-checked={selected}
       className={`skincard skincard--original ${selected ? "is-selected" : ""} ${selected && pending ? "is-pending" : ""}`}
       data-skin="original"
+      data-nav
       onClick={onPick}
       title={`Disables every ${name} skin`}
     >
@@ -335,6 +363,7 @@ function SkinCard({
         role="radio"
         aria-checked={selected}
         className="skincard__hit"
+        data-nav
         aria-label={`${skin.name}${skin.author ? ` by ${skin.author}` : ""}`}
         onClick={onPick}
         onDoubleClick={onDetails}
