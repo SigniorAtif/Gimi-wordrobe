@@ -7,12 +7,14 @@ import { Gallery } from "../components/Gallery";
 import { ConflictRows, HotkeyTable } from "../components/Hotkeys";
 import { Switch } from "../components/Switch";
 import { SelectionTag } from "../components/SelectionTag";
+import { isGameBananaUrl } from "../lib/addDraft";
 import { clashesIfPicked } from "../lib/conflicts";
 import { entityView, visibleSkins } from "../lib/derive";
 import { useReduced } from "../lib/useReduced";
 import { spring, tween } from "../motion";
 import { useApp } from "../store/app";
 import { prunePicks, useHome } from "../store/home";
+import { usePreviews } from "../store/previews";
 import "./SkinDetail.css";
 
 /** A3 skin detail (SPEC §6, shared by both layouts). Double-click a skin card to get here. */
@@ -250,6 +252,8 @@ function EditDetails({ skin, snapshot }: { skin: Skin; snapshot: Snapshot }) {
       setSnapshot(snap);
       // a skin that moved to another character can't stay a pending pick for the old one
       if (patch.entityId !== undefined) useHome.setState((h) => ({ picks: prunePicks(h.picks, snap) }));
+      // a new GameBanana link starts its previews downloading (SPEC §10 state 1)
+      if (patch.gameBananaUrl && isGameBananaUrl(patch.gameBananaUrl)) void usePreviews.getState().fetchGameBanana(skin.id);
     } catch (e) {
       toast({ kind: "error", text: toFailure(e).message });
     }
