@@ -669,7 +669,10 @@ pub mod tests {
         let t = tempfile::tempdir().unwrap();
         fs::create_dir_all(t.path().join("Culott\u{FFFD}e \u{FFFD} mort")).unwrap();
         fs::write(t.path().join("bad name. "), "x").unwrap();
-        assert_eq!(sanitize_tree(t.path()).unwrap(), 2);
+        // Win32 strips a trailing dot and space on create, so that file is already clean there
+        let expected = if cfg!(windows) { 1 } else { 2 };
+        assert_eq!(sanitize_tree(t.path()).unwrap(), expected);
+        assert!(t.path().join("bad name").is_file());
         assert!(t.path().join("Culotte mort").is_dir());
         let scan = ScanResult::default();
         let files: Vec<String> = [
