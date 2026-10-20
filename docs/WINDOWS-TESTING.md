@@ -92,8 +92,13 @@ New-Item -ItemType Directory -Force "$T\Library", "$T\config" | Out-Null
 # start the installed app with test settings (only for this PowerShell window)
 $env:SKIN_SWITCHER_CONFIG_DIR = "$T\config"
 $App = (Get-ChildItem "$env:LOCALAPPDATA\Skin Switcher\*.exe" | Where-Object Name -notlike "uninstall*" | Select-Object -First 1).FullName
-& $App
+if ($env:SKIN_SWITCHER_CONFIG_DIR -ne "D:\mods\ss-test\config") { throw 'set SKIN_SWITCHER_CONFIG_DIR first' }; & $App
 ```
+
+> **Every launch in sections 4 and 5 sets `SKIN_SWITCHER_CONFIG_DIR` and runs that guard first, on the same line as
+> the launch**, so the app can't start without the test settings even if a line is skipped. Without the variable the
+> app uses the real settings in `%AppData%` and pre-fills the real Mods folder. Until section 6, never start the app
+> from the Start menu or Explorer.
 
 On the **Set up Skin Switcher** screen, replace the pre-filled real paths:
 
@@ -111,7 +116,13 @@ function Snap($n) { Get-ChildItem -Recurse -Force "$T\fixtures\Mods", "$T\Librar
 function Same($a, $b) { $d = Compare-Object (Get-Content "$T\$a.txt") (Get-Content "$T\$b.txt"); if ($d) { $d } else { "no differences" } }
 ```
 
-If you close this window, open a new one and paste the `$T = …` line and both helpers again.
+If you close this window, open a new one, paste these lines, then paste both helpers again:
+
+```powershell
+$T = "D:\mods\ss-test"
+$env:SKIN_SWITCHER_CONFIG_DIR = "$T\config"
+$App = (Get-ChildItem "$env:LOCALAPPDATA\Skin Switcher\*.exe" | Where-Object Name -notlike "uninstall*" | Select-Object -First 1).FullName
+```
 
 To start over at any point: close the app, delete `D:\mods\ss-test`, and run this section again.
 
@@ -186,12 +197,19 @@ Use the test world from section 4 for every check. Each check says how to see th
 **b) A forced failure (debug build).** Close the app first, then:
 
 ```powershell
+$env:SKIN_SWITCHER_CONFIG_DIR = "$T\config"
 $env:SKIN_SWITCHER_FAULT = "fail:2"          # fail before the 2nd operation of the next Apply
-& "D:\mods\skin-switcher\src-tauri\target\debug\skin-switcher.exe"
+if ($env:SKIN_SWITCHER_CONFIG_DIR -ne "D:\mods\ss-test\config") { throw 'set SKIN_SWITCHER_CONFIG_DIR first' }; & "D:\mods\skin-switcher\src-tauri\target\debug\skin-switcher.exe"
 ```
 
 Pick changes for two characters, run `Snap before`, press Apply, then `Snap after; Same before after`. Afterwards
-close the app and run `Remove-Item Env:SKIN_SWITCHER_FAULT`.
+close the app, clear the fault and start the installed app again:
+
+```powershell
+Remove-Item Env:SKIN_SWITCHER_FAULT
+$env:SKIN_SWITCHER_CONFIG_DIR = "$T\config"
+if ($env:SKIN_SWITCHER_CONFIG_DIR -ne "D:\mods\ss-test\config") { throw 'set SKIN_SWITCHER_CONFIG_DIR first' }; & $App
+```
 
 - [ ] Apply reports the failure, the pending picks are still there, and `Same` prints `no differences`.
 
@@ -283,8 +301,9 @@ Close the app, then:
 
 ```powershell
 Snap before
+$env:SKIN_SWITCHER_CONFIG_DIR = "$T\config"
 $env:SKIN_SWITCHER_FAULT = "crash:2"
-& "D:\mods\skin-switcher\src-tauri\target\debug\skin-switcher.exe"
+if ($env:SKIN_SWITCHER_CONFIG_DIR -ne "D:\mods\ss-test\config") { throw 'set SKIN_SWITCHER_CONFIG_DIR first' }; & "D:\mods\skin-switcher\src-tauri\target\debug\skin-switcher.exe"
 ```
 
 1. Pick changes for two characters and press Apply. The app closes by itself.
@@ -292,12 +311,20 @@ $env:SKIN_SWITCHER_FAULT = "crash:2"
 3. Start the app again without the fault:
    ```powershell
    Remove-Item Env:SKIN_SWITCHER_FAULT
-   & "D:\mods\skin-switcher\src-tauri\target\debug\skin-switcher.exe"
+   $env:SKIN_SWITCHER_CONFIG_DIR = "$T\config"
+   if ($env:SKIN_SWITCHER_CONFIG_DIR -ne "D:\mods\ss-test\config") { throw 'set SKIN_SWITCHER_CONFIG_DIR first' }; & "D:\mods\skin-switcher\src-tauri\target\debug\skin-switcher.exe"
    ```
 4. After it opens, run `Snap after; Same before after`.
 
 - [ ] The app says the last Apply was interrupted and was undone, the journal file is gone, and `Same` prints
       `no differences`.
+
+Close the debug build and start the installed app again for the rest of the checks:
+
+```powershell
+$env:SKIN_SWITCHER_CONFIG_DIR = "$T\config"
+if ($env:SKIN_SWITCHER_CONFIG_DIR -ne "D:\mods\ss-test\config") { throw 'set SKIN_SWITCHER_CONFIG_DIR first' }; & $App
+```
 
 ### 5.11 Windows-only archive checks
 
