@@ -17,7 +17,7 @@
 
   --text: oklch(0.945 0.008 85);
   --text-2: oklch(0.79 0.009 80);
-  --text-3: oklch(0.645 0.01 75);
+  --text-3: oklch(0.655 0.01 75);
   --text-4: oklch(0.505 0.01 75);
 
   /* One accent: jade. Only for the active state, focus rings and the primary button. */
@@ -47,6 +47,9 @@
   --on-art-line: oklch(0.95 0.008 85 / 0.16);
   --backdrop: oklch(0.09 0.006 70 / 0.66);
   --art-edge: inset 0 0 0 1px oklch(0.95 0.008 85 / 0.07);
+
+  /* Ambient art colour (src/lib/ambient.ts): set per glow layer from the active cover */
+  --ambient: transparent;
 
   /* Type: Inter for UI, Bricolage Grotesque for names and titles. Heading steps are 1.25x apart. */
   --font: "Inter Variable", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;

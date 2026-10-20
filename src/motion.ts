@@ -24,6 +24,8 @@ export const tween = {
   small: { duration: duration.small, ease: easeOut },
   medium: { duration: duration.medium, ease: easeOut },
   page: { duration: duration.page, ease: easeOut },
+  /** ambient art glow crossfade (symmetric, so old and new colours overlap evenly) */
+  glow: { duration: duration.page, ease: [0.65, 0, 0.35, 1] },
 } as const satisfies Record<string, Transition>;
 
 /** Per-item stagger: 25-35ms, capped so a whole grid finishes within 400ms. */
