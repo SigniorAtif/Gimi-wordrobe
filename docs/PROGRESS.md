@@ -11,7 +11,7 @@ Build progress for the unattended run. Milestones follow SPEC §15.
 | 4 | Mode A (A1 + A2), A3 detail, C3 peek, layout switch, hotkeys + conflicts | done |
 | 5 | Add flow: drag-drop, extraction, A4, C4, new-character | done |
 | 6 | First-run import + review | done |
-| 7 | Previews: archive images, drop/paste, GameBanana | in progress |
+| 7 | Previews: archive images, drop/paste, GameBanana | backend done; UI waits for the redesign |
 | 8 | NSFW, PIN, auto re-hide, shortcuts, 1000x700 pass, motion polish | backend done; UI waits for the redesign |
 | 9 | NSIS bundle config + Windows testing guide | config + guide + README written; Windows build pending |
 
@@ -27,6 +27,7 @@ npm run fixtures                  # regenerate fixtures/Mods
 npm run e2e:build && npm run e2e  # real-app e2e via tauri-driver (needs ~/.cargo/bin/tauri-driver, WebKitWebDriver)
 cd src-tauri && cargo run --example scan_dry_run -- <Mods> resources/hash_index.json   # read-only scan report
 cd src-tauri && cargo run --example import_dry_run -- <Mods> <test Library>             # read-only import plan
+cd src-tauri && cargo test -- --ignored live_gamebanana   # live GameBanana check (network)
 ```
 
 ## Windows
@@ -38,7 +39,8 @@ first-run import on the real Mods folder after a backup.
 ## Known issues
 
 - No .rar fixture (needs the non-free `rar` tool); .rar adding is checked on Windows (docs/WINDOWS-TESTING.md).
-- "From GameBanana link" saves the link but fetches no images until M7.
+- Previews have no UI yet (M7 backend only): the add dialogs still disable "From GameBanana link", and no card
+  calls the new preview commands until the redesigned frontend lands.
 
 ## M6 notes
 

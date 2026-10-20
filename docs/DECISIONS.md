@@ -194,6 +194,58 @@ these fill gaps or record where something had to be interpreted.
   a weapon from the Sandrone folder, Bennett's Skyward Blade split out as a weapon skin, Oz split out under Fischl,
   Tome of the Eternal Flow as a weapon, bundled ORFix copies and desktop.ini skipped; every archive read.
 
+## M7 Previews (backend)
+
+- **The UI is not built yet.** The frontend is being redesigned, so M7 ships the Rust commands, the typed `src/api/`
+  calls and the mock backend only. The add dialogs still disable the "From GameBanana link" tile until the new UI
+  wires it.
+- **GameBanana's apiv11 shape was checked live on 2026-10-20** (`_sName`, `_aSubmitter._sName`, `_sVersion`,
+  `_aPreviewMedia._aImages[]` with `_sBaseUrl` + `/` + `_sFile`, `_aContentRatings`, `_sInitialVisibility`). Only
+  `screenshot` images are taken, at most 12, full size. `cargo test -- --ignored live_gamebanana` repeats the check;
+  plain `cargo test` never touches the network.
+- **Downloads are fenced in.** Image URLs must be `https://images.gamebanana.com/…`, image downloads follow no
+  redirects, every image is capped at 25 MB and must sniff as PNG, JPG or WebP by its bytes. One failed image is
+  skipped and counted; the fetch fails only when every image fails.
+- **The network never holds the core lock.** The link is read under the lock, the download runs outside it, then
+  the images are stored under it again. If the skin's link now points at another mod, nothing is stored
+  (`link_changed`). A failed fetch changes nothing, so the UI can show the empty state with "Retry" (SPEC §10).
+- **A GameBanana fetch fills in the author and version only when they are empty** and never renames the skin. A mod
+  that GameBanana rates 18+ (sexual themes, nudity, partial nudity, suggestive or fetish ratings, or a page hidden
+  or warned by default) marks the skin NSFW and says so (`markedNsfw`): hiding a skin by mistake beats showing one.
+  Blood, gore and similar ratings don't count.
+- **"From GameBanana link" in the add flow stores no images during the add.** The frontend calls
+  `fetchGameBananaPreviews(mainSkinId)` right after it (the main skin is the last of `skinIds`). That keeps the
+  network out of the extraction lock and lets the new card show "Fetching from GameBanana…".
+  `gameBananaInfo(url)` pre-fills name, author and NSFW in A4/C4 without storing anything; `AddRequest.author` saves
+  the author.
+- **Preview files are named by content and never overwrite.** New files are numbered after the highest number already
+  in `previews/<skinId>/` (`07.jpg`), opened with `create_new`, and get the extension of what the bytes are (a JPG
+  called `.png` becomes `.jpg`). Exact duplicates are skipped. A skin keeps at most 30 previews; one archive, mod
+  folder or GameBanana page adds at most 12. New images go after the existing ones, so the cover only changes when
+  the skin had none.
+- **Archive previews are picked once per archive.** Candidates are listed relative to the archive's content root,
+  which is also where the inis' `filename =` references point, and each skin takes the candidates inside its own
+  folders. Before this, a split root (Bennett's sword, the Tome recolor) was matched against the wrong base, so a
+  texture its ini names could become a preview. A failed add now takes its preview files back too. Archives from
+  the first-run import go through the same add, so they get both fixes.
+- **Installed mods can find previews in their own folders** (`find_folder_previews`): the archive filters run over the
+  skin's folders wherever they are (Mods, `DISABLED_`, stash). Mods is only read. Symlinked files are skipped.
+- **Reorder is `update_skin { previewOrder }`.** Files left out keep their order after the listed ones, so sending
+  just the new cover is enough.
+- **Removing a preview** updates library.json first, then sends the file to the Recycle Bin. If the bin fails, the
+  entry comes back. Only files directly inside the skin's own `previews/<skinId>/` folder are ever touched, whatever
+  library.json says.
+- **Pasted images travel as raw IPC bytes** (no JSON number array), with the skin id URI-encoded in an `x-skin-id`
+  header because headers are ASCII.
+- **No thumbnail cache.** Covers load the stored images directly. A cache would need an image-decoding crate, and the
+  grid already lazy-loads its images. Revisit in the M8 layout pass if scrolling stutters with real data.
+- **The asset scope stays `<Library>/previews` and `<Library>/portraits`** (M1). Changing the Library adds the new
+  folders; the old ones stay allowed until restart, because forbidding them would block them for the whole session
+  if the user switched back.
+- **Mock backend:** `__mock.failNextGameBanana`, `__mock.gameBananaNsfw` and `__mock.gameBananaMs` drive the
+  fetching, failure and NSFW states; mod id 404 answers "This Mod doesn't exist". Dropped files are drawn as
+  generated art (the browser can't read them); pasted bytes show as blob URLs.
+
 ## M8 NSFW, PIN and shortcuts
 
 - **Backend and pure logic only for now.** The frontend is being redesigned, so the PIN dialog, the Settings PIN
