@@ -71,7 +71,7 @@ export interface NsfwSettings {
   hotkey: string; // e.g. "Ctrl+H"
   whenHidden: "stub" | "invisible";
   autoRehide: boolean;
-  pinHash?: string; // "salt$sha256hex"; present = PIN lock on
+  // the PIN hash never leaves the backend; Snapshot.pinSet says whether one is set
 }
 
 export interface Settings {
@@ -135,6 +135,17 @@ export interface Snapshot {
   sameDrive: boolean | null;
   /** Something the user must fix first (unreadable library.json, invalid settings file). */
   notice: string | null;
+  /** A PIN guards revealing NSFW skins (SPEC §6 PIN lock). */
+  pinSet: boolean;
+}
+
+/** Answer to a PIN guess. Wrong guesses are throttled: FREE tries, then a lockout that doubles. */
+export interface PinCheck {
+  ok: boolean;
+  /** seconds until another guess is accepted (0 = now) */
+  retryIn: number;
+  /** guesses left before a lockout */
+  triesLeft: number;
 }
 
 export interface FirstRunDefaults {

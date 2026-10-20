@@ -14,6 +14,7 @@ import type {
   ImportRequest,
   ImportResult,
   Picks,
+  PinCheck,
   Settings,
   SkinPatch,
   Snapshot,
@@ -65,6 +66,12 @@ export interface Api {
   openFolder(target: OpenTarget): Promise<void>;
   openUrl(url: string): Promise<void>;
   setWindowTitle(title: string): Promise<void>;
+  /** Check the NSFW PIN before revealing; always ok when no PIN is set. */
+  verifyPin(pin: string): Promise<PinCheck>;
+  /** Set (`next`), change or remove (`next` null) the PIN; an existing PIN must be given as `current`. */
+  setPin(current: string | null, next: string | null): Promise<Snapshot>;
+  /** The window was minimized (auto re-hide, SPEC §11). */
+  onMinimize(handler: () => void): Promise<() => void>;
   /** URL for an image stored under the Library (previews, portraits). Sync, safe to call in render. */
   assetUrl(relPath: string): string;
 }

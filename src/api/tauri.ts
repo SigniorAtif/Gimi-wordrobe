@@ -6,7 +6,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { openUrl as openExternal } from "@tauri-apps/plugin-opener";
 import { toFailure, type Api } from "./api";
-import type { AddProgress, AddSkinResult, ApplyProgress, ApplyResult, ArchiveSummary, FirstRunDefaults, ImportPlan, ImportResult, Settings, Snapshot } from "./types";
+import type { AddProgress, AddSkinResult, ApplyProgress, ApplyResult, ArchiveSummary, FirstRunDefaults, ImportPlan, ImportResult, PinCheck, Settings, Snapshot } from "./types";
 
 async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
   try {
@@ -32,6 +32,10 @@ export const api: Api = {
   saveSettings: (settings: Settings) => snap("save_settings", { settings }),
   updateHashIndex: () => snap("update_hash_index"),
   firstRunDefaults: () => call<FirstRunDefaults>("first_run_defaults"),
+  verifyPin: (pin) => call<PinCheck>("verify_pin", { pin }),
+  setPin: (current, next) => snap("set_pin", { current, next }),
+  // emitted by the Rust window-event hook (lib.rs), so no extra window permission is needed
+  onMinimize: (handler) => listen("window-minimized", () => handler()),
   async pickFolder({ title, defaultPath }) {
     const picked = await openDialog({ directory: true, multiple: false, title, defaultPath });
     return typeof picked === "string" ? picked : null;

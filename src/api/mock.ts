@@ -1,8 +1,9 @@
 // In-memory fixture backend for the browser test harness (SPEC §0). Enabled with VITE_MOCK=1, never in release builds.
-// URL flags: ?firstrun=1 starts unconfigured; ?pages=1 starts in Pages layout; ?reduced=1 forces reduced motion.
+// URL flags: ?firstrun=1 starts unconfigured; ?pages=1 starts in Pages layout; ?reduced=1 forces reduced motion;
+// ?pin=2580 starts with that NSFW PIN set.
 import { ApiFailure, type Api } from "./api";
 import { buildMockWorld, coverArt, MOCK_LIBRARIES, MOCK_SETTINGS, type MockWorld } from "./mockData";
-import type { AddTarget, ArchiveSummary, Category, DiskState, EntityGuess, FileDropEvent, ImportItem, ImportPlan, Settings, Snapshot } from "./types";
+import type { AddTarget, ArchiveSummary, Category, DiskState, EntityGuess, FileDropEvent, ImportItem, ImportPlan, PinCheck, Settings, Snapshot } from "./types";
 
 const params = new URLSearchParams(typeof location !== "undefined" ? location.search : "");
 
@@ -12,6 +13,28 @@ let configured = params.get("firstrun") !== "1";
 let hashIndex = { date: "2026-08-03", entries: 3941 };
 if (params.get("pages") === "1") settings.layout = "pages";
 if (params.get("reduced") === "1") settings.reduceMotion = "on";
+// the real backend keeps an Argon2 hash; the mock only needs to compare
+let pin: string | null = params.get("pin");
+const PIN_FREE_TRIES = 5;
+const pinThrottle = { failures: 0, until: 0 };
+function checkPin(guess: string): PinCheck {
+  if (pin === null) return { ok: true, retryIn: 0, triesLeft: PIN_FREE_TRIES };
+  const now = Date.now();
+  if (pinThrottle.until > now) return { ok: false, retryIn: Math.max(1, Math.ceil((pinThrottle.until - now) / 1000)), triesLeft: 0 };
+  if (guess === pin) {
+    pinThrottle.failures = 0;
+    pinThrottle.until = 0;
+    return { ok: true, retryIn: 0, triesLeft: PIN_FREE_TRIES };
+  }
+  pinThrottle.failures++;
+  if (pinThrottle.failures >= PIN_FREE_TRIES) {
+    const lock = Math.min(30_000 * 2 ** Math.min(pinThrottle.failures - PIN_FREE_TRIES, 10), 600_000);
+    pinThrottle.until = now + lock;
+    return { ok: false, retryIn: lock / 1000, triesLeft: 0 };
+  }
+  return { ok: false, retryIn: 0, triesLeft: PIN_FREE_TRIES - pinThrottle.failures };
+}
+const minimizeHandlers = new Set<() => void>();
 
 /** Test controls, reachable from agent-browser via `window.__mock`. */
 const dropHandlers = new Set<(e: FileDropEvent) => void>();
@@ -31,6 +54,10 @@ export const mockControls = {
   changeOutsideNextApply: false,
   /** ms per simulated folder move */
   applyStepMs: 260,
+  /** Simulate minimizing the window (auto re-hide). */
+  minimize() {
+    minimizeHandlers.forEach((h) => h());
+  },
   world,
 };
 (globalThis as unknown as { __mock: typeof mockControls }).__mock = mockControls;
@@ -142,6 +169,7 @@ function snapshot(): Snapshot {
     configured,
     sameDrive: true,
     notice: null,
+    pinSet: pin !== null,
   };
 }
 
@@ -443,6 +471,30 @@ export const api: Api = {
   },
   async openUrl(url) {
     window.open(url, "_blank", "noopener");
+  },
+  async verifyPin(guess) {
+    await wait(220);
+    return checkPin(guess);
+  },
+  async setPin(current, next) {
+    await wait(220);
+    if (pin !== null) {
+      const c = checkPin(current ?? "");
+      if (!c.ok) throw c.retryIn ? new ApiFailure("pin_locked", `Too many wrong PINs. Try again in ${c.retryIn} s.`) : new ApiFailure("pin_wrong", "That's not the current PIN.");
+    }
+    if (next !== null && !/^\d{4,6}$/.test(next)) throw new ApiFailure("pin_invalid", "Use 4 to 6 digits for the PIN.");
+    pin = next;
+    return snapshot();
+  },
+  async onMinimize(handler) {
+    minimizeHandlers.add(handler);
+    // a browser tab going to the background is the closest thing to minimizing
+    const onVis = () => document.visibilityState === "hidden" && handler();
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      minimizeHandlers.delete(handler);
+      document.removeEventListener("visibilitychange", onVis);
+    };
   },
   async setWindowTitle(title) {
     document.title = title;

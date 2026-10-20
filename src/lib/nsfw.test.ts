@@ -31,6 +31,7 @@ function world(): Snapshot {
     configured: true,
     sameDrive: true,
     notice: null,
+    pinSet: false,
   };
 }
 
