@@ -279,12 +279,13 @@ pub async fn gamebanana_info(url: String) -> AppResult<GameBananaInfo> {
 }
 
 /// Fetch a skin's previews from its GameBanana page: download outside the lock, then store (SPEC §10). A failure
-/// changes nothing, so the UI can fall back to the empty state with "Retry".
+/// changes nothing, so the UI can fall back to the empty state with "Retry". The link and the free preview slots are
+/// read together; a full skin is refused before anything is downloaded, and only as many images as fit are fetched.
 #[tauri::command]
 pub async fn fetch_gamebanana_previews(state: State<'_, AppState>, skin_id: String) -> AppResult<PreviewFetch> {
     let id = skin_id.clone();
-    let url = state.run(move |c| c.gamebanana_url(&id)).await?;
-    let fetched = blocking(move || crate::net::fetch_gamebanana(&url)).await?;
+    let (url, room) = state.run(move |c| Ok((c.gamebanana_url(&id)?, c.preview_room(&id)?))).await?;
+    let fetched = blocking(move || crate::net::fetch_gamebanana(&url, room)).await?;
     state.run(move |c| c.add_gamebanana_previews(&skin_id, &fetched.info, &fetched.images, fetched.failed)).await
 }
 

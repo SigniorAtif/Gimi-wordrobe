@@ -375,6 +375,11 @@ fn unknown_skin() -> AppError {
     AppError::new("unknown_skin", "That skin no longer exists.")
 }
 
+/// The skin already has [`MAX_PREVIEWS`] previews.
+pub fn too_many() -> AppError {
+    AppError::new("too_many", format!("This skin already has {MAX_PREVIEWS} previews. Remove one first."))
+}
+
 impl AppCore {
     /// The Library folder, once the skin is known to exist.
     fn preview_lib(&self, skin_id: &str) -> AppResult<PathBuf> {
@@ -389,10 +394,7 @@ impl AppCore {
     pub fn preview_room(&self, skin_id: &str) -> AppResult<usize> {
         let skin = self.library.skin(skin_id).ok_or_else(unknown_skin)?;
         match MAX_PREVIEWS.saturating_sub(skin.previews.len()) {
-            0 => Err(AppError::new(
-                "too_many",
-                format!("This skin already has {MAX_PREVIEWS} previews. Remove one first."),
-            )),
+            0 => Err(too_many()),
             room => Ok(room),
         }
     }

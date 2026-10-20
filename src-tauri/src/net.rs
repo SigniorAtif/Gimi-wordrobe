@@ -4,11 +4,13 @@
 use crate::core::error::{AppError, AppResult};
 use crate::core::fsutil;
 use crate::core::previews::{
-    GameBananaInfo, MAX_IMAGE_BYTES, allowed_image_url, gamebanana_mod_id, image_ext, parse_profile, profile_url,
+    GameBananaInfo, MAX_GB_IMAGES, MAX_IMAGE_BYTES, allowed_image_url, gamebanana_mod_id, image_ext, parse_profile,
+    profile_url, too_many,
 };
 use serde_json::{Value, json};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -266,13 +268,50 @@ pub struct GameBananaFetch {
     pub failed: usize,
 }
 
-pub fn fetch_gamebanana(url: &str) -> AppResult<GameBananaFetch> {
-    let info = gamebanana_info(url)?;
-    // at most 12 small downloads: fetch them side by side, keep GameBanana's order
-    let results: Vec<AppResult<Vec<u8>>> = std::thread::scope(|s| {
-        let handles: Vec<_> = info.images.iter().map(|u| s.spawn(move || download_image(u))).collect();
-        handles.into_iter().map(|h| h.join().unwrap_or_else(|_| Err(gb_failure("download thread failed")))).collect()
+/// Most GameBanana images downloaded at the same time (each can be up to 25 MB in memory).
+const PARALLEL_DOWNLOADS: usize = 3;
+
+/// Run `fetch` over `urls` with at most [`PARALLEL_DOWNLOADS`] at once. Results come back in the order of `urls`.
+fn download_all<F>(urls: &[String], fetch: F) -> Vec<AppResult<Vec<u8>>>
+where
+    F: Fn(&str) -> AppResult<Vec<u8>> + Sync,
+{
+    let next = AtomicUsize::new(0);
+    let (next, fetch) = (&next, &fetch);
+    let done: Vec<(usize, AppResult<Vec<u8>>)> = std::thread::scope(|s| {
+        let workers: Vec<_> = (0..PARALLEL_DOWNLOADS.min(urls.len()))
+            .map(|_| {
+                s.spawn(move || {
+                    let mut out = vec![];
+                    loop {
+                        let i = next.fetch_add(1, Ordering::Relaxed);
+                        let Some(u) = urls.get(i) else { break };
+                        out.push((i, fetch(u)));
+                    }
+                    out
+                })
+            })
+            .collect();
+        workers.into_iter().flat_map(|w| w.join().unwrap_or_default()).collect()
     });
+    let mut results: Vec<Option<AppResult<Vec<u8>>>> = urls.iter().map(|_| None).collect();
+    for (i, r) in done {
+        results[i] = Some(r);
+    }
+    // a worker that panicked lost its results: those images count as failed
+    results.into_iter().map(|r| r.unwrap_or_else(|| Err(gb_failure("download thread failed")))).collect()
+}
+
+/// Read the mod's page, then download at most `room` of its images (never more than 12): the skin can't take more,
+/// so fetching them would only waste memory and bandwidth. A full skin (`room` 0) is refused before any request.
+pub fn fetch_gamebanana(url: &str, room: usize) -> AppResult<GameBananaFetch> {
+    let want = room.min(MAX_GB_IMAGES);
+    if want == 0 {
+        return Err(too_many());
+    }
+    let info = gamebanana_info(url)?;
+    let urls: Vec<String> = info.images.iter().take(want).cloned().collect();
+    let results = download_all(&urls, download_image);
     let mut images = vec![];
     let mut failed = 0;
     for r in results {
@@ -292,6 +331,35 @@ mod tests {
     use super::*;
 
     #[test]
+    fn downloads_three_at_a_time_in_order() {
+        let urls: Vec<String> = (0..8).map(|i| format!("https://images.gamebanana.com/{i}.png")).collect();
+        let (now, peak) = (AtomicUsize::new(0), AtomicUsize::new(0));
+        let results = download_all(&urls, |u| {
+            let n = now.fetch_add(1, Ordering::SeqCst) + 1;
+            peak.fetch_max(n, Ordering::SeqCst);
+            std::thread::sleep(Duration::from_millis(15));
+            now.fetch_sub(1, Ordering::SeqCst);
+            if u.ends_with("/5.png") { Err(gb_failure("HTTP 404")) } else { Ok(u.as_bytes().to_vec()) }
+        });
+        let peak = peak.load(Ordering::SeqCst);
+        assert!(peak > 1 && peak <= PARALLEL_DOWNLOADS, "{peak} at once");
+        assert_eq!(results.len(), urls.len());
+        for (i, (r, u)) in results.iter().zip(&urls).enumerate() {
+            match r {
+                Ok(b) => assert_eq!(b, u.as_bytes(), "GameBanana's order is kept"),
+                Err(_) => assert_eq!(i, 5),
+            }
+        }
+        assert!(download_all(&[], |_| Ok(vec![])).is_empty());
+    }
+
+    #[test]
+    fn a_full_skin_is_refused_before_any_request() {
+        // a link that would fail if it were fetched: room 0 never gets that far
+        assert_eq!(fetch_gamebanana("https://gamebanana.com/mods/1", 0).err().unwrap().code, "too_many");
+    }
+
+    #[test]
     fn humanizes_like_the_build_script() {
         assert_eq!(humanize("TomeofEternalFlow"), "Tome of the Eternal Flow");
         assert_eq!(humanize("SkywardBlade"), "Skyward Blade");
@@ -303,7 +371,7 @@ mod tests {
     #[test]
     #[ignore = "needs the network"]
     fn live_gamebanana() {
-        let f = fetch_gamebanana("https://gamebanana.com/mods/729570").unwrap();
+        let f = fetch_gamebanana("https://gamebanana.com/mods/729570", 30).unwrap();
         assert!(!f.info.name.is_empty());
         assert!(f.info.author.is_some());
         assert!(!f.images.is_empty(), "{:?}", f.info.images);
