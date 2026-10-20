@@ -42,7 +42,7 @@ describe("reveal hotkey rules (mirror settings.rs)", () => {
   });
 
   it("may not shadow another app shortcut", () => {
-    for (const r of ["Ctrl+S", "ctrl+z", "Ctrl+F", "Alt+F4"]) expect(revealHotkeyProblem(r)?.code).toBe("reserved_hotkey");
+    for (const r of ["Ctrl+S", "ctrl+z", "Ctrl+F", "Alt+F4", "Ctrl+V", "ctrl+c", "Ctrl+A", "Ctrl+X"]) expect(revealHotkeyProblem(r)?.code).toBe("reserved_hotkey");
     expect(revealHotkeyProblem("Ctrl+S")?.message).toBe("Ctrl+S applies your changes. Pick another reveal hotkey.");
   });
 });

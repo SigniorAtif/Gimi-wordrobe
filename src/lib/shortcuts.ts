@@ -73,11 +73,15 @@ export function matchesCombo(e: KeyLike, combo: string): boolean {
   return !!c && sameCombo(c, combo);
 }
 
-/** App shortcuts the reveal hotkey may not shadow (SPEC §12), plus Alt+F4, which closes the window. Mirrors settings.rs. */
+/** App shortcuts the reveal hotkey may not shadow (SPEC §12), text editing keys, and Alt+F4. Mirrors settings.rs. */
 export const RESERVED_COMBOS: Record<string, string> = {
   "Ctrl+S": "Ctrl+S applies your changes",
   "Ctrl+Z": "Ctrl+Z undoes the last pick",
   "Ctrl+F": "Ctrl+F focuses search",
+  "Ctrl+V": "Ctrl+V pastes a preview image",
+  "Ctrl+A": "Ctrl+A selects text",
+  "Ctrl+C": "Ctrl+C copies",
+  "Ctrl+X": "Ctrl+X cuts",
   "Alt+F4": "Alt+F4 closes the window",
 };
 

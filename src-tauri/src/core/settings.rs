@@ -79,6 +79,10 @@ const RESERVED_HOTKEYS: &[(&str, &str)] = &[
     ("ctrl+s", "Ctrl+S applies your changes"),
     ("ctrl+z", "Ctrl+Z undoes the last pick"),
     ("ctrl+f", "Ctrl+F focuses search"),
+    ("ctrl+v", "Ctrl+V pastes a preview image"),
+    ("ctrl+a", "Ctrl+A selects text"),
+    ("ctrl+c", "Ctrl+C copies"),
+    ("ctrl+x", "Ctrl+X cuts"),
     ("alt+f4", "Alt+F4 closes the window"),
 ];
 
@@ -233,7 +237,7 @@ mod tests {
         for bad in ["H", "Shift+H", "Ctrl+", "Ctrl+Shift", "Ctrl+Alt", "Win+H", "", "+"] {
             assert_eq!(check_hotkey(bad).unwrap_err().code, "invalid_hotkey", "{bad:?}");
         }
-        for reserved in ["Ctrl+S", "ctrl+z", " Ctrl + F ", "Alt+F4"] {
+        for reserved in ["Ctrl+S", "ctrl+z", " Ctrl + F ", "Alt+F4", "Ctrl+V", "ctrl+c", "Ctrl+A", "Ctrl+X"] {
             assert_eq!(check_hotkey(reserved).unwrap_err().code, "reserved_hotkey", "{reserved:?}");
         }
         for ok in ["Ctrl+H", "Alt+H", "Ctrl+Shift+S", "Ctrl+Alt+F4", "Alt+Shift+N", "Ctrl+F5", "Control+H"] {
