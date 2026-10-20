@@ -33,8 +33,10 @@ export function nextBox(from: Box, boxes: Box[], dir: Direction): number {
     const horizontal = dir === "left" || dir === "right";
     const along = dir === "right" ? dx : dir === "left" ? -dx : dir === "down" ? dy : -dy;
     const across = horizontal ? outside(cy, b.top, b.height) : outside(cx, b.left, b.width);
-    // must actually move that way; a sideways neighbour in the same row isn't "down"
-    if (along <= 1) return;
+    // must lie that way, its near edge past the start's centre: a shorter card beside it in the same row (the shelf's
+    // "Drop archive" card) has its centre a little higher, but it isn't "up"
+    const past = dir === "right" ? b.left >= cx : dir === "left" ? b.left + b.width <= cx : dir === "down" ? b.top >= cy : b.top + b.height <= cy;
+    if (!past || along <= 1) return;
     if (horizontal && across > Math.max(from.height, b.height) / 2) return;
     const score = along + across * 3;
     if (score < bestScore) {

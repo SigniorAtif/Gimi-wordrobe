@@ -43,6 +43,15 @@ describe("arrow-key focus movement (SPEC §12)", () => {
     expect(nextBox(shelf, boxes, "up")).toBe(1);
   });
 
+  it("doesn't count a shorter card beside it in the same row as up or down", () => {
+    // a 300px skin card next to the 288px drop card, with a card row above
+    const boxes = [box(0, 0, 190, 70), box(0, 100, 190, 300), box(200, 100, 190, 288)];
+    expect(nextBox(boxes[1], boxes, "up")).toBe(0);
+    expect(nextBox(boxes[2], boxes, "up")).toBe(0);
+    expect(nextBox(boxes[2], boxes, "down")).toBe(-1);
+    expect(nextBox(boxes[1], boxes, "right")).toBe(2);
+  });
+
   it("ignores the box it starts from and returns -1 with nothing else", () => {
     expect(nextBox(grid[0], [grid[0]], "right")).toBe(-1);
     expect(nextBox(grid[0], [], "down")).toBe(-1);
