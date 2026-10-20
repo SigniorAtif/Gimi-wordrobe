@@ -191,10 +191,19 @@ pub fn read_image_file(path: &Path) -> std::io::Result<Option<Vec<u8>>> {
     Ok(Some(bytes).filter(|b| b.len() as u64 <= MAX_IMAGE_BYTES))
 }
 
-/// "previews/<skin>/07.png" -> 7, for numbering new files after the existing ones.
+/// Highest number a preview file gets (`99999.png`).
+const MAX_PREVIEW_NUMBER: u32 = 99_999;
+
+/// "previews/<skin>/07.png" -> 7, for numbering new files after the existing ones. Only names this app would write
+/// count (1-5 digits, then .png, .jpg, .jpeg or .webp in any case): a stray `100000.txt` or `4294967295.png` is 0.
 fn number_of(file: &str) -> u32 {
     let name = file.rsplit('/').next().unwrap_or(file);
-    name.split('.').next().and_then(|n| n.parse().ok()).unwrap_or(0)
+    let Some((stem, ext)) = name.split_once('.') else { return 0 };
+    let image = ["png", "jpg", "jpeg", "webp"].iter().any(|e| ext.eq_ignore_ascii_case(e));
+    if !image || stem.is_empty() || stem.len() > 5 || !stem.bytes().all(|b| b.is_ascii_digit()) {
+        return 0;
+    }
+    stem.parse().unwrap_or(0)
 }
 
 /// A skin id is a folder name under previews/: one plain path component.
@@ -279,10 +288,10 @@ impl PreviewWriter {
         }
         fs::create_dir_all(&self.dir)?;
         loop {
-            self.next += 1;
-            if self.next > 99_999 {
-                return Err(AppError::new("too_many", "This skin's previews folder is full of numbered files."));
-            }
+            self.next = match self.next.checked_add(1) {
+                Some(n) if n <= MAX_PREVIEW_NUMBER => n,
+                _ => return Err(AppError::new("too_many", "This skin's previews folder is full of numbered files.")),
+            };
             let name = format!("{:02}.{ext}", self.next);
             let path = self.dir.join(&name);
             // create_new: a file that is already there (from anything) is never replaced
@@ -802,6 +811,30 @@ mod tests {
         for bad in ["", "..", "a/b", "a\\b", "c:x", "CON"] {
             assert!(PreviewWriter::new(t.path(), bad, &[], PreviewSource::User).is_err(), "{bad:?}");
         }
+    }
+
+    #[test]
+    fn numbering_ignores_files_this_app_would_not_name() {
+        assert_eq!(number_of("previews/s/07.png"), 7);
+        assert_eq!(number_of("003.JPEG"), 3);
+        assert_eq!(number_of("99999.webp"), 99_999);
+        for stray in ["100000.txt", "100000.png", "4294967295.png", "12.txt", "12.png.bak", ".png", "a1.png", "notes"] {
+            assert_eq!(number_of(stray), 0, "{stray}");
+        }
+        let t = tempfile::tempdir().unwrap();
+        let dir = t.path().join("previews").join("s");
+        fs::create_dir_all(&dir).unwrap();
+        for stray in ["100000.txt", "4294967295.png", "003.JPEG", "notes.txt"] {
+            fs::write(dir.join(stray), "x").unwrap();
+        }
+        let mut w = PreviewWriter::new(t.path(), "s", &[], PreviewSource::User).unwrap();
+        assert_eq!(w.push(PNG).unwrap(), Stored::Added);
+        assert_eq!(w.previews()[0].file, "previews/s/04.png");
+        // the last number is in use: refused with an error, never an overflow
+        fs::write(dir.join("99999.png"), "x").unwrap();
+        let mut full = PreviewWriter::new(t.path(), "s", &[], PreviewSource::User).unwrap();
+        assert_eq!(full.push(JPG).unwrap_err().code, "too_many");
+        assert_eq!(full.push(JPG).unwrap_err().code, "too_many", "and again, without wrapping around");
     }
 
     #[test]
