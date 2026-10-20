@@ -13,7 +13,7 @@ Build progress for the unattended run. Milestones follow SPEC §15.
 | 6 | First-run import + review | done |
 | 7 | Previews: archive images, drop/paste, GameBanana | done |
 | 8 | NSFW, PIN, auto re-hide, shortcuts, 1000x700 pass, motion polish | done |
-| 9 | NSIS bundle config + Windows testing guide | config + guide + README written; Windows build pending |
+| 9 | NSIS bundle config + Windows testing guide | done (Windows build and checks pending, see WINDOWS-TESTING.md) |
 
 ## How to run (Linux dev)
 
@@ -46,3 +46,22 @@ first-run import on the real Mods folder after a backup.
 - First run (and Settings "Re-scan now") opens the import review instead of adopting mods silently.
 - Mock harness: `?import=1` opens the review with a plan modelled on the real Mods folder.
 - e2e worlds leave out the archive library unless a test asks for it; `importAll` clicks through the review.
+
+## Final summary
+
+Milestones 0–9 are on `main` (PRs #1–#15). What's covered on Linux:
+
+- **Tests:** 134 Rust tests, 74 vitest tests, and 7/7 real-app e2e tests (tauri-driver on fixture worlds: Apply, rollback, crash recovery, add, rejected archive, first-run import, skip import). Clippy, typecheck, lint and `check:windows-core` are clean.
+- **Importer dry run** on the real Mods folder, read-only, with the Mods tree and `d3dx_user.ini` byte-identical before and after:
+  - Sandrone and Paimon found by hash;
+  - A Teaspoon of Transcendence as Sandrone's weapon;
+  - Bennett's Skyward Blade as a weapon skin;
+  - Oz under Fischl;
+  - Tome of the Eternal Flow as a weapon;
+  - ORFix copies and desktop.ini skipped.
+- **UI:** both layouts, A3, A4/C4, Settings, Setup, Import review, the PIN-gated 18+ reveal, preview states and gallery tools, and the full SPEC §12 keyboard set. The final look is the "UI refresh" (warm charcoal, jade accent, art-led cards, ambient cover colour; see DESIGN.md).
+- **Reviews:** every backend milestone (M6–M9) had a separate review pass; the findings and their fixes are on each PR.
+
+Left for Windows (docs/WINDOWS-TESTING.md): the NSIS build, every §16 check on the installed app, the .rar and non-ASCII archive paths, Ctrl+V in WebView2, auto re-hide on a real minimize, then the first-run import on the real Mods folder after a backup.
+
+Not redone in the last pass: a frame-by-frame audit of every §7 row after the refresh (the transitions were each checked when built), and a layout redesign of Setup, Import review and A4 beyond the new tokens.
