@@ -8,9 +8,11 @@ import {
   FieldError,
   fileName,
   formatSize,
+  GameBananaStatus,
   PortraitDrop,
   PreviewPicker,
   useAddDraft,
+  useGameBananaLookup,
 } from "../components/AddFields";
 import { AutoHeight } from "../components/AutoHeight";
 import { Modal } from "../components/Modal";
@@ -60,6 +62,7 @@ export function AddDialog() {
   }
 
   const summary = flow?.summary ?? null;
+  const gb = useGameBananaLookup(draft, setDraft, summary, entities);
   const check = draft && summary ? checkDraft(draft, summary, entities) : null;
   const errors = attempted ? (check?.errors ?? {}) : {};
   const detected = summary ? guessChoice(summary.roots[0], entities) : null;
@@ -201,17 +204,24 @@ export function AddDialog() {
                       setCreating(false);
                     }}
                   />
-                  <div className="a4__field">
-                    <span className="caps a4__label">GameBanana link (optional)</span>
-                    <input
-                      className={`input ${errors.gbUrl ? "is-invalid" : ""}`}
-                      aria-label="GameBanana link"
-                      placeholder="https://gamebanana.com/mods/…"
-                      spellCheck={false}
-                      value={draft.gbUrl}
-                      onChange={(e) => setDraft({ ...draft, gbUrl: e.target.value })}
-                    />
-                    <FieldError text={errors.gbUrl} />
+                  <div className="a4__grid">
+                    <div className="a4__field">
+                      <span className="caps a4__label">GameBanana link (optional)</span>
+                      <input
+                        className={`input ${errors.gbUrl ? "is-invalid" : ""}`}
+                        aria-label="GameBanana link"
+                        placeholder="https://gamebanana.com/mods/…"
+                        spellCheck={false}
+                        value={draft.gbUrl}
+                        onChange={(e) => setDraft({ ...draft, gbUrl: e.target.value })}
+                      />
+                      <FieldError text={errors.gbUrl} />
+                      <GameBananaStatus lookup={gb} />
+                    </div>
+                    <div className="a4__field">
+                      <span className="caps a4__label">Author (optional)</span>
+                      <input className="input" aria-label="Author" value={draft.author} onChange={(e) => setDraft({ ...draft, author: e.target.value })} />
+                    </div>
                   </div>
                   <div className="a4__line">
                     <Switch label="NSFW / 18+" checked={draft.nsfw} onChange={(v) => setDraft({ ...draft, nsfw: v })} />
@@ -220,7 +230,7 @@ export function AddDialog() {
                   </div>
                   <div className="a4__field">
                     <span className="caps a4__label">Preview source</span>
-                    <PreviewPicker draft={draft} setDraft={setDraft} imageCount={summary.images.length} />
+                    <PreviewPicker draft={draft} setDraft={setDraft} imageCount={summary.images.length} gbImages={gb.state === "ok" ? gb.info.images.length : undefined} />
                     <FieldError text={errors.preview} />
                   </div>
                   <div className="a4__line">

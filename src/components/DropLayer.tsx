@@ -3,8 +3,9 @@ import { useEffect } from "react";
 import { api } from "../api";
 import type { FileDropEvent } from "../api/types";
 import { tween } from "../motion";
-import { fileKind, useAdd, type DropTarget } from "../store/add";
+import { fileKind, useAdd, type DragState, type DropTarget } from "../store/add";
 import { useApp } from "../store/app";
+import { usePreviews } from "../store/previews";
 import "./DropLayer.css";
 
 function targetAt(x: number, y: number): { target: DropTarget; el: HTMLElement | null } {
@@ -15,13 +16,24 @@ function targetAt(x: number, y: number): { target: DropTarget; el: HTMLElement |
   if (v === "new:other") return { target: { kind: "new", category: "other" }, el };
   if (v === "portrait") return { target: { kind: "portrait" }, el };
   if (v === "preview") return { target: { kind: "preview" }, el };
+  if (v.startsWith("skin:")) return { target: { kind: "skin", id: v.slice(5) }, el };
   return { target: null, el: null };
+}
+
+/** The skin card or gallery an image is dragged over gets `data-drop-hover` (React doesn't own the attribute). */
+let hovered: HTMLElement | null = null;
+function markHover(el: HTMLElement | null) {
+  if (el === hovered) return;
+  hovered?.removeAttribute("data-drop-hover");
+  hovered = el;
+  hovered?.setAttribute("data-drop-hover", "");
 }
 
 /**
  * Listens to OS file drags (SPEC §13) and routes drops (SPEC §6): in Shelves an archive dropped on a card or a
  * "+ New" tile opens the C4 popover there; anywhere else (and always in Pages) it opens A4. Images dropped while a
- * flow is open become its portrait or preview.
+ * flow is open become its portrait or preview; otherwise an image dropped on a skin card or gallery is added to that
+ * skin's previews (SPEC §10).
  */
 export function DropLayer() {
   const drag = useAdd((s) => s.drag);
@@ -35,12 +47,19 @@ export function DropLayer() {
     const handle = (e: FileDropEvent) => {
       const add = useAdd.getState();
       if (e.type === "leave") {
+        markHover(null);
         add.resetDrag();
         return;
       }
+      // only a skin card or gallery takes an image when no add flow is open
+      const hover = (t: ReturnType<typeof targetAt>, kind: DragState["kind"]) =>
+        markHover(kind === "image" && !add.flow && t.target?.kind === "skin" ? t.el : null);
       if (e.type === "enter") {
         const name = e.paths[0]?.split(/[\\/]/).pop() ?? "";
-        add.setDrag({ active: true, kind: fileKind(e.paths[0] ?? ""), name, paths: e.paths, x: e.x, y: e.y, over: targetAt(e.x, e.y).target });
+        const kind = fileKind(e.paths[0] ?? "");
+        const at = targetAt(e.x, e.y);
+        add.setDrag({ active: true, kind, name, paths: e.paths, x: e.x, y: e.y, over: at.target });
+        hover(at, kind);
         mx.jump(e.x);
         my.jump(e.y);
         return;
@@ -48,18 +67,23 @@ export function DropLayer() {
       if (e.type === "over") {
         mx.set(e.x);
         my.set(e.y);
-        add.setDrag({ x: e.x, y: e.y, over: targetAt(e.x, e.y).target });
+        const at = targetAt(e.x, e.y);
+        add.setDrag({ x: e.x, y: e.y, over: at.target });
+        hover(at, add.drag.kind);
         return;
       }
       // drop
+      markHover(null);
       const { target, el } = targetAt(e.x, e.y);
-      const path = e.paths[0] ?? add.drag.paths[0];
+      const paths = e.paths.length ? e.paths : add.drag.paths;
+      const path = paths[0];
       const kind = fileKind(path ?? "");
       add.resetDrag();
       if (!path) return;
       if (kind === "image") {
         if (add.flow) add.dropImage(path, target?.kind === "portrait" ? "portrait" : "preview");
-        else useApp.getState().toast({ kind: "info", text: "Open a skin's page to add a preview image." });
+        else if (target?.kind === "skin") void usePreviews.getState().addFiles(target.id, paths);
+        else useApp.getState().toast({ kind: "info", text: "Drop the image on a skin's card or gallery to add it as a preview." });
         return;
       }
       if (kind !== "archive") {
@@ -68,7 +92,9 @@ export function DropLayer() {
       }
       const app = useApp.getState();
       const layout = app.snapshot?.settings.layout;
-      const routeEntity = app.route.name === "entity" ? app.route.entityId : null;
+      // an archive dropped on a skin card goes to that skin's character, like a drop on the A2 page
+      const skinEntity = target?.kind === "skin" ? (app.snapshot?.library.skins.find((s) => s.id === target.id)?.entityId ?? null) : null;
+      const routeEntity = app.route.name === "entity" ? app.route.entityId : skinEntity;
       if (add.flow?.kind === "a4") {
         void add.start(path, { kind: "a4", entityId: add.flow.entityId });
       } else if (layout === "shelves" && app.route.name === "home" && target?.kind === "entity") {

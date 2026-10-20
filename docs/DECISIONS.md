@@ -265,6 +265,22 @@ these fill gaps or record where something had to be interpreted.
     but refuses a symlink or anything over 25 MB unread. The add flow's chosen image keeps accepting a link (M5).
   - **The mock refuses a full skin** with the same `too_many` failure as Rust.
 
+- **UI (M7 frontend):**
+  - **One store, `src/store/previews.ts`,** tracks in-flight GameBanana fetches and the last failed code per skin.
+    `Cover` (shelf cards, A2 cards), the gallery (A3, C3) and the A1 backdrop share `CoverShimmer`. A newer fetch for
+    the same skin owns the state, so a superseded fetch's `link_changed` is dropped silently.
+  - **Retry shows only where it can help** (`network`, `gamebanana`, `link_changed`, `not_an_image`), never for
+    `too_many` or `no_link`. Fetch failures toast as info (SPEC §10 "quietly"); plain success says nothing.
+  - **Pre-fill:** the link is read 450 ms after typing stops. The name is replaced only while it is still the
+    archive's suggestion or the previous GameBanana name, with the entity's name stripped. NSFW is only switched on.
+    GameBanana becomes the preview source only when the choice was "None for now".
+  - **Reorder uses pointer events (Motion `drag` + `layout`), not HTML5 drag and drop,** which Tauri's file drop
+    handling turns off on Windows. Slots are measured once per drag from `offsetLeft/Top`, so gliding thumbnails
+    can't make the target flicker. Alt+arrow moves a focused thumbnail. A3 shows every thumbnail; C3 stays compact.
+  - **Remove asks first** (ConfirmDialog): an undo can't bring a file back from the Recycle Bin.
+  - **Drops and pastes:** skin cards and galleries carry `data-drop="skin:<id>"`. Ctrl+V goes to the focused card or
+    gallery, else the open A3 page, never while a dialog or the add flow is open. Toasts go through `redactHidden`.
+
 ## M8 NSFW, PIN and shortcuts
 
 - **Backend and pure logic only for now.** The frontend is being redesigned, so the PIN dialog, the Settings PIN

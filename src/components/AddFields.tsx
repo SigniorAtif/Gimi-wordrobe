@@ -1,13 +1,17 @@
 // Form pieces shared by the A4 add dialog and the C4 add popover (SPEC §6, §10).
 import { AnimatePresence, motion } from "motion/react";
-import { useId, useState } from "react";
-import { api } from "../api";
-import type { AddProgress, ArchiveSummary, Category, Entity, PreviewChoice } from "../api/types";
-import { initialDraft, isGameBananaUrl, type AddDraft } from "../lib/addDraft";
+import { useEffect, useId, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import { api, toFailure } from "../api";
+import type { AddProgress, ArchiveSummary, Category, Entity, GameBananaInfo, PreviewChoice } from "../api/types";
+import { applyGameBananaInfo, choiceName, gameBananaPrefill, initialDraft, isGameBananaUrl, type AddDraft, type GameBananaPrefill } from "../lib/addDraft";
 import { CATEGORY_LABEL, CATEGORY_ORDER } from "../lib/derive";
+import { redactHidden } from "../lib/nsfw";
 import { spring, tween } from "../motion";
 import { useAdd, type AddFlow } from "../store/add";
+import { useApp } from "../store/app";
+import { useHome } from "../store/home";
 import "./AddFields.css";
+import "./Previews.css";
 
 /** The draft for the open flow: built once the archive summary arrives, fed by images dropped on the window. */
 export function useAddDraft(flow: AddFlow | null, entities: Entity[], makeActive: boolean) {
@@ -37,6 +41,97 @@ export function useAddDraft(flow: AddFlow | null, entities: Entity[], makeActive
     }
   }
   return [draft, setDraft] as const;
+}
+
+export type GameBananaLookup =
+  | { state: "idle" }
+  | { state: "loading" }
+  | { state: "ok"; info: GameBananaInfo }
+  | { state: "error"; message: string };
+
+/**
+ * Pasting or typing a GameBanana link reads the mod page (debounced, stores nothing) and pre-fills the skin name
+ * (unless the user typed one), the author and the NSFW switch (SPEC §6 A4/C4).
+ */
+export function useGameBananaLookup(
+  draft: AddDraft | null,
+  setDraft: Dispatch<SetStateAction<AddDraft | null>>,
+  summary: ArchiveSummary | null,
+  entities: Entity[],
+): GameBananaLookup {
+  const url = draft?.gbUrl.trim() ?? "";
+  const valid = isGameBananaUrl(url);
+  const [answer, setAnswer] = useState<{ url: string; info?: GameBananaInfo; error?: string } | null>(null);
+  const prefill = useRef<GameBananaPrefill | null>(null);
+  const suggestedName = summary?.suggestedName ?? "";
+  const entityName = draft ? choiceName(draft.entity, entities) : "";
+  // read at answer time, so picking another character doesn't look the link up again
+  const names = useRef({ suggestedName, entityName });
+  useEffect(() => {
+    names.current = { suggestedName, entityName };
+  });
+  useEffect(() => {
+    if (!valid || !summary) return;
+    let live = true;
+    const t = setTimeout(async () => {
+      try {
+        const info = await api.gameBananaInfo(url);
+        if (!live) return;
+        const previous = prefill.current;
+        prefill.current = gameBananaPrefill(info, names.current.entityName);
+        setAnswer({ url, info });
+        setDraft((d) => (d && d.gbUrl.trim() === url ? applyGameBananaInfo(d, info, { ...names.current, previous }).draft : d));
+      } catch (e) {
+        if (!live) return;
+        const msg = redactHidden(toFailure(e).message, useApp.getState().snapshot, useHome.getState().nsfwVisible);
+        setAnswer({ url, error: msg });
+      }
+    }, 450);
+    return () => {
+      live = false;
+      clearTimeout(t);
+    };
+  }, [url, valid, summary, setDraft]);
+  if (!valid || !summary) return { state: "idle" };
+  if (answer?.url !== url) return { state: "loading" };
+  return answer.info ? { state: "ok", info: answer.info } : { state: "error", message: answer.error ?? "" };
+}
+
+/** One line under the link field: reading the page, what it found, or why it couldn't. Crossfades between them. */
+export function GameBananaStatus({ lookup }: { lookup: GameBananaLookup }) {
+  const key = lookup.state === "ok" ? `ok:${lookup.info.modId}` : lookup.state;
+  return (
+    <AnimatePresence initial={false} mode="popLayout">
+      {lookup.state !== "idle" && (
+        <motion.span
+          key={key}
+          className={`gb-status gb-status--${lookup.state}`}
+          role={lookup.state === "error" ? "alert" : "status"}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1, transition: tween.small }}
+          exit={{ opacity: 0, transition: tween.micro }}
+        >
+          <span className="gb-status__text">
+            {lookup.state === "loading" && <span className="gb-status__line">Reading the GameBanana page…</span>}
+            {lookup.state === "error" && <span className="gb-status__line">{lookup.message}</span>}
+            {lookup.state === "ok" && (
+              <>
+                <span className="gb-status__check" aria-hidden>
+                  ✓
+                </span>
+                <span className="gb-status__line" title={lookup.info.name}>
+                  {[lookup.info.name, lookup.info.author && `by ${lookup.info.author}`, `${lookup.info.images.length} image${lookup.info.images.length === 1 ? "" : "s"}`]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </span>
+                {lookup.info.nsfw && <span className="tag tag--nsfw">18+</span>}
+              </>
+            )}
+          </span>
+        </motion.span>
+      )}
+    </AnimatePresence>
+  );
 }
 
 export function fileName(path: string): string {
@@ -147,11 +242,14 @@ export function PreviewPicker({
   setDraft,
   imageCount,
   compact,
+  gbImages,
 }: {
   draft: AddDraft;
   setDraft: (d: AddDraft) => void;
   imageCount: number;
   compact?: boolean;
+  /** images on the GameBanana page, once the link was read */
+  gbImages?: number;
 }) {
   const id = useId();
   const gbOk = isGameBananaUrl(draft.gbUrl);
@@ -159,8 +257,8 @@ export function PreviewPicker({
     <div className={`previews-pick ${compact ? "previews-pick--compact" : ""}`} role="radiogroup" aria-label="Preview source">
       {PREVIEW_OPTIONS.map((o) => {
         const on = draft.preview === o.value;
-        // fetching from GameBanana arrives with the previews milestone; until then the tile only shows it's coming
-        const disabled = (o.value === "archive" && imageCount === 0) || o.value === "gamebanana";
+        // GameBanana needs a link first; a tile already picked stays clickable so the choice can be seen
+        const disabled = (o.value === "archive" && imageCount === 0) || (o.value === "gamebanana" && !gbOk && !on);
         const pick = async () => {
           if (o.value === "user") {
             const p = draft.userImage ?? (await api.pickImage());
@@ -178,12 +276,12 @@ export function PreviewPicker({
             disabled={disabled}
             className={`ptile ${on ? "is-on" : ""}`}
             data-drop={o.value === "user" ? "preview" : undefined}
-            title={o.value === "gamebanana" ? "Fetching images from GameBanana comes in a later update" : undefined}
+            title={o.value === "gamebanana" ? (gbOk ? "Downloads the mod page's screenshots right after adding" : "Paste a GameBanana link first") : undefined}
             onClick={() => void pick()}
           >
             {on && <motion.span layoutId={`ptile-${id}`} className="ptile__ring" transition={spring.snappy} />}
             <span className="ptile__art" aria-hidden>
-              {o.value === "gamebanana" && (gbOk ? "Coming soon" : "Paste a link")}
+              {o.value === "gamebanana" && (!gbOk ? "Paste a link" : gbImages === undefined ? "From the link" : `${gbImages} image${gbImages === 1 ? "" : "s"}`)}
               {o.value === "archive" && (imageCount ? `${imageCount} image${imageCount === 1 ? "" : "s"}` : "None inside")}
               {o.value === "user" && (draft.userImage ? fileName(draft.userImage) : "Drop / browse")}
               {o.value === "later" && "+"}

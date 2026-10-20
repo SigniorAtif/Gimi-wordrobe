@@ -5,12 +5,15 @@ import type { AddProgress, AddSkinRequest, ArchiveSummary, Category } from "../a
 import type { AddDraft } from "../lib/addDraft";
 import { useApp } from "./app";
 import { useHome } from "./home";
+import { usePreviews } from "./previews";
 
 export type DropTarget =
   | { kind: "entity"; id: string }
   | { kind: "new"; category: "character" | "other" }
   | { kind: "portrait" }
   | { kind: "preview" }
+  /** a skin card or gallery: an image dropped here becomes one of its previews */
+  | { kind: "skin"; id: string }
   | null;
 
 /** An image dropped while a flow is open: a new entity's portrait, or the skin's own preview. */
@@ -155,6 +158,9 @@ export const useAdd = create<AddState>((set, get) => ({
       const hidden = req.nsfw && !useHome.getState().nsfwVisible;
       app.toast({ kind: "success", text: hidden ? `Added a hidden 18+ skin to ${entityName}.` : `Added ${req.main.skinName} to ${entityName}.` });
       for (const w of r.warnings) app.toast({ kind: "info", text: w });
+      // "From GameBanana link" downloads after the add (outside the extraction), so the new card shows the fetch
+      const mainId = r.skinIds[r.skinIds.length - 1];
+      if (req.previewSource === "gamebanana" && req.gameBananaUrl && mainId) void usePreviews.getState().fetchGameBanana(mainId);
       // show where it went: the entity's shelf (Shelves) or its page (Pages)
       const main = r.snapshot.library.skins.find((s) => s.id === r.skinIds[r.skinIds.length - 1]);
       if (main) {

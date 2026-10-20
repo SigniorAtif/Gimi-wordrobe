@@ -9,10 +9,12 @@ import {
   CategoryPick,
   FieldError,
   fileName,
+  GameBananaStatus,
   PortraitDrop,
   PreviewPicker,
   summaryCounts,
   useAddDraft,
+  useGameBananaLookup,
 } from "./AddFields";
 import { useReduced } from "../lib/useReduced";
 import { AutoHeight } from "./AutoHeight";
@@ -43,6 +45,7 @@ export function AddPanel() {
   }
 
   const summary = flow?.summary ?? null;
+  const gb = useGameBananaLookup(draft, setDraft, summary, entities);
   const check = draft && summary ? checkDraft(draft, summary, entities) : null;
   const errors = attempted ? (check?.errors ?? {}) : {};
   const target = flow?.entityId ? entities.find((e) => e.id === flow.entityId) : undefined;
@@ -147,6 +150,7 @@ export function AddPanel() {
                       onChange={(e) => setDraft({ ...draft, gbUrl: e.target.value })}
                     />
                     <FieldError text={errors.gbUrl} />
+                    <GameBananaStatus lookup={gb} />
                   </label>
                 </div>
                 <div className="addpanel__line">
@@ -155,7 +159,7 @@ export function AddPanel() {
                   <span className="addpanel__spacer" />
                   <span className="caps">Preview</span>
                 </div>
-                <PreviewPicker draft={draft} setDraft={setDraft} imageCount={summary.images.length} compact />
+                <PreviewPicker draft={draft} setDraft={setDraft} imageCount={summary.images.length} compact gbImages={gb.state === "ok" ? gb.info.images.length : undefined} />
                 <FieldError text={errors.preview ?? errors.roots} />
                 {others.length > 0 && (
                   <p className="addpanel__also">

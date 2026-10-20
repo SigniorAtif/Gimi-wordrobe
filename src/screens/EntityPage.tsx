@@ -153,7 +153,7 @@ export function EntityPage({ entityId }: { entityId: string }) {
               {...(s.nsfw && revealing ? {} : item)}
               {...(!s.nsfw ? { exit: fadeOut } : revealing ? nsfwReveal(reduced, nsfwOrder.indexOf(s.id)) : { exit: nsfwHide(reduced) })}
             >
-              <div className={`bigcard ${selected ? "is-selected" : ""} ${selected && view.pending ? "is-pending" : ""}`} data-skin={s.id}>
+              <div className={`bigcard ${selected ? "is-selected" : ""} ${selected && view.pending ? "is-pending" : ""}`} data-skin={s.id} data-drop={`skin:${s.id}`}>
                 <button
                   type="button"
                   role="radio"

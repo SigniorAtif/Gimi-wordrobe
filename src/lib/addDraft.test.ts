@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ArchiveSummary, Entity } from "../api/types";
-import { checkDraft, initialDraft, withRootIncluded } from "./addDraft";
+import { applyGameBananaInfo, checkDraft, initialDraft, withRootIncluded } from "./addDraft";
 
 const entities: Entity[] = [
   { id: "bennett", name: "Bennett", category: "character", skinIds: [], aliases: [] },
@@ -92,5 +92,25 @@ describe("add draft (A4 / C4)", () => {
     expect(checkDraft(d, multi, entities).request?.exclude).toEqual(["Side/Face", "Side/Outfit", "Side/Face/Glow"]);
     d = withRootIncluded(d, multi, 1, true);
     expect(checkDraft(d, multi, entities).request?.splits[0]).toMatchObject({ rootPath: "Side/Face", folders: ["Side/Face", "Side/Outfit"] });
+  });
+
+  it("pre-fills name, author and NSFW from a GameBanana link without overwriting what the user typed", () => {
+    const info = { name: "Bennett - Sunny Shore", author: "sora", nsfw: true, images: ["a", "b"] };
+    const base = { ...initialDraft(bennett, opts), preview: "later" as const };
+    const ctx = { suggestedName: "Beach Day", entityName: "Bennett", previous: null };
+    const first = applyGameBananaInfo(base, info, ctx);
+    expect(first.draft).toMatchObject({ skinName: "Sunny Shore", author: "sora", nsfw: true, preview: "gamebanana" });
+    expect(checkDraft({ ...first.draft, gbUrl: "https://gamebanana.com/mods/1" }, bennett, entities).request).toMatchObject({ author: "sora", previewSource: "gamebanana" });
+
+    // a second link replaces the first one's answers, but not a name the user typed, and never unticks NSFW
+    const other = { name: "Night Swim", author: "kai", nsfw: false, images: [] };
+    const again = applyGameBananaInfo(first.draft, other, { ...ctx, previous: first.prefill });
+    expect(again.draft).toMatchObject({ skinName: "Night Swim", author: "kai", nsfw: true });
+    const typed = applyGameBananaInfo({ ...first.draft, skinName: "Mine", author: "me" }, other, { ...ctx, previous: first.prefill });
+    expect(typed.draft).toMatchObject({ skinName: "Mine", author: "me" });
+
+    // archive previews stay the choice when the archive has some
+    expect(applyGameBananaInfo(initialDraft(bennett, opts), info, ctx).draft.preview).toBe("archive");
+    expect(checkDraft(initialDraft(bennett, opts), bennett, entities).request?.author).toBeUndefined();
   });
 });
