@@ -161,3 +161,35 @@ these fill gaps or record where something had to be interpreted.
 - **Split skins keep the archive's NSFW flag**: hiding a weapon by mistake is better than showing one.
 - **`check:windows-core`** type-checks `src-tauri/src/core` for `x86_64-pc-windows-gnu` from Linux. The whole app
   can't be checked that way (ring needs a MinGW C compiler), so `commands.rs` Windows paths wait for the Windows run.
+
+## M6 First-run import
+
+- **Nothing is adopted silently any more.** Up to M5 a rescan adopted every unknown mod root into the library. Now a
+  configured, empty library with unknown roots or archives opens the import review (after Setup, at boot, and from
+  Settings "Re-scan now"); later rescans only refresh which skins are active.
+- **Installed mods are adopted where they are.** Nothing in Mods is moved or renamed unless the user picks one skin
+  to keep for an entity that has several enabled; that runs as one journaled Apply after the import.
+- **Installed mods are proposed one per scanner root**, the same grouping the scanner uses for Apply (Sandrone's
+  Teaspoon folder is its own root, so it becomes Teaspoon's skin). Archive roots get the add flow's split rules.
+- **Each archive in the archive library is one add**: main root plus splits, using the add flow's extraction, junk
+  and ORFix filtering, and undo. Skins from archives arrive inactive, in the stash.
+- **The main root of an archive** is the one whose detected entity matches the archive's folder name
+  (`Charecters and wepon/Fischl/…` → Fischl), else the first. Splits default to "`<entity> <skin>`".
+- **Archives move to `<Library>/archives/<Entity>/`** after a successful import (default on), loose archives found
+  directly in Mods to `<Library>/archives/` (default on). `source_archive` is updated to the new path. Folders
+  emptied by the move are removed; folders holding anything else (`desktop.ini`) are left alone.
+- **Unreadable archives are listed, not fatal**: the review says which ones can't be imported and why.
+- **The plan is kept in the core between `plan_import` and `apply_import`**, and every choice is checked against it,
+  so the frontend can't make the importer touch a path it didn't propose.
+- **18+ in the review**: NSFW guesses (folder or file names) start hidden behind the global 18+ toggle; hidden rows
+  show "Hidden 18+ skin" and a vague source. Split skins inherit the archive's flag.
+- **Rows animate between groups** with shared layout ids; the moving row rides above the others so it never slides
+  under a group heading.
+- **One shared hash loses to the mod's own name.** The read-only dry run on the real Mods folder found a Bennett skin
+  for a newer model whose only index hit was an eye override shared with another character. When the hash winner
+  rests on a single matching hash and the root's own folder or ini name fully names a different entity (≥ 0.75),
+  the name wins; two or more hits still beat any name.
+- **Dry run result** (`examples/import_dry_run.rs`, Library = `~/.cache/skin-switcher-testlib`, Mods tree and
+  `d3dx_user.ini` byte-identical before and after): Sandrone by hash, Paimon by hash, A Teaspoon of Transcendence as
+  a weapon from the Sandrone folder, Bennett's Skyward Blade split out as a weapon skin, Oz split out under Fischl,
+  Tome of the Eternal Flow as a weapon, bundled ORFix copies and desktop.ini skipped; every archive read.
