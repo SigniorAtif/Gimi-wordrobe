@@ -61,7 +61,12 @@ re-hiding, GameBanana preview fetching and pasted-image previews.
 
 ## Install (Windows)
 
-There are no prebuilt releases. Build the installer yourself:
+Download the installer (`Skin Switcher_x.y.z_x64-setup.exe`) from the
+[Releases](https://github.com/SigniorAtif/Gimi-wordrobe/releases) page. To publish one, bump the version in
+`src-tauri/tauri.conf.json`, `package.json` and `src-tauri/Cargo.toml`, then push a matching tag
+(`git tag v0.2.0 && git push origin v0.2.0`); the Release workflow builds the installer and attaches it.
+
+Or build the installer yourself:
 
 ```powershell
 winget install Microsoft.VisualStudio.2022.BuildTools --override "--wait --passive --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
