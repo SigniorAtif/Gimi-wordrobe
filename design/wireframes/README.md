@@ -24,7 +24,7 @@ render, but it's readable as-is for exact copy text and sizes.
 The wireframes are grayscale layout sketches made before the spec's later revisions. Use them for layout, structure
 and copy. Where they disagree, **SPEC.md wins**:
 
-- **Look:** grayscale, IBM Plex and amber notes are sketch styling only. Use SPEC §2: layered near-black surfaces, one soft violet-blue accent, an Inter-like variable font, yellow only for PENDING, red for conflicts and 18+.
+- **Look:** grayscale, IBM Plex and amber notes are sketch styling only. Use SPEC §2: warm charcoal surfaces, one jade accent, Inter plus a display face for names, yellow only for PENDING, red for conflicts and 18+.
 - **Default disable method:** the wireframes show "Rename with DISABLED prefix" as the default. The spec's default is **Move to Library stash**.
 - **A1:** the wireframe uses category tabs and 8 small portrait cards per row. The spec's A1 uses the same sectioned grid and filter chips as C1, with 5 columns of large cards showing the active skin's cover as a backdrop.
 - **Settings:** A5 and C5 are one shared page. The spec adds an **Appearance** section (Pages / Shelves layout switch with live thumbnails, Reduce motion), the Libraries list and "Update hash index".

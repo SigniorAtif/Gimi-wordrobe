@@ -98,10 +98,11 @@ Dual-boot hygiene:
 
 ## 2. Visual style
 
-- Polished dark UI: near-black layered surfaces (3 elevation steps), subtle 1px borders, soft shadows, rounded corners (cards 14px, buttons 10px), and generous spacing.
-- One accent colour (default a soft violet-blue). Use it only for active state, focus rings and the primary button. Yellow for PENDING, red for conflict and 18+.
-- Typography: Inter or a similar variable font, bundled locally (offline). Use tabular numbers for counts.
-- Skin cover images are the visual hero: 3:4 aspect, object-fit cover, with a gentle gradient at the bottom behind the name.
+- Polished dark UI: warm charcoal layered surfaces (3 elevation steps, OKLCH, low chroma), subtle 1px borders, shadows only for floating things, rounded corners (cards 14px, buttons 10px), and varied spacing.
+- One accent colour, jade. Use it only for active state, focus rings and the primary button. Yellow for PENDING, red for conflict and 18+.
+- Ambient art colour: the active cover's dominant colour glows softly behind the open shelf, the A2 header and the A3 detail, without hurting text contrast (docs/DESIGN.md).
+- Typography: Inter Variable for UI text, Bricolage Grotesque Variable for names and titles, both bundled locally (offline). Headings step 1.25x. Use tabular numbers for counts.
+- Skin cover images are the visual hero: 3:4, object-fit cover. Skin cards are cover-led with the name on a scrim; Pages cards use the active cover as a full backdrop.
 - Wireframes are layout only. Don't copy their amber annotation colour. No official game logos or branding.
 
 ## 3. How enable/disable works (core mechanic)
