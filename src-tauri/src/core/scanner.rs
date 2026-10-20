@@ -1014,11 +1014,20 @@ mod tests {
             fs::write(p, body).unwrap();
         };
         // bf6aef4d is a Fischl position hash; ffff0001.. are unknown (a newer model)
-        write("BeachDay/BennettAdventure.ini", "[TextureOverrideEye]\nhash = bf6aef4d\n[TextureOverrideBody]\nhash = ffff0001\nib = R\n");
+        write(
+            "BeachDay/BennettAdventure.ini",
+            "[TextureOverrideEye]\nhash = bf6aef4d\n[TextureOverrideBody]\nhash = ffff0001\nib = R\n",
+        );
         // the same lone hit with no name to go on stays a hash guess
-        write("Plain/merged.ini", "[TextureOverrideEye]\nhash = bf6aef4d\n[TextureOverrideBody]\nhash = ffff0002\nib = R\n");
+        write(
+            "Plain/merged.ini",
+            "[TextureOverrideEye]\nhash = bf6aef4d\n[TextureOverrideBody]\nhash = ffff0002\nib = R\n",
+        );
         // two hits beat a name
-        write("Two/BennettAlt.ini", "[TextureOverrideA]\nhash = bf6aef4d\n[TextureOverrideB]\nhash = 6428104d\nib = R\n");
+        write(
+            "Two/BennettAlt.ini",
+            "[TextureOverrideA]\nhash = bf6aef4d\n[TextureOverrideB]\nhash = 6428104d\nib = R\n",
+        );
         let r = scan(t.path(), &ScanContext::new(&idx, &lib));
         let g = |f: &str| by_folder(&r, f).guess.clone().unwrap();
         assert_eq!((g("BeachDay").name.as_str(), g("BeachDay").reason), ("Bennett", GuessReason::Name));

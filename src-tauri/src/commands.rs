@@ -230,7 +230,11 @@ pub async fn plan_import(app: AppHandle, state: State<'_, AppState>) -> AppResul
 
 /// Carry out the reviewed import. Emits `import-progress`.
 #[tauri::command]
-pub async fn apply_import(app: AppHandle, state: State<'_, AppState>, request: ImportRequest) -> AppResult<ImportResult> {
+pub async fn apply_import(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    request: ImportRequest,
+) -> AppResult<ImportResult> {
     state
         .run(move |c| {
             c.apply_import(request, &mut |done, total, label| {
