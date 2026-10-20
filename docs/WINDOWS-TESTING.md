@@ -34,9 +34,11 @@ missing: the MSVC C++ Build Tools and Rust.
    cargo --version
    rustup default        # should say stable-x86_64-pc-windows-msvc
    node --version
+   Test-Path "${env:ProgramFiles(x86)}\Windows Kits\10\Include"   # True = the Windows SDK came with the Build Tools
    ```
 
-- [ ] `rustc`, `cargo` and `node` all print a version, and the Rust toolchain ends in `-msvc`.
+- [ ] `rustc`, `cargo` and `node` all print a version, the Rust toolchain ends in `-msvc`, and the Windows SDK check
+      prints `True`.
 
 ## 2. Build
 
@@ -589,6 +591,7 @@ XXMI isn't installed yet. When it is:
 | Problem | Fix |
 |---|---|
 | `link.exe not found` or `msvc` errors during the build | The Build Tools are missing the C++ workload. Re-run the winget command in section 1, or open Visual Studio Installer → Modify → tick **Desktop development with C++**. |
+| The Windows SDK check prints `False`, or the build can't find `kernel32.lib` / `windows.h` | The SDK is missing. Open Visual Studio Installer → Modify → Individual components → tick the latest **Windows 11 SDK**, then open a new terminal. |
 | `npm ci` fails with `EPERM` / `EBUSY` | Close editors and terminals that use the project, then try again. Antivirus scanning `node_modules` can cause it too. |
 | The build says the hash index failed and no previous index exists | It needs GitHub. Check the internet connection; if GitHub's API limit was hit, wait an hour. Or build once on Linux (`npm run hash-index`): the file lands in `src-tauri\resources` on the shared drive. |
 | The app opens to a blank or white window, or says WebView2 is missing | Install the Evergreen WebView2 Runtime from Microsoft, then start the app again. |
