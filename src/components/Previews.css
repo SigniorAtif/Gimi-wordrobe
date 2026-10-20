@@ -1,0 +1,206 @@
+/* Preview states and management (SPEC §10, M7): cover skeleton, Retry, image drop targets, A3 gallery tools and the
+   GameBanana lookup in the add dialogs. Tokens only; nothing here restyles existing classes. */
+
+/* ----- cover states ----- */
+/* doubled classes: this file may load before Cover.css */
+.cover.cover--empty {
+  transition: border-color 200ms var(--ease-out);
+}
+.cover.cover--fetching {
+  border-color: transparent;
+}
+.cover__empty-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.cover__retry {
+  /* above the card's click target (z-index 1), so Retry doesn't pick the skin */
+  position: relative;
+  z-index: 2;
+  font-size: var(--fs-meta);
+}
+
+/* skeleton: a light band sweeps across with transform only (SPEC §7 "Loading states") */
+.cover-shimmer {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 10px;
+  border-radius: inherit;
+  background: var(--surface-2);
+  pointer-events: none;
+}
+.cover-shimmer::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 25%, oklch(1 0 0 / 0.07) 50%, transparent 75%);
+  transform: translateX(-100%);
+  animation: cover-sweep 1.4s var(--ease-out) infinite;
+}
+.cover-shimmer--overlay {
+  background: oklch(0.12 0.01 275 / 0.25);
+}
+.cover-shimmer--overlay::before {
+  background: linear-gradient(100deg, transparent 30%, oklch(1 0 0 / 0.12) 50%, transparent 70%);
+}
+/* reduced motion: no sweep, the surface breathes in opacity */
+.cover-shimmer--still::before {
+  transform: none;
+  background: oklch(1 0 0 / 0.05);
+  animation: cover-breathe 1.6s ease-in-out infinite;
+}
+.cover-shimmer__label {
+  position: relative;
+  font-size: var(--fs-meta);
+  color: var(--text-3);
+  text-align: center;
+}
+@keyframes cover-sweep {
+  to {
+    transform: translateX(100%);
+  }
+}
+@keyframes cover-breathe {
+  50% {
+    opacity: 0.35;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cover-shimmer::before {
+    transform: none;
+    background: oklch(1 0 0 / 0.05);
+    animation: cover-breathe 1.6s ease-in-out infinite;
+  }
+}
+
+/* ----- an image dragged over the window: skin cards and galleries take it (SPEC §10 state 3) ----- */
+.gallery[data-drop] {
+  position: relative;
+}
+body.dragging-image [data-drop^="skin:"]::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  z-index: 3;
+  border-radius: calc(var(--r-card) + 3px);
+  border: 1.5px dashed var(--accent-line);
+  pointer-events: none;
+  animation: drop-pulse 1.6s ease-in-out infinite;
+}
+body.dragging-image [data-drop^="skin:"][data-drop-hover]::after {
+  border-color: var(--accent);
+  box-shadow: 0 0 22px oklch(0.73 0.125 278 / 0.4);
+  animation: none;
+}
+body.dragging-image [data-drop^="skin:"][data-drop-hover] {
+  transform: translateY(-2px) scale(1.02);
+}
+body.dragging-image .gallery[data-drop-hover] {
+  transform: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  body.dragging-image [data-drop^="skin:"]::after {
+    animation: none;
+  }
+  body.dragging-image [data-drop^="skin:"][data-drop-hover] {
+    transform: none;
+  }
+}
+
+/* ----- gallery: empty state actions, thumbnails you can drag, tools ----- */
+.gallery__empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--s-2);
+  margin-top: var(--s-2);
+}
+.gallery__thumbs--manage {
+  position: relative;
+}
+.gallery__thumb {
+  position: relative;
+}
+.gallery__thumb--dragging {
+  z-index: 3;
+  box-shadow: var(--shadow-3);
+  cursor: grabbing;
+}
+.gallery__thumbs--manage .gallery__thumb:not(.gallery__thumb--drop) {
+  cursor: grab;
+  touch-action: none;
+}
+.gallery__thumb-cover {
+  position: absolute;
+  left: 4px;
+  top: 4px;
+  height: 16px;
+  padding: 0 5px;
+  font-size: 9.5px;
+  pointer-events: none;
+}
+button.gallery__thumb--drop {
+  cursor: pointer;
+  transition:
+    border-color 160ms var(--ease-out),
+    color 160ms var(--ease-out),
+    background-color 160ms var(--ease-out);
+}
+button.gallery__thumb--drop:hover {
+  border-color: var(--accent-line);
+  color: var(--text);
+  background: var(--accent-soft);
+}
+.gallery__tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2);
+}
+.gallery__tools-spacer {
+  flex: 1;
+}
+.gallery__hint {
+  margin: 0;
+  font-size: var(--fs-meta);
+  color: var(--text-4);
+}
+
+/* ----- GameBanana lookup under the link field (A4 / C4) ----- */
+.gb-status {
+  display: block;
+  overflow: hidden;
+}
+.gb-status__text {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: var(--fs-meta);
+  color: var(--text-3);
+}
+.gb-status__line {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gb-status--ok .gb-status__text {
+  color: var(--text-2);
+}
+.gb-status--error .gb-status__text {
+  color: var(--danger);
+}
+.gb-status__check {
+  color: var(--accent);
+}
+.gb-status .tag {
+  flex: none;
+}

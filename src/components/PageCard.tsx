@@ -3,7 +3,9 @@ import type { MouseEvent } from "react";
 import { api } from "../api";
 import { hueFor, type EntityView } from "../lib/derive";
 import { NSFW_HIDE_S, riseIn, spring, tween } from "../motion";
+import { usePreviews } from "../store/previews";
 import { AnimatedNumber } from "./AnimatedNumber";
+import { CoverShimmer } from "./Cover";
 import { Flip } from "./Flip";
 import { Portrait } from "./Portrait";
 import "./PageCard.css";
@@ -25,6 +27,8 @@ export function PageCard({
   const { entity, skins, effective, pending, onDisk, subtitle, effectiveSkin, effectiveHidden } = view;
   const cover = !effectiveHidden && effectiveSkin?.previews[0] ? api.assetUrl(effectiveSkin.previews[0].file) : "";
   const multiOn = onDisk.length > 1 && !pending;
+  // the active skin's GameBanana previews are downloading: the backdrop shimmers (SPEC §10 state 1)
+  const fetching = usePreviews((s) => !!effectiveSkin && !effectiveHidden && effectiveSkin.id in s.fetching);
   return (
     <motion.button
       layout="position"
@@ -54,6 +58,7 @@ export function PageCard({
             <Portrait entity={entity} size={72} />
           </span>
         )}
+        <AnimatePresence>{fetching && <CoverShimmer key="fetching" overlay />}</AnimatePresence>
       </Flip>
       <span className="pcard__name">{entity.name}</span>
       <span className="pcard__sub">
