@@ -77,8 +77,18 @@ pub struct PinCheck {
 }
 
 impl AppCore {
+    /// A stored hash that can't be read (truncated or hand-edited) counts as no PIN: otherwise the 18+ reveal and
+    /// the PIN itself would be locked behind a PIN nobody can enter. It's a soft lock, so that's the right side to fail.
     pub fn pin_set(&self) -> bool {
-        self.settings.nsfw.pin_hash.is_some()
+        self.stored_pin().is_some()
+    }
+
+    fn stored_pin(&self) -> Option<String> {
+        // whole: it parses and carries a full-length digest, as `hash` writes it
+        let whole = |h: &String| {
+            PasswordHash::new(h).is_ok_and(|p| p.hash.is_some_and(|o| o.len() == argon2::Params::DEFAULT_OUTPUT_LEN))
+        };
+        self.settings.nsfw.pin_hash.clone().filter(whole)
     }
 
     /// Check a PIN before revealing NSFW skins. With no PIN set, anything passes.
@@ -87,7 +97,7 @@ impl AppCore {
     }
 
     pub(super) fn check_pin_at(&mut self, pin: &str, now: Instant) -> PinCheck {
-        let Some(stored) = self.settings.nsfw.pin_hash.clone() else {
+        let Some(stored) = self.stored_pin() else {
             return PinCheck { ok: true, retry_in: 0, tries_left: FREE_TRIES };
         };
         if let Some(wait) = self.pin_throttle.wait(now) {
@@ -176,6 +186,22 @@ mod tests {
         assert_eq!(t.wait(t0), Some(MAX_LOCK));
         t.reset();
         assert_eq!((t.wait(t0), t.tries_left()), (None, FREE_TRIES));
+    }
+
+    #[test]
+    fn an_unreadable_stored_hash_counts_as_no_pin() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut core = AppCore::open(dir.path());
+        let full = hash("2580").unwrap();
+        for bad in ["", "salt$deadbeef", "$argon2id$v=19$m=19456,t=2,p=1$c2FsdHNhbHQ", &full[..full.len() - 6]] {
+            core.settings.nsfw.pin_hash = Some(bad.to_string());
+            assert!(!core.pin_set(), "{bad:?}");
+        }
+        core.settings.nsfw.pin_hash = Some(full.clone());
+        assert!(core.pin_set(), "a whole hash is a PIN");
+        core.settings.nsfw.pin_hash = Some(full[..full.len() - 6].to_string());
+        assert!(core.verify_pin("0000").ok, "reveal isn't locked behind a PIN nobody can enter");
+        assert!(core.set_pin(None, Some("2580")).unwrap().pin_set, "and a new PIN can be set");
     }
 
     #[test]
