@@ -1,7 +1,11 @@
-//! Network fetches (optional, SPEC §1): the hash index update. Kept out of `core` because it does I/O over HTTP.
+//! Network fetches (optional, SPEC §1): the hash index update and GameBanana previews. Kept out of `core` because
+//! it does I/O over HTTP; `core::previews` checks and stores what arrives.
 
 use crate::core::error::{AppError, AppResult};
 use crate::core::fsutil;
+use crate::core::previews::{
+    GameBananaInfo, MAX_IMAGE_BYTES, allowed_image_url, gamebanana_mod_id, image_ext, parse_profile, profile_url,
+};
 use serde_json::{Value, json};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
@@ -205,6 +209,84 @@ pub fn update_hash_index(dest: &Path) -> AppResult<(Option<String>, usize)> {
     Ok((date, count))
 }
 
+/// GameBanana (SPEC §10). Statuses come back as responses so GameBanana's own error message ("This Mod doesn't
+/// exist") reaches the user. Image downloads never follow redirects, so nothing but images.gamebanana.com is ever
+/// contacted for them.
+fn gb_agent(redirects: u32) -> ureq::Agent {
+    ureq::Agent::config_builder()
+        .timeout_global(Some(Duration::from_secs(20)))
+        .http_status_as_error(false)
+        .max_redirects(redirects)
+        .build()
+        .into()
+}
+
+fn gb_failure(e: impl std::fmt::Display) -> AppError {
+    AppError::new("network", format!("Couldn't reach GameBanana ({e}). Check the connection and retry."))
+}
+
+/// Read a mod's ProfilePage: name, author, NSFW hint and preview image URLs.
+pub fn gamebanana_info(url: &str) -> AppResult<GameBananaInfo> {
+    let id = gamebanana_mod_id(url)
+        .ok_or_else(|| AppError::new("bad_link", "That isn't a GameBanana mod link (gamebanana.com/mods/…)."))?;
+    let mut res = gb_agent(2).get(&profile_url(id)).header("User-Agent", UA).call().map_err(gb_failure)?;
+    let status = res.status().as_u16();
+    let body: Value = res.body_mut().with_config().limit(8 * 1024 * 1024).read_json().map_err(|e| {
+        if status == 200 {
+            AppError::new("gamebanana", format!("GameBanana sent an unreadable answer: {e}"))
+        } else {
+            gb_failure(format!("HTTP {status}"))
+        }
+    })?;
+    // a 404 still carries `_sErrorMessage`; parse_profile turns it into the message shown
+    parse_profile(id, &body)
+}
+
+/// Download one preview image: GameBanana's image host only, capped in size, and it has to be a real image.
+pub fn download_image(url: &str) -> AppResult<Vec<u8>> {
+    if !allowed_image_url(url) {
+        return Err(AppError::new("bad_image_url", "Only images from images.gamebanana.com are downloaded."));
+    }
+    let mut res = gb_agent(0).get(url).header("User-Agent", UA).call().map_err(gb_failure)?;
+    let status = res.status().as_u16();
+    if status != 200 {
+        return Err(gb_failure(format!("HTTP {status}")));
+    }
+    let bytes = res.body_mut().with_config().limit(MAX_IMAGE_BYTES).read_to_vec().map_err(gb_failure)?;
+    if image_ext(&bytes).is_none() {
+        return Err(AppError::new("not_an_image", "GameBanana sent something that isn't a PNG, JPG or WebP image."));
+    }
+    Ok(bytes)
+}
+
+/// A mod's info plus its downloaded images. A failed image is skipped (counted), not fatal, unless all fail.
+pub struct GameBananaFetch {
+    pub info: GameBananaInfo,
+    pub images: Vec<Vec<u8>>,
+    pub failed: usize,
+}
+
+pub fn fetch_gamebanana(url: &str) -> AppResult<GameBananaFetch> {
+    let info = gamebanana_info(url)?;
+    // at most 12 small downloads: fetch them side by side, keep GameBanana's order
+    let results: Vec<AppResult<Vec<u8>>> = std::thread::scope(|s| {
+        let handles: Vec<_> = info.images.iter().map(|u| s.spawn(move || download_image(u))).collect();
+        handles.into_iter().map(|h| h.join().unwrap_or_else(|_| Err(gb_failure("download thread failed")))).collect()
+    });
+    let mut images = vec![];
+    let mut failed = 0;
+    for r in results {
+        match r {
+            Ok(b) => images.push(b),
+            Err(_) => failed += 1,
+        }
+    }
+    if images.is_empty() && failed > 0 {
+        return Err(AppError::new("network", "Couldn't download the previews from GameBanana. Retry in a moment."));
+    }
+    Ok(GameBananaFetch { info, images, failed })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -215,5 +297,19 @@ mod tests {
         assert_eq!(humanize("SkywardBlade"), "Skyward Blade");
         assert_eq!(humanize("FischlHighness"), "Fischl Highness");
         assert_eq!(humanize("AmosBow"), "Amos Bow");
+    }
+
+    /// Live check of the GameBanana shape and download path: `cargo test -- --ignored live_gamebanana`.
+    #[test]
+    #[ignore = "needs the network"]
+    fn live_gamebanana() {
+        let f = fetch_gamebanana("https://gamebanana.com/mods/729570").unwrap();
+        assert!(!f.info.name.is_empty());
+        assert!(f.info.author.is_some());
+        assert!(!f.images.is_empty(), "{:?}", f.info.images);
+        assert!(f.images.iter().all(|b| image_ext(b).is_some()));
+        let missing = gamebanana_info("https://gamebanana.com/mods/999999999").unwrap_err();
+        assert_eq!(missing.code, "gamebanana", "{missing:?}");
+        println!("{} by {:?}: {} images, {} failed", f.info.name, f.info.author, f.images.len(), f.failed);
     }
 }
