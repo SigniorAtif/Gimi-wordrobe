@@ -18,14 +18,15 @@
   display: flex;
   align-items: flex-start;
   gap: var(--s-3);
-  padding: 12px 12px 12px 14px;
-  border-radius: 12px;
+  padding: 13px 12px 13px 14px;
+  border-radius: 14px;
   background: var(--surface-3);
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--border);
   box-shadow: var(--shadow-3);
 }
 .toast__icon {
   flex: none;
+  margin-top: -1px;
   width: 22px;
   height: 22px;
   border-radius: 50%;
@@ -53,7 +54,7 @@
   padding-top: 1px;
 }
 .toast__title {
-  font-size: var(--fs-sm);
+  font-size: var(--fs-body);
   font-weight: 560;
   display: flex;
   flex-wrap: wrap;

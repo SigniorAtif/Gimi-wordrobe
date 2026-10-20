@@ -1,3 +1,4 @@
+/* Home toolbar: search leads, filters stay quiet, actions sit at the far end. */
 .toolbar {
   position: sticky;
   top: 0;
@@ -9,42 +10,66 @@
   gap: var(--s-2);
   padding: 0 var(--gutter);
   background: var(--bg);
-  backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--border-soft);
 }
 .toolbar__search {
   position: relative;
-  width: 280px;
-  flex: 0 1 280px;
-  min-width: 160px;
-  margin-right: var(--s-2);
+  flex: 0 1 380px;
+  min-width: 200px;
+  margin-right: var(--s-4);
 }
 .toolbar__search-icon {
   position: absolute;
-  left: 12px;
+  left: 14px;
   top: 50%;
   transform: translateY(-50%);
   color: var(--text-3);
   pointer-events: none;
+  transition: color 140ms var(--ease-out);
+}
+.toolbar__search:focus-within .toolbar__search-icon {
+  color: var(--accent);
 }
 .toolbar__input {
-  padding-left: 34px;
+  height: 40px;
+  padding-left: 40px;
+  border-radius: 12px;
+  border-color: var(--border-soft);
+  background: var(--surface-1);
+  font-size: var(--fs-body);
+}
+.toolbar__input::placeholder {
+  color: var(--text-3);
+}
+.toolbar__input:hover {
+  background: oklch(0.225 0.008 70);
 }
 .toolbar__chips {
   display: flex;
-  gap: 6px;
+  gap: 2px;
   min-width: 0;
   isolation: isolate;
 }
 .toolbar__spacer {
   flex: 1;
 }
+.toolbar .nsfw-chip {
+  margin-right: var(--s-1);
+}
 @media (max-width: 1179px) {
   .toolbar__search {
-    width: 200px;
-    flex-basis: 200px;
+    flex: 1 1 280px;
+    max-width: 280px;
+    min-width: 170px;
+    margin-right: var(--s-2);
+  }
+  .toolbar__input {
+    font-size: var(--fs-sm);
   }
   .toolbar .chip {
-    padding: 0 10px;
+    padding: 0 9px;
+  }
+  .toolbar__nsfw-key {
+    display: none;
   }
 }
