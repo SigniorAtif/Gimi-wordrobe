@@ -4,7 +4,7 @@ pub mod net;
 
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
-use tauri::Manager;
+use tauri::{Emitter, Manager, WindowEvent};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -23,6 +23,12 @@ pub fn run() {
             app.manage(commands::AppState(Arc::new(Mutex::new(core))));
             Ok(())
         })
+        .on_window_event(|window, event| {
+            // auto re-hide NSFW on minimize (SPEC §11); minimizing shows up as a resize
+            if matches!(event, WindowEvent::Resized(_)) && window.is_minimized().unwrap_or(false) {
+                let _ = window.emit("window-minimized", ());
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             commands::load,
             commands::rescan,
@@ -40,6 +46,8 @@ pub fn run() {
             commands::add_skin,
             commands::plan_import,
             commands::apply_import,
+            commands::verify_pin,
+            commands::set_pin,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

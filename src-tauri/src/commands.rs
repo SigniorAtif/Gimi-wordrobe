@@ -66,6 +66,18 @@ pub async fn save_settings(app: AppHandle, state: State<'_, AppState>, settings:
     Ok(snap)
 }
 
+/// Check the NSFW PIN before revealing (SPEC §11). Wrong guesses are throttled in the core.
+#[tauri::command]
+pub async fn verify_pin(state: State<'_, AppState>, pin: String) -> AppResult<crate::core::pin::PinCheck> {
+    state.run(move |c| Ok(c.verify_pin(&pin))).await
+}
+
+/// Set, change or remove the PIN (Settings › NSFW). Changing or removing needs the current PIN.
+#[tauri::command]
+pub async fn set_pin(state: State<'_, AppState>, current: Option<String>, next: Option<String>) -> AppResult<Snapshot> {
+    state.run(move |c| c.set_pin(current.as_deref(), next.as_deref())).await
+}
+
 /// "Update hash index" (Settings › Library): download outside the lock, then reload and re-scan.
 #[tauri::command]
 pub async fn update_hash_index(state: State<'_, AppState>) -> AppResult<Snapshot> {
