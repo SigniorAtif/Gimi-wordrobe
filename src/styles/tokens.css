@@ -38,6 +38,8 @@
 
   /* Type */
   --font: "Inter Variable", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  /* names, page titles and skin titles only; never labels, buttons or data */
+  --font-display: "Bricolage Grotesque Variable", "Inter Variable", "Segoe UI Variable Display", system-ui, sans-serif;
   --font-mono: "Cascadia Mono", "JetBrains Mono", ui-monospace, monospace;
   --fs-caps: 11px;
   --fs-meta: 12px;

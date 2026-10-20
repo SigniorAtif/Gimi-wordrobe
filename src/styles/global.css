@@ -1,4 +1,6 @@
 @import "@fontsource-variable/inter";
+/* display face for names and titles: weight, width and optical-size axes */
+@import "@fontsource-variable/bricolage-grotesque/standard.css";
 @import "./tokens.css";
 
 *,
