@@ -436,7 +436,12 @@ impl AppCore {
             match self.add_skin(add, &mut |d, t, _| progress(d as usize, t as usize, &label)) {
                 Ok(r) => {
                     added += r.skin_ids.len();
-                    warnings.extend(r.warnings);
+                    // a broken fixer script says the same thing for every archive: once is enough
+                    for w in r.warnings {
+                        if !warnings.contains(&w) {
+                            warnings.push(w);
+                        }
+                    }
                     if let Some(id) = r.skin_ids.last() {
                         skin_of_key.insert(main.key.clone(), id.clone());
                     }

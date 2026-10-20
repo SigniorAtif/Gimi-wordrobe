@@ -5,6 +5,7 @@ pub mod app;
 pub mod apply;
 pub mod archive;
 pub mod error;
+pub mod fixers;
 pub mod fsutil;
 pub mod hashindex;
 pub mod hotkeys;

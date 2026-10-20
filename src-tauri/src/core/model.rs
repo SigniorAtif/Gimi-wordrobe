@@ -233,6 +233,22 @@ pub struct Settings {
     pub reduce_motion: ReduceMotion,
     #[serde(default)]
     pub nsfw: NsfwSettings,
+    /// The user's fixer tools, run in this order on every newly added skin (core/fixers.rs).
+    #[serde(default)]
+    pub fixer_scripts: Vec<FixerScript>,
+}
+
+/// One fixer tool picked in Settings: an .exe, .bat, .cmd, .py or .ps1 the user downloaded.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FixerScript {
+    pub path: String,
+    #[serde(default = "enabled_by_default")]
+    pub enabled: bool,
+}
+
+fn enabled_by_default() -> bool {
+    true
 }
 
 impl Settings {

@@ -194,6 +194,15 @@ pub async fn pick_image(app: AppHandle) -> AppResult<Option<String>> {
     pick_file(app, "Choose an image", "Images", &["png", "jpg", "jpeg", "webp"]).await
 }
 
+/// A fixer tool for Settings › Fixer scripts.
+#[tauri::command]
+pub async fn pick_script(app: AppHandle) -> AppResult<Option<String>> {
+    if let Some(p) = e2e_pick("SCRIPT") {
+        return Ok(p);
+    }
+    pick_file(app, "Choose a fixer script", "Scripts and programs", crate::core::fixers::EXTENSIONS).await
+}
+
 /// A4 / C4 summary of an archive (SPEC §9: list first, refuse unsafe archives).
 #[tauri::command]
 pub async fn analyze_archive(state: State<'_, AppState>, path: String) -> AppResult<ArchiveSummary> {

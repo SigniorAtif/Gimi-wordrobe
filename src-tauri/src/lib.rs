@@ -45,6 +45,7 @@ pub fn run() {
             commands::update_entity,
             commands::pick_archive,
             commands::pick_image,
+            commands::pick_script,
             commands::analyze_archive,
             commands::add_skin,
             commands::plan_import,

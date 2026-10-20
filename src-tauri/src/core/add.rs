@@ -6,6 +6,7 @@ use super::app::AppCore;
 use super::apply::{self, Fault};
 use super::archive::{self, Entry};
 use super::error::{AppError, AppResult};
+use super::fixers::{self, FixerOutcome};
 use super::fsutil;
 use super::import;
 use super::model::{Category, DisableMethod, Hotkey, PreviewSource, Skin, Snapshot};
@@ -117,6 +118,8 @@ pub struct AddResult {
     pub snapshot: Snapshot,
     pub skin_ids: Vec<String>,
     pub warnings: Vec<String>,
+    /// What the fixer scripts did, as one line ("Ran 2 fixer scripts…"); None when none ran. Failures are warnings.
+    pub fix_note: Option<String>,
 }
 
 /// A fresh, empty staging folder under `<Library>/tmp`. The name can't be guessed and `create_dir` fails when it
@@ -395,6 +398,8 @@ impl AppCore {
         let mut preview_writers: Vec<PreviewWriter> = vec![];
         let mut preview_notes: Vec<String> = vec![];
         let library_before = self.library.clone();
+        let scripts = self.settings.fixer_scripts.clone();
+        let mut fixed = FixerOutcome::default();
         let result = (|| -> AppResult<Vec<String>> {
             progress(0, total, "Extracting");
             archive::extract(&archive_path, &stage, &[], &mut |b| progress(b.min(total), total, "Extracting"))?;
@@ -406,6 +411,12 @@ impl AppCore {
                 if let Some(p) = paths::join_rel(&root, ex).filter(|p| p != &root && p.exists()) {
                     if p.is_dir() { fsutil::remove_tree_force(&p)? } else { fsutil::remove_file_force(&p)? }
                 }
+            }
+            // the user's fixer scripts (ORFix, hash updates…), before the scan reads the hashes
+            if scripts.iter().any(|s| s.enabled) {
+                fixed = fixers::run_all(&scripts, &root, fixers::TIMEOUT, &mut |l| progress(total, total, l));
+                // files they created get NTFS-safe names too, like everything extracted
+                archive::sanitize_tree(&root)?;
             }
             let mut ctx = ScanContext::new(&self.index, &self.library);
             ctx.archive_root = true;
@@ -572,7 +583,8 @@ impl AppCore {
                 return Err(e);
             }
         };
-        let mut warnings = preview_notes;
+        let mut warnings = std::mem::take(&mut fixed.warnings);
+        warnings.extend(preview_notes);
         // the skins are saved now; a failed re-scan must not read as a failed add (a retry would duplicate them)
         let mut snapshot = match self.rescan() {
             Ok(s) => s,
@@ -598,7 +610,7 @@ impl AppCore {
                 }
             }
         }
-        Ok(AddResult { snapshot, skin_ids: ids, warnings })
+        Ok(AddResult { snapshot, skin_ids: ids, warnings, fix_note: fixed.note() })
     }
 }
 
@@ -902,6 +914,37 @@ mod tests {
         let skin = out.snapshot.library.skins.iter().find(|s| s.name == "Cow Girl").unwrap();
         assert!(skin.nsfw);
         assert_eq!(out.snapshot.disk.active["varesa"], vec![skin.id.clone()]);
+    }
+
+    #[test]
+    fn fixer_scripts_run_on_the_new_skin_before_it_is_placed() {
+        let cfg = tempfile::tempdir().unwrap();
+        let tools = tempfile::tempdir().unwrap();
+        let (_t, mods, lib) = fixture_world();
+        let mut core = configured_core(cfg.path(), &mods, &lib);
+        #[cfg(windows)]
+        let (name, body) = ("fix.cmd", "@echo off\r\nset /p x=\r\necho fixed>fixer-was-here.txt\r\n");
+        #[cfg(unix)]
+        let (name, body) = ("fix.sh", "#!/bin/sh\nread x\necho fixed > fixer-was-here.txt\n");
+        let script = tools.path().join(name);
+        fs::write(&script, body).unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&script, fs::Permissions::from_mode(0o755)).unwrap();
+        }
+        core.settings.fixer_scripts =
+            vec![crate::core::model::FixerScript { path: script.to_string_lossy().into_owned(), enabled: true }];
+        let out =
+            core.add_skin(request("mona_starry_skin.zip", target("mona", "Starry Witch")), &mut |_, _, _| {}).unwrap();
+        assert_eq!(out.fix_note.as_deref(), Some("Ran 1 fixer script on the new skin."));
+        assert!(lib.join("stash/Mona/Starry Witch (2)/fixer-was-here.txt").is_file(), "ran inside the extracted skin");
+
+        core.settings.fixer_scripts[0].enabled = false;
+        let out =
+            core.add_skin(request("mona_starry_skin.zip", target("mona", "Starry Witch")), &mut |_, _, _| {}).unwrap();
+        assert_eq!(out.fix_note, None);
+        assert!(!lib.join("stash/Mona/Starry Witch (3)/fixer-was-here.txt").exists());
     }
 
     #[test]
