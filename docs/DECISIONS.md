@@ -380,3 +380,19 @@ UI:
 - **Sticky headers are opaque**, not blurred: blur behind chrome was decorative glass.
 - **Not done in this pass:** the full SPEC §7 frame-strip audit, the Setup and Import review layout redesign and the
   Settings two-column layout. They use the new tokens and titles, but their structure is unchanged.
+
+## Fixer scripts
+
+- **The app runs the user's own tools instead of shipping fixes.** Mods made for older game versions show up flat
+  green (no ORFix) or distorted (outdated hashes). The community tools that fix them (Fix All Character Mods, ORFix
+  Applier) are CC BY-NC-ND and their GameBanana pages ask to be asked before redistributing or bundling them, so an
+  earlier built-in port of their tables was removed. Settings › Fixer scripts (also offered during setup) keeps an
+  ordered list of tools the user downloaded, and Setup and Settings link to the recommended ones' pages.
+- **When they run:** on every add, in the extracted copy in `<Library>/tmp`, after unticked roots are removed and
+  before the scan, so detection sees the hashes they update. Not during the add dialog's analysis (only the inis are
+  extracted there, and running packed .exes twice is slow). Installed mods aren't touched.
+- **How they run** (`core/fixers.rs`): .exe/.bat/.cmd directly, .py through `py -3` or `python`, .ps1 through
+  PowerShell; no console window, the skin's folder as the working folder, a stream of Enter presses on stdin (both
+  tools wait for Enter at start and end), five minutes each before the process tree is killed. A failing or missing
+  script is a warning and the add goes on; import shows each distinct warning once. The tools' own backups (`.txt`,
+  `.bak`) stay in the skin, which 3DMigoto ignores.

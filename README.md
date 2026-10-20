@@ -36,6 +36,8 @@ keeps exactly one active skin per character, waits until you press **Apply**, an
 - **First-run import** of an existing Mods folder and archive library, with a review screen where you confirm every
   guess before anything moves.
 - **Character detection by hash** from the GI-Model-Importer hash data, then by learned hashes, then by name.
+- **Fixer scripts.** Add the community fixer tools you use (Settings › Fixer scripts, or during setup) and every new
+  skin goes through them, in your order, before it's added. Setup and Settings link to the recommended ones.
 - **Hotkey conflicts** between enabled skins show before you apply.
 - **Previews** from the archive's own images, or an image you drop on the add dialog or browse to.
 - **18+ skins hidden by default**. The 18+ chip in the toolbar shows or hides them.
@@ -115,6 +117,9 @@ npm run fixtures                                  # regenerate fixtures/Mods and
 - **[3DMigoto](https://github.com/bo3b/3Dmigoto)**, **[GIMI](https://github.com/SilentNightSound/GI-Model-Importer)**
   and **[XXMI](https://github.com/SpectrumQT/XXMI-Launcher)**: the loaders this app manages mods for. The `DISABLED*`
   rule and the `d3dx_user.ini` behaviour come from 3DMigoto's source.
+- The recommended fixer tools, linked from the app but not part of it: [Fix All Character
+  Mods](https://gamebanana.com/tools/16433) by Gustav0_ and SilentNightSound, and the [ORFix
+  Applier](https://gamebanana.com/tools/16472) by golanah921 and LeoMods_. Download them from their pages.
 - **[GameBanana](https://gamebanana.com)**: the planned preview fetching uses its public API for preview images and
   mod names.
 - Built with [Tauri](https://tauri.app), [React](https://react.dev), [Motion](https://motion.dev),
