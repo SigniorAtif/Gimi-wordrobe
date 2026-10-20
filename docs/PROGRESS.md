@@ -13,7 +13,7 @@ Build progress for the unattended run. Milestones follow SPEC §15.
 | 6 | First-run import + review | done |
 | 7 | Previews: archive images, drop/paste, GameBanana | in progress |
 | 8 | NSFW, PIN, auto re-hide, shortcuts, 1000x700 pass, motion polish | backend done; UI waits for the redesign |
-| 9 | NSIS bundle config + Windows testing guide | todo |
+| 9 | NSIS bundle config + Windows testing guide | config + guide + README written; Windows build pending |
 
 ## How to run (Linux dev)
 
@@ -28,6 +28,12 @@ npm run e2e:build && npm run e2e  # real-app e2e via tauri-driver (needs ~/.carg
 cd src-tauri && cargo run --example scan_dry_run -- <Mods> resources/hash_index.json   # read-only scan report
 cd src-tauri && cargo run --example import_dry_run -- <Mods> <test Library>             # read-only import plan
 ```
+
+## Windows
+
+The Windows build and the final acceptance checks happen on Windows: follow
+[docs/WINDOWS-TESTING.md](WINDOWS-TESTING.md). It lists every SPEC §16 check, the Windows-only archive paths, and the
+first-run import on the real Mods folder after a backup.
 
 ## Known issues
 

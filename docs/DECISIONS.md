@@ -233,3 +233,25 @@ these fill gaps or record where something had to be interpreted.
   skins showing. Still to confirm on Windows (WINDOWS-TESTING).
 - **Arrow keys move by on-screen geometry** (`spatial.ts`), so no column counts are needed. Sideways distance is
   measured to the candidate's edge and weighted 3x, so Down picks the card below, or the shelf strip under the row.
+
+## M9 Packaging
+
+- **NSIS only, per-user install** (`installMode: currentUser`): no admin prompt, installs to
+  `%LOCALAPPDATA%\Skin Switcher`. The app only writes to the user's own Mods, Library and AppData folders, so nothing
+  needs machine-wide rights.
+- **WebView2: embedded bootstrapper.** The installer skips it when WebView2 is already present (this PC has v155, and
+  Windows 11 ships it); the offline installer would add about 127 MB to every build for a case that doesn't apply.
+- **Unsigned.** There is no code-signing certificate; the testing guide explains the SmartScreen prompt.
+- **Icons are still the scaffold's Tauri defaults** in `src-tauri/icons/`. Replacing them is a `npx tauri icon
+  <1024px png>` away and doesn't change the config.
+- **The testing guide uses a copy of the fixtures** (`D:\mods\ss-test`) with `SKIN_SWITCHER_CONFIG_DIR` pointing at
+  a test settings folder, so the installed app can be tested without touching the real settings or Mods. The
+  rollback and crash checks use the debug build's `SKIN_SWITCHER_FAULT` hook; the rollback check also has a
+  locked-file variant that runs on the installed release build.
+- **The guide targets `main` after M6.** Checks for UI the redesign brings (the PIN prompt, Ctrl+H, auto re-hide,
+  GameBanana fetching) sit under "Skip until the redesign UI lands", and the 18+ checks use the toolbar chip. The
+  README lists those features as planned.
+- **Guide commands fail closed.** Each launch sets `SKIN_SWITCHER_CONFIG_DIR` and checks it on the same line as the
+  launch, because a pasted block can run line by line and a `throw` on its own line wouldn't stop the next one. The
+  backup and rollback run inside one `& { }` block for the same reason. `Snap` hashes file contents and skips only
+  the `Library\tmp` folder itself, which the app deletes at every start.

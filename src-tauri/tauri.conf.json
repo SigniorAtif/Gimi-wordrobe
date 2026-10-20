@@ -37,6 +37,11 @@
     "targets": [
       "nsis"
     ],
+    "publisher": "Atif Ahmed",
+    "homepage": "https://github.com/SigniorAtif/Gimi-wordrobe",
+    "category": "Utility",
+    "shortDescription": "Choose which mod skin each Genshin character wears",
+    "longDescription": "Skin Switcher keeps one active mod skin per character for GIMI / XXMI (3DMigoto). Inactive skins wait in a library outside the Mods folder, and every switch is a journaled batch that rolls back on failure.",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -46,6 +51,20 @@
     ],
     "resources": [
       "resources/hash_index.json"
-    ]
+    ],
+    "windows": {
+      "webviewInstallMode": {
+        "type": "embedBootstrapper",
+        "silent": true
+      },
+      "nsis": {
+        "installMode": "currentUser",
+        "installerIcon": "icons/icon.ico",
+        "languages": [
+          "English"
+        ],
+        "compression": "lzma"
+      }
+    }
   }
 }
