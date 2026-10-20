@@ -3,7 +3,7 @@ import type { AddSkinRequest, AddTarget, ArchiveRoot, ArchiveSummary, Category, 
 
 export type EntityChoice =
   | { kind: "existing"; id: string }
-  | { kind: "new"; name: string; category: Category; portraitPath?: string }
+  | { kind: "new"; name: string; category: Category; portraitPath?: string; parentName?: string }
   | { kind: "none" };
 
 export interface RootDraft {
@@ -35,13 +35,13 @@ export function isGameBananaUrl(url: string): boolean {
 }
 
 /** The detected entity of a root, matched to the library when possible. */
-export function guessChoice(root: ArchiveRoot | undefined, entities: Entity[]): EntityChoice {
+export function guessChoice(root: Pick<ArchiveRoot, "guess"> | undefined, entities: Entity[]): EntityChoice {
   const g = root?.guess;
   if (!g) return { kind: "none" };
   if (g.entityId && entities.some((e) => e.id === g.entityId)) return { kind: "existing", id: g.entityId };
   const byName = entities.find((e) => e.name.toLowerCase() === g.name.toLowerCase());
   if (byName) return { kind: "existing", id: byName.id };
-  return { kind: "new", name: g.name, category: g.category };
+  return { kind: "new", name: g.name, category: g.category, ...(g.parentName ? { parentName: g.parentName } : {}) };
 }
 
 export function sameChoice(a: EntityChoice, b: EntityChoice): boolean {
@@ -106,10 +106,11 @@ export function defaultSplitName(draft: AddDraft, entities: Entity[]): string {
   return [choiceName(draft.entity, entities), draft.skinName.trim()].filter(Boolean).join(" ") || "Skin";
 }
 
-function target(c: EntityChoice, skinName: string): AddTarget | null {
+export function target(c: EntityChoice, skinName: string): AddTarget | null {
   if (c.kind === "existing") return { entityId: c.id, skinName };
   if (c.kind === "new" && c.name.trim()) {
-    return { newEntity: { name: c.name.trim(), category: c.category, portraitPath: c.portraitPath }, skinName };
+    const parentName = c.parentName?.trim();
+    return { newEntity: { name: c.name.trim(), category: c.category, portraitPath: c.portraitPath, ...(parentName ? { parentName } : {}) }, skinName };
   }
   return null;
 }
