@@ -59,6 +59,38 @@ pub fn strip_bom(b: &[u8]) -> &[u8] {
     b.strip_prefix(&[0xEF, 0xBB, 0xBF]).unwrap_or(b)
 }
 
+/// A symlink, or on Windows any reparse point (a junction, a mount point): something that can lead away from where it
+/// sits. `meta` must come from `symlink_metadata`.
+pub fn is_link(meta: &fs::Metadata) -> bool {
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::MetadataExt;
+        const FILE_ATTRIBUTE_REPARSE_POINT: u32 = 0x400;
+        if meta.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT != 0 {
+            return true;
+        }
+    }
+    meta.file_type().is_symlink()
+}
+
+/// True when `path` or any folder between `root` and it is a link (see [`is_link`]), is missing, or `path` isn't
+/// below `root` at all. `root` itself is the user's choice and may be a link.
+pub fn leaves_root(root: &Path, path: &Path) -> bool {
+    let Ok(rel) = path.strip_prefix(root) else { return true };
+    let mut cur = root.to_path_buf();
+    for c in rel.components() {
+        if !matches!(c, std::path::Component::Normal(_)) {
+            return true;
+        }
+        cur.push(c);
+        match fs::symlink_metadata(&cur) {
+            Ok(m) if !is_link(&m) => {}
+            _ => return true,
+        }
+    }
+    false
+}
+
 /// Make a read-only file or tree deletable. Windows refuses to delete read-only files, and archive entries often carry
 /// that attribute (desktop.ini does); elsewhere the folder's permissions decide, so there is nothing to do.
 #[cfg(windows)]

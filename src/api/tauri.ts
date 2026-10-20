@@ -1,16 +1,31 @@
 // Real backend: thin typed wrappers around Tauri commands (src-tauri/src/commands.rs).
-import { convertFileSrc, invoke } from "@tauri-apps/api/core";
+import { convertFileSrc, invoke, type InvokeArgs, type InvokeOptions } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { openUrl as openExternal } from "@tauri-apps/plugin-opener";
 import { toFailure, type Api } from "./api";
-import type { AddProgress, AddSkinResult, ApplyProgress, ApplyResult, ArchiveSummary, FirstRunDefaults, ImportPlan, ImportResult, PinCheck, Settings, Snapshot } from "./types";
+import type {
+  AddProgress,
+  AddSkinResult,
+  ApplyProgress,
+  ApplyResult,
+  ArchiveSummary,
+  FirstRunDefaults,
+  FolderPreviewsResult,
+  GameBananaInfo,
+  ImportPlan,
+  ImportResult,
+  PinCheck,
+  PreviewFetchResult,
+  Settings,
+  Snapshot,
+} from "./types";
 
-async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+async function call<T>(cmd: string, args?: InvokeArgs, options?: InvokeOptions): Promise<T> {
   try {
-    return await invoke<T>(cmd, args);
+    return await invoke<T>(cmd, args, options);
   } catch (e) {
     throw toFailure(e);
   }
@@ -19,10 +34,17 @@ async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> 
 let libraryRoot = "";
 
 /** Remember the Library root from every snapshot so assetUrl() can resolve relative paths. */
-async function snap(cmd: string, args?: Record<string, unknown>): Promise<Snapshot> {
-  const s = await call<Snapshot>(cmd, args);
+async function snap(cmd: string, args?: InvokeArgs, options?: InvokeOptions): Promise<Snapshot> {
+  const s = await call<Snapshot>(cmd, args, options);
   libraryRoot = s.settings.libraryPath;
   return s;
+}
+
+/** Commands that answer with a snapshot inside a bigger result. */
+async function withSnap<T extends { snapshot: Snapshot }>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  const r = await call<T>(cmd, args);
+  libraryRoot = r.snapshot.settings.libraryPath;
+  return r;
 }
 
 export const api: Api = {
@@ -85,6 +107,13 @@ export const api: Api = {
       unlisten?.();
     }
   },
+  gameBananaInfo: (url) => call<GameBananaInfo>("gamebanana_info", { url }),
+  fetchGameBananaPreviews: (skinId) => withSnap<PreviewFetchResult>("fetch_gamebanana_previews", { skinId }),
+  findFolderPreviews: (skinId) => withSnap<FolderPreviewsResult>("find_folder_previews", { skinId }),
+  addPreview: (skinId, path) => snap("add_preview", { skinId, path }),
+  // raw bytes as the request body (no JSON number array); the id is URI-encoded because headers are ASCII
+  pastePreview: (skinId, bytes) => snap("paste_preview", bytes, { headers: { "x-skin-id": encodeURIComponent(skinId) } }),
+  removePreview: (skinId, file) => snap("remove_preview", { skinId, file }),
   async onFileDrop(handler) {
     // positions arrive in physical pixels; elementFromPoint wants CSS pixels
     const dpr = () => window.devicePixelRatio || 1;

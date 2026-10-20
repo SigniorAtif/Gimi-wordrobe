@@ -183,6 +183,7 @@ export interface SkinPatch {
   gameBananaUrl?: string;
   entityId?: string;
   hotkeyLabels?: { section: string; iniFile: string; keys: string; label: string }[];
+  /** Preview files (`Preview.file`) in the new order; the first is the cover. Files left out keep their order after these. */
   previewOrder?: string[];
 }
 
@@ -268,6 +269,12 @@ export interface AddSkinRequest {
   exclude: string[];
   nsfw: boolean;
   gameBananaUrl?: string;
+  /** The main skin's author (from `gameBananaInfo`, or typed in). */
+  author?: string;
+  /**
+   * "gamebanana" adds no previews itself: call `fetchGameBananaPreviews(mainSkinId)` right after the add (the main
+   * skin is the last of `AddSkinResult.skinIds`), so the card can show the "Fetching from GameBanana…" state.
+   */
   previewSource: PreviewChoice;
   userImagePath?: string;
   makeActive: boolean;
@@ -275,6 +282,7 @@ export interface AddSkinRequest {
 
 export interface AddSkinResult {
   snapshot: Snapshot;
+  /** Every skin added; the main skin is the last. */
   skinIds: string[];
   warnings: string[];
 }
@@ -346,12 +354,33 @@ export interface ImportResult {
   warnings: string[];
 }
 
+// ----- Previews (§10) -----
+
+/** A GameBanana mod page (`apiv11/Mod/<id>/ProfilePage`), read without storing anything. */
 export interface GameBananaInfo {
-  id: number;
+  modId: number;
   name: string;
-  author: string;
+  author: string | null;
+  version: string | null;
+  /** GameBanana hides the page by default or rates it for nudity / sexual content: pre-tick NSFW. */
+  nsfw: boolean;
+  /** Full-size image URLs on images.gamebanana.com, GameBanana's order (at most 12). */
   images: string[];
-  version?: string;
+}
+
+export interface PreviewFetchResult {
+  snapshot: Snapshot;
+  /** New previews stored (images the skin already had aren't counted). */
+  added: number;
+  /** Images that failed to download (the others were kept). */
+  failed: number;
+  /** GameBanana rates the mod 18+, so the skin was marked NSFW. */
+  markedNsfw: boolean;
+}
+
+export interface FolderPreviewsResult {
+  snapshot: Snapshot;
+  added: number;
 }
 
 export interface ImportProgress {

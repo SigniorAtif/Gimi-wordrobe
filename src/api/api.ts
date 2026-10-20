@@ -10,11 +10,14 @@ import type {
   EntityPatch,
   FileDropEvent,
   FirstRunDefaults,
+  FolderPreviewsResult,
+  GameBananaInfo,
   ImportPlan,
   ImportRequest,
   ImportResult,
   Picks,
   PinCheck,
+  PreviewFetchResult,
   Settings,
   SkinPatch,
   Snapshot,
@@ -48,7 +51,7 @@ export interface Api {
   apply(picks: Picks, onProgress?: (p: ApplyProgress) => void): Promise<ApplyResult>;
   /** Folders and previews go to the Recycle Bin. */
   removeSkin(skinId: string): Promise<Snapshot>;
-  /** Edit a skin's metadata (library.json only; the mod's files are never changed). */
+  /** Edit a skin's metadata (library.json only; the mod's files are never changed). `previewOrder` reorders previews (first = cover). */
   updateSkin(skinId: string, patch: SkinPatch): Promise<Snapshot>;
   updateEntity(entityId: string, patch: EntityPatch): Promise<Snapshot>;
   /** Pick an archive (.zip / .rar / .7z) or an image with the system dialog. */
@@ -61,6 +64,23 @@ export interface Api {
   /** First-run / Re-scan review list: reads only (SPEC §5). */
   planImport(onProgress?: (p: AddProgress) => void): Promise<ImportPlan>;
   applyImport(request: ImportRequest, onProgress?: (p: AddProgress) => void): Promise<ImportResult>;
+  // ----- Previews (SPEC §10). Images are PNG/JPG/WebP by content, at most 25 MB; a skin keeps at most 30. -----
+  /** Read a pasted GameBanana link (name, author, NSFW hint, image URLs) to pre-fill A4/C4. Stores nothing. */
+  gameBananaInfo(url: string): Promise<GameBananaInfo>;
+  /**
+   * Download the skin's GameBanana previews (its saved `gameBananaUrl`) and append them; fills author/version when
+   * empty. On failure nothing changes: show the empty state with "Retry". Codes: no_link, bad_link, network,
+   * gamebanana, link_changed, too_many.
+   */
+  fetchGameBananaPreviews(skinId: string): Promise<PreviewFetchResult>;
+  /** Copy preview images found inside the skin's own folders (installed mods have no archive). */
+  findFolderPreviews(skinId: string): Promise<FolderPreviewsResult>;
+  /** An image file dropped on a card or the gallery, or picked with pickImage(). Codes: not_an_image, duplicate, too_many. */
+  addPreview(skinId: string, path: string): Promise<Snapshot>;
+  /** Ctrl+V: the clipboard image's bytes (from the DOM paste event). Same codes as addPreview. */
+  pastePreview(skinId: string, bytes: Uint8Array): Promise<Snapshot>;
+  /** Remove one preview (`Preview.file`); the file goes to the Recycle Bin. */
+  removePreview(skinId: string, file: string): Promise<Snapshot>;
   /** OS file drags over the window (SPEC §13: Tauri intercepts drops, so DOM drop events carry no paths). */
   onFileDrop(handler: (e: FileDropEvent) => void): Promise<() => void>;
   openFolder(target: OpenTarget): Promise<void>;

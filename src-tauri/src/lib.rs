@@ -51,6 +51,12 @@ pub fn run() {
             commands::apply_import,
             commands::verify_pin,
             commands::set_pin,
+            commands::gamebanana_info,
+            commands::fetch_gamebanana_previews,
+            commands::find_folder_previews,
+            commands::add_preview,
+            commands::paste_preview,
+            commands::remove_preview,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

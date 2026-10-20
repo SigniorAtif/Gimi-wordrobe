@@ -3,7 +3,7 @@
 // ?pin=2580 starts with that NSFW PIN set.
 import { ApiFailure, type Api } from "./api";
 import { buildMockWorld, coverArt, MOCK_LIBRARIES, MOCK_SETTINGS, type MockWorld } from "./mockData";
-import type { AddTarget, ArchiveSummary, Category, DiskState, EntityGuess, FileDropEvent, ImportItem, ImportPlan, PinCheck, Settings, Snapshot } from "./types";
+import type { AddTarget, ArchiveSummary, Category, DiskState, EntityGuess, FileDropEvent, ImportItem, ImportPlan, PinCheck, PreviewSource, Settings, Skin, Snapshot } from "./types";
 import { revealHotkeyProblem } from "../lib/shortcuts";
 
 const params = new URLSearchParams(typeof location !== "undefined" ? location.search : "");
@@ -59,6 +59,12 @@ export const mockControls = {
   minimize() {
     minimizeHandlers.forEach((h) => h());
   },
+  /** ms a GameBanana fetch takes (the card's "Fetching from GameBanana…" state). */
+  gameBananaMs: 1400,
+  /** Next GameBanana call fails like a dropped connection (empty state + Retry). */
+  failNextGameBanana: false,
+  /** GameBanana rates the mods 18+ (marks fetched skins NSFW). */
+  gameBananaNsfw: false,
   world,
 };
 (globalThis as unknown as { __mock: typeof mockControls }).__mock = mockControls;
@@ -138,6 +144,60 @@ let importPending = params.get("import") === "1";
 if (importPending) {
   world.library = { version: 1, entities: [], skins: [] };
   world.active.clear();
+}
+
+// ----- previews, with the Rust side's rules (core/previews.rs) -----
+const MAX_PREVIEWS = 30;
+const MAX_GB_IMAGES = 12;
+const MAX_IMAGE_BYTES = 25 * 1024 * 1024;
+/** skinId -> what its previews were made from (a path, the bytes' hash, a GameBanana image), to skip duplicates */
+const previewSources = new Map<string, Set<string>>();
+
+function findSkin(skinId: string): Skin {
+  const s = world.library.skins.find((k) => k.id === skinId);
+  if (!s) throw new ApiFailure("unknown_skin", "That skin no longer exists.");
+  return s;
+}
+
+/** How many more previews the skin can take; a full skin is refused with `too_many` (Rust's `preview_room`). */
+function previewRoom(s: Skin): number {
+  const room = MAX_PREVIEWS - s.previews.length;
+  if (room <= 0) throw new ApiFailure("too_many", `This skin already has ${MAX_PREVIEWS} previews. Remove one first.`);
+  return room;
+}
+
+function imageType(bytes: Uint8Array): "png" | "jpg" | "webp" | null {
+  const at = (i: number, ...b: number[]) => b.every((v, j) => bytes[i + j] === v);
+  if (at(0, 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)) return "png";
+  if (at(0, 0xff, 0xd8, 0xff)) return "jpg";
+  if (bytes.length >= 12 && at(0, 0x52, 0x49, 0x46, 0x46) && at(8, 0x57, 0x45, 0x42, 0x50)) return "webp";
+  return null;
+}
+
+function bytesKey(bytes: Uint8Array): string {
+  let h = 2166136261;
+  for (const b of bytes) h = Math.imul(h ^ b, 16777619);
+  return `bytes:${bytes.length}:${h >>> 0}`;
+}
+
+function gameBananaId(url: string): number | null {
+  const m = /^https?:\/\/(?:www\.)?gamebanana\.com\/mods\/(\d{1,12})/i.exec(url.trim());
+  const id = m ? Number(m[1]) : 0;
+  return id > 0 ? id : null;
+}
+
+/** Append a preview numbered after the skin's others (`previews/<id>/07.png`); false when it's a duplicate. */
+function storePreview(s: Skin, key: string, ext: string, url: string, source: PreviewSource): boolean {
+  const seen = previewSources.get(s.id) ?? new Set<string>();
+  previewSources.set(s.id, seen);
+  if (seen.has(key)) return false;
+  previewRoom(s);
+  const next = Math.max(0, ...s.previews.map((p) => parseInt(p.file.split("/").pop() ?? "", 10) || 0)) + 1;
+  const file = `previews/${s.id}/${String(next).padStart(2, "0")}.${ext}`;
+  world.images.set(file, url);
+  s.previews.push({ file, source });
+  seen.add(key);
+  return true;
 }
 
 function diskState(): DiskState {
@@ -233,6 +293,8 @@ export const api: Api = {
     const s = world.library.skins.find((k) => k.id === skinId);
     if (!s) throw new ApiFailure("unknown_skin", "That skin no longer exists.");
     world.library.skins = world.library.skins.filter((k) => k.id !== skinId);
+    for (const p of s.previews) world.images.delete(p.file);
+    previewSources.delete(skinId);
     const e = world.library.entities.find((x) => x.id === s.entityId);
     if (e) e.skinIds = e.skinIds.filter((x) => x !== skinId);
     world.active.delete(skinId);
@@ -334,7 +396,7 @@ export const api: Api = {
       await wait(90);
     }
     const ids: string[] = [];
-    const place = (t: AddTarget, nsfw: boolean) => {
+    const place = (t: AddTarget, nsfw: boolean, main = false) => {
       let entity = t.entityId ? world.library.entities.find((e) => e.id === t.entityId) : undefined;
       if (!entity && t.newEntity) {
         const id = t.newEntity.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
@@ -348,13 +410,13 @@ export const api: Api = {
         world.images.set(file, coverArt(id, n));
         return { file, source: "archive" as const };
       }) : [];
-      world.library.skins.push({ id, entityId: entity.id, name: t.skinName, folders: [`${entity.name}/${t.skinName}`], nsfw, previews, hotkeys: [], hashes: [], addedAt: new Date().toISOString(), gameBananaUrl: req.gameBananaUrl, sourceArchive: req.archivePath.split(/[\\/]/).pop() });
+      world.library.skins.push({ id, entityId: entity.id, name: t.skinName, folders: [`${entity.name}/${t.skinName}`], nsfw, previews, hotkeys: [], hashes: [], addedAt: new Date().toISOString(), gameBananaUrl: req.gameBananaUrl, author: main ? req.author?.trim() || undefined : undefined, sourceArchive: req.archivePath.split(/[\\/]/).pop() });
       entity.skinIds.push(id);
       ids.push(id);
       return entity.id;
     };
     for (const sp of req.splits) place(sp, false);
-    const entityId = place(req.main, req.nsfw);
+    const entityId = place(req.main, req.nsfw, true);
     if (req.makeActive) {
       for (const k of world.library.skins.filter((x) => x.entityId === entityId)) world.active.delete(k.id);
       world.active.add(ids[ids.length - 1]);
@@ -421,6 +483,80 @@ export const api: Api = {
     }
     importPending = false;
     return { snapshot: snapshot(), added: keyToSkin.size, warnings: [] };
+  },
+  async gameBananaInfo(url) {
+    await wait(Math.round(mockControls.gameBananaMs / 2));
+    const id = gameBananaId(url);
+    if (!id) throw new ApiFailure("bad_link", "That isn't a GameBanana mod link (gamebanana.com/mods/…).");
+    if (mockControls.failNextGameBanana) {
+      mockControls.failNextGameBanana = false;
+      throw new ApiFailure("network", "Couldn't reach GameBanana (timed out). Check the connection and retry.");
+    }
+    if (id === 404) throw new ApiFailure("gamebanana", "GameBanana says: This Mod doesn't exist");
+    const images = [1, 2, 3].map((n) => `https://images.gamebanana.com/img/ss/mods/mock-${id}-${n}.jpg`);
+    return { modId: id, name: `Mock Mod ${id}`, author: "mockauthor", version: "1.0", nsfw: mockControls.gameBananaNsfw, images };
+  },
+  async fetchGameBananaPreviews(skinId) {
+    const s = findSkin(skinId);
+    const id = gameBananaId(s.gameBananaUrl ?? "");
+    if (!id) throw new ApiFailure("no_link", "Add the skin's GameBanana link first.");
+    // like Rust: a full skin is refused before anything is downloaded, and only the images that fit are fetched
+    const room = Math.min(previewRoom(s), MAX_GB_IMAGES);
+    await wait(mockControls.gameBananaMs);
+    if (mockControls.failNextGameBanana) {
+      mockControls.failNextGameBanana = false;
+      throw new ApiFailure("network", "Couldn't download the previews from GameBanana. Retry in a moment.");
+    }
+    if (id === 404) throw new ApiFailure("gamebanana", "GameBanana says: This Mod doesn't exist");
+    let added = 0;
+    for (const n of [1, 2, 3].slice(0, room)) {
+      if (storePreview(s, `gb:${id}:${n}`, "jpg", coverArt(`gb-${id}`, n), "gamebanana")) added++;
+    }
+    s.author ??= "mockauthor";
+    s.version ??= "1.0";
+    const markedNsfw = mockControls.gameBananaNsfw && !s.nsfw;
+    if (markedNsfw) s.nsfw = true;
+    return { snapshot: snapshot(), added, failed: 0, markedNsfw };
+  },
+  async findFolderPreviews(skinId) {
+    await wait();
+    const s = findSkin(skinId);
+    previewRoom(s);
+    const added = storePreview(s, `folder:${skinId}`, "png", coverArt(`folder-${skinId}`), "archive") ? 1 : 0;
+    return { snapshot: snapshot(), added };
+  },
+  async addPreview(skinId, path) {
+    await wait(80);
+    const s = findSkin(skinId);
+    // a browser can't read the dropped file: go by its name and draw generated art
+    const ext = /\.(png|jpe?g|webp)$/i.exec(path)?.[1].toLowerCase().replace("jpeg", "jpg");
+    if (!ext) throw new ApiFailure("not_an_image", "That isn't a PNG, JPG or WebP image (or it's over 25 MB).");
+    if (!storePreview(s, `path:${path.toLowerCase()}`, ext, coverArt(path), "user")) {
+      throw new ApiFailure("duplicate", "That image is already one of this skin's previews.");
+    }
+    return snapshot();
+  },
+  async pastePreview(skinId, bytes) {
+    await wait(80);
+    const s = findSkin(skinId);
+    const ext = imageType(bytes);
+    if (!ext || bytes.length > MAX_IMAGE_BYTES) throw new ApiFailure("not_an_image", "That isn't a PNG, JPG or WebP image (or it's over 25 MB).");
+    const url = URL.createObjectURL(new Blob([bytes.slice()], { type: `image/${ext === "jpg" ? "jpeg" : ext}` }));
+    if (!storePreview(s, bytesKey(bytes), ext, url, "user")) {
+      URL.revokeObjectURL(url);
+      throw new ApiFailure("duplicate", "That image is already one of this skin's previews.");
+    }
+    return snapshot();
+  },
+  async removePreview(skinId, file) {
+    await wait(60);
+    const s = findSkin(skinId);
+    if (!s.previews.some((p) => p.file === file)) throw new ApiFailure("unknown_preview", "That image is no longer one of this skin's previews.");
+    s.previews = s.previews.filter((p) => p.file !== file);
+    const url = world.images.get(file);
+    if (url?.startsWith("blob:")) URL.revokeObjectURL(url);
+    world.images.delete(file);
+    return snapshot();
   },
   async onFileDrop(handler) {
     dropHandlers.add(handler);

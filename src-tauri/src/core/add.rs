@@ -8,9 +8,10 @@ use super::archive::{self, Entry};
 use super::error::{AppError, AppResult};
 use super::fsutil;
 use super::import;
-use super::model::{Category, DisableMethod, Hotkey, Preview, PreviewSource, Skin, Snapshot};
+use super::model::{Category, DisableMethod, Hotkey, PreviewSource, Skin, Snapshot};
 use super::names;
 use super::paths;
+use super::previews::{MAX_ARCHIVE_IMAGES, MAX_IMAGE_BYTES, PreviewWriter, Stored};
 use super::scanner::{self, Guess, GuessReason, ScanContext, ScanResult};
 use super::state;
 use serde::{Deserialize, Serialize};
@@ -98,7 +99,10 @@ pub struct AddRequest {
     pub nsfw: bool,
     #[serde(default)]
     pub game_banana_url: Option<String>,
-    /// "archive" | "user" | "gamebanana" | "later"
+    /// The main skin's author (from its GameBanana page, or typed in).
+    #[serde(default)]
+    pub author: Option<String>,
+    /// "archive" | "user" | "gamebanana" (fetched by the frontend right after the add) | "later"
     #[serde(default)]
     pub preview_source: String,
     #[serde(default)]
@@ -387,6 +391,9 @@ impl AppCore {
         // every folder made in lib/tmp besides `stage` (root-file skins, multi-folder splits), cleaned up at the end
         let mut scratch: Vec<PathBuf> = vec![];
         let mut placed: Vec<PathBuf> = vec![];
+        // preview files written for the new skins, taken back if the add fails
+        let mut preview_writers: Vec<PreviewWriter> = vec![];
+        let mut preview_notes: Vec<String> = vec![];
         let library_before = self.library.clone();
         let result = (|| -> AppResult<Vec<String>> {
             progress(0, total, "Extracting");
@@ -403,6 +410,13 @@ impl AppCore {
             let mut ctx = ScanContext::new(&self.index, &self.library);
             ctx.archive_root = true;
             let scan = scanner::scan(&root, &ctx);
+            // preview candidates relative to the content root, like the `filename =` references they are filtered
+            // against; each skin takes the ones inside its own folders below
+            let candidates = if req.preview_source == "archive" {
+                archive::preview_candidates(&archive::files_below(&root), &scan)
+            } else {
+                vec![]
+            };
             let file_name = archive_path.file_name().map(|n| n.to_string_lossy().into_owned());
             // a split inside an unticked root is gone with it
             let splits: Vec<AddSplit> = req
@@ -474,19 +488,30 @@ impl AppCore {
                 hashes.dedup();
                 let skin_id = self.library.unique_skin_id(&entity_id, name);
                 // previews come out of the archive before the folder moves
-                let mut previews: Vec<Preview> = vec![];
+                let mut previews = vec![];
                 if req.preview_source == "archive" {
-                    let files: Vec<String> = archive::files_below(&src);
-                    let picks = archive::preview_candidates(&files, &scan);
-                    previews = copy_previews(&lib, &skin_id, &src, &picks, PreviewSource::Archive)?;
+                    let picks: Vec<PathBuf> = candidates
+                        .iter()
+                        .filter_map(|c| own(c.as_str()))
+                        .filter_map(|r| paths::join_rel(&src, &r))
+                        .collect();
+                    let mut w = PreviewWriter::new(&lib, &skin_id, &[], PreviewSource::Archive)?;
+                    // best first (the first is the cover); files that aren't really images are skipped
+                    let filled = w.push_files(&picks, MAX_ARCHIVE_IMAGES);
+                    previews = w.previews();
+                    preview_writers.push(w);
+                    filled?;
                 } else if req.preview_source == "user"
                     && split.is_none()
                     && let Some(img) = &req.user_image_path
                 {
-                    let p = PathBuf::from(img);
-                    let parent = p.parent().unwrap_or(Path::new("/")).to_path_buf();
-                    let fname = p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-                    previews = copy_previews(&lib, &skin_id, &parent, &[fname], PreviewSource::User)?;
+                    let mut w = PreviewWriter::new(&lib, &skin_id, &[], PreviewSource::User)?;
+                    let stored = user_preview(&mut w, Path::new(img));
+                    previews = w.previews();
+                    preview_writers.push(w);
+                    if stored? == Stored::NotAnImage {
+                        preview_notes.push("The chosen preview isn't a PNG, JPG or WebP image (or it's over 25 MB), so it was left out.".into());
+                    }
                 }
                 let dest = if split.is_none() && src == stage {
                     // files at the archive root: they become the skin folder's content
@@ -508,6 +533,11 @@ impl AppCore {
                     nsfw: req.nsfw,
                     // the link is the main skin's page, not the weapon's or extra's
                     game_banana_url: req.game_banana_url.clone().filter(|u| split.is_none() && !u.trim().is_empty()),
+                    author: req
+                        .author
+                        .clone()
+                        .filter(|a| split.is_none() && !a.trim().is_empty())
+                        .map(|a| a.trim().to_string()),
                     source_archive: file_name.clone(),
                     previews,
                     hotkeys,
@@ -535,11 +565,14 @@ impl AppCore {
                 for p in placed {
                     let _ = fsutil::remove_tree_force(&p);
                 }
+                for w in &preview_writers {
+                    w.undo();
+                }
                 self.library = library_before;
                 return Err(e);
             }
         };
-        let mut warnings = vec![];
+        let mut warnings = preview_notes;
         // the skins are saved now; a failed re-scan must not read as a failed add (a retry would duplicate them)
         let mut snapshot = match self.rescan() {
             Ok(s) => s,
@@ -569,25 +602,12 @@ impl AppCore {
     }
 }
 
-/// Copy chosen images into `<Library>/previews/<skinId>/01.png, 02.jpg …` (first = cover).
-fn copy_previews(
-    lib: &Path,
-    skin_id: &str,
-    base: &Path,
-    files: &[String],
-    source: PreviewSource,
-) -> AppResult<Vec<Preview>> {
-    let dir = lib.join("previews").join(skin_id);
-    let mut out = vec![];
-    for (i, f) in files.iter().take(12).enumerate() {
-        let Some(src) = paths::join_rel(base, f).filter(|p| p.is_file()) else { continue };
-        let ext = src.extension().map(|e| e.to_string_lossy().to_lowercase()).unwrap_or_else(|| "png".into());
-        fs::create_dir_all(&dir)?;
-        let name = format!("{:02}.{ext}", i + 1);
-        fs::copy(&src, dir.join(&name))?;
-        out.push(Preview { file: format!("previews/{skin_id}/{name}"), source });
+/// The image the user picked as the preview (anywhere on disk, so a shortcut to it is fine).
+fn user_preview(w: &mut PreviewWriter, img: &Path) -> AppResult<Stored> {
+    match fs::metadata(img) {
+        Ok(m) if m.is_file() && m.len() <= MAX_IMAGE_BYTES => w.push(&fs::read(img)?),
+        _ => Ok(Stored::NotAnImage),
     }
-    Ok(out)
 }
 
 #[cfg(test)]
@@ -609,6 +629,7 @@ mod tests {
             exclude: vec![],
             nsfw: false,
             game_banana_url: None,
+            author: None,
             preview_source: "archive".into(),
             user_image_path: None,
             make_active: false,
@@ -707,6 +728,62 @@ mod tests {
         // a split stays hidden with its NSFW archive, but the link is the main skin's page
         assert!(bennett.nsfw && sword.nsfw);
         assert!(bennett.game_banana_url.is_some() && sword.game_banana_url.is_none());
+    }
+
+    #[test]
+    fn each_skin_takes_only_its_own_previews_and_never_a_texture_its_ini_names() {
+        let cfg = tempfile::tempdir().unwrap();
+        let (t, mods, lib) = fixture_world();
+        let mut core = configured_core(cfg.path(), &mods, &lib);
+        // the Bennett fixture, with a texture and a preview in the nested sword root and a fake image in the main one
+        let src = t.path().join("archive-src");
+        fs::create_dir_all(&src).unwrap();
+        let tar = archive::tar_program();
+        let ok = |args: &[&std::ffi::OsStr]| {
+            assert!(std::process::Command::new(&tar).args(args).status().unwrap().success())
+        };
+        ok(&["-xf".as_ref(), fixture_archive("bennett_beach.zip").as_os_str(), "-C".as_ref(), src.as_os_str()]);
+        let sword = src.join("BennettBeachDay/TravelerHandySword");
+        let ini = sword.join("SkywardBlade.ini");
+        let text = fs::read_to_string(&ini).unwrap() + "\n[ResourceSwordTex]\nfilename = Tex\\Blade.png\n";
+        fs::write(&ini, text).unwrap();
+        fs::create_dir_all(sword.join("Tex")).unwrap();
+        fs::write(sword.join("Tex/Blade.png"), b"\x89PNG\r\n\x1a\n blade texture").unwrap();
+        fs::write(sword.join("sword showcase.png"), [0xFF, 0xD8, 0xFF, 0xE0, 7]).unwrap();
+        fs::write(src.join("BennettBeachDay/cover.png"), "not an image").unwrap();
+        let zip = t.path().join("bennett_textures.zip");
+        ok(&[
+            "--format".as_ref(),
+            "zip".as_ref(),
+            "-cf".as_ref(),
+            zip.as_os_str(),
+            "-C".as_ref(),
+            src.as_os_str(),
+            "BennettBeachDay".as_ref(),
+        ]);
+        let mut req = request("bennett_beach.zip", target("mona", "Beach Day"));
+        req.archive_path = zip.to_string_lossy().into();
+        req.splits = vec![AddSplit {
+            root_path: "TravelerHandySword".into(),
+            folders: vec![],
+            target: target("furina", "Sword"),
+        }];
+        // a library.json that can't be saved fails the add, and the preview files it wrote go with it
+        let previews_before = crate::core::apply::tests::tree(&lib.join("previews"));
+        fs::create_dir_all(lib.join("library.json.tmp")).unwrap();
+        assert!(core.add_skin(req.clone(), &mut |_, _, _| {}).is_err());
+        assert_eq!(crate::core::apply::tests::tree(&lib.join("previews")), previews_before);
+        fs::remove_dir(lib.join("library.json.tmp")).unwrap();
+        let out = core.add_skin(req, &mut |_, _, _| {}).unwrap();
+        let skin = |name: &str| out.snapshot.library.skins.iter().find(|s| s.name == name).unwrap().clone();
+        let (main, sword) = (skin("Beach Day"), skin("Sword"));
+        // the main skin keeps its real preview only (the fake cover.png is skipped, the sword's is not its own)
+        assert_eq!(main.previews.len(), 1, "{:?}", main.previews);
+        assert!(fs::read(lib.join(&main.previews[0].file)).unwrap().starts_with(b"\x89PNG"));
+        // the sword gets its showcase (a JPG, stored as one), never the texture its ini names
+        assert_eq!(sword.previews.len(), 1, "{:?}", sword.previews);
+        assert!(sword.previews[0].file.ends_with("/01.jpg"));
+        assert_eq!(fs::read(lib.join(&sword.previews[0].file)).unwrap(), [0xFF, 0xD8, 0xFF, 0xE0, 7]);
     }
 
     #[test]

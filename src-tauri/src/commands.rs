@@ -6,6 +6,7 @@ use crate::core::apply::Fault;
 use crate::core::error::{AppError, AppResult};
 use crate::core::importer::{ImportPlan, ImportRequest, ImportResult};
 use crate::core::model::{Settings, Snapshot};
+use crate::core::previews::{self, GameBananaInfo, PreviewFetch};
 use crate::core::settings::{self, FirstRunDefaults};
 use serde::Deserialize;
 use serde::Serialize;
@@ -259,7 +260,79 @@ pub async fn apply_import(
 /// Remove a skin: folders and previews go to the Recycle Bin (SPEC §1).
 #[tauri::command]
 pub async fn remove_skin(state: State<'_, AppState>, skin_id: String) -> AppResult<Snapshot> {
-    state.run(move |c| c.remove_skin(&skin_id, &|p| trash::delete(p).map_err(std::io::Error::other))).await
+    state.run(move |c| c.remove_skin(&skin_id, &bin)).await
+}
+
+fn bin(p: &std::path::Path) -> std::io::Result<()> {
+    trash::delete(p).map_err(std::io::Error::other)
+}
+
+/// Network work off the async runtime, without holding the core lock.
+async fn blocking<T: Send + 'static>(f: impl FnOnce() -> AppResult<T> + Send + 'static) -> AppResult<T> {
+    tauri::async_runtime::spawn_blocking(f).await.map_err(|e| AppError::new("task", e.to_string()))?
+}
+
+/// A pasted GameBanana link (A4 / C4): name, author, NSFW hint and image count. Nothing is written.
+#[tauri::command]
+pub async fn gamebanana_info(url: String) -> AppResult<GameBananaInfo> {
+    blocking(move || crate::net::gamebanana_info(&url)).await
+}
+
+/// Fetch a skin's previews from its GameBanana page: download outside the lock, then store (SPEC §10). A failure
+/// changes nothing, so the UI can fall back to the empty state with "Retry". The link and the free preview slots are
+/// read together; a full skin is refused before anything is downloaded, and only as many images as fit are fetched.
+#[tauri::command]
+pub async fn fetch_gamebanana_previews(state: State<'_, AppState>, skin_id: String) -> AppResult<PreviewFetch> {
+    let id = skin_id.clone();
+    let (url, room) = state.run(move |c| Ok((c.gamebanana_url(&id)?, c.preview_room(&id)?))).await?;
+    let fetched = blocking(move || crate::net::fetch_gamebanana(&url, room)).await?;
+    state.run(move |c| c.add_gamebanana_previews(&skin_id, &fetched.info, &fetched.images, fetched.failed)).await
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FolderPreviews {
+    snapshot: Snapshot,
+    added: usize,
+}
+
+/// Look for preview images inside the skin's own folders (installed mods have no archive).
+#[tauri::command]
+pub async fn find_folder_previews(state: State<'_, AppState>, skin_id: String) -> AppResult<FolderPreviews> {
+    let (snapshot, added) = state.run(move |c| c.find_folder_previews(&skin_id)).await?;
+    Ok(FolderPreviews { snapshot, added })
+}
+
+/// An image file dropped on a skin card or the gallery, or picked. Any path is taken (the webview is our own), but
+/// the core refuses symlinks and files over 25 MB.
+#[tauri::command]
+pub async fn add_preview(state: State<'_, AppState>, skin_id: String, path: String) -> AppResult<Snapshot> {
+    state.run(move |c| c.add_preview_file(&skin_id, std::path::Path::new(&path))).await
+}
+
+/// Ctrl+V on a skin (SPEC §13): the image bytes are the raw request body, the skin id is the `x-skin-id` header.
+#[tauri::command]
+pub async fn paste_preview(state: State<'_, AppState>, request: tauri::ipc::Request<'_>) -> AppResult<Snapshot> {
+    let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else {
+        return Err(AppError::new("bad_paste", "The pasted image didn't arrive."));
+    };
+    if bytes.len() as u64 > previews::MAX_IMAGE_BYTES {
+        return Err(AppError::new("not_an_image", "That image is over 25 MB."));
+    }
+    let skin_id = request
+        .headers()
+        .get("x-skin-id")
+        .and_then(|v| v.to_str().ok())
+        .and_then(previews::percent_decode)
+        .ok_or_else(|| AppError::new("bad_paste", "The pasted image didn't say which skin it's for."))?;
+    let bytes = bytes.clone();
+    state.run(move |c| c.add_preview_bytes(&skin_id, &bytes)).await
+}
+
+/// Remove one preview; its file goes to the Recycle Bin.
+#[tauri::command]
+pub async fn remove_preview(state: State<'_, AppState>, skin_id: String, file: String) -> AppResult<Snapshot> {
+    state.run(move |c| c.remove_preview(&skin_id, &file, &bin)).await
 }
 
 #[tauri::command]

@@ -45,7 +45,7 @@ pub struct SkinPatch {
     /// Move the skin to another entity (its folders stay where they are).
     pub entity_id: Option<String>,
     pub hotkey_labels: Option<Vec<HotkeyLabel>>,
-    /// Preview files in the new order; the first is the cover.
+    /// Preview files in the new order; the first is the cover. Files left out keep their order after these.
     pub preview_order: Option<Vec<String>>,
 }
 
@@ -571,21 +571,7 @@ impl AppCore {
             }
         }
         if let Some(order) = patch.preview_order {
-            let mut next = vec![];
-            for f in &order {
-                if next.iter().any(|n: &super::model::Preview| &n.file == f) {
-                    continue;
-                }
-                if let Some(p) = skin.previews.iter().find(|p| &p.file == f) {
-                    next.push(p.clone());
-                }
-            }
-            for p in &skin.previews {
-                if !next.iter().any(|n| n.file == p.file) {
-                    next.push(p.clone());
-                }
-            }
-            skin.previews = next;
+            skin.previews = super::previews::reorder(&skin.previews, &order);
         }
         let moved = patch.entity_id.filter(|e| e != &skin.entity_id);
         if let Some(to) = moved {

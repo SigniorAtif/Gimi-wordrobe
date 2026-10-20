@@ -415,6 +415,7 @@ impl AppCore {
                 exclude: vec![],
                 nsfw: mch.nsfw,
                 game_banana_url: None,
+                author: None,
                 preview_source: if main.images > 0 { "archive".into() } else { "later".into() },
                 user_image_path: None,
                 make_active: false,
