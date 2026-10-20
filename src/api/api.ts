@@ -10,6 +10,9 @@ import type {
   EntityPatch,
   FileDropEvent,
   FirstRunDefaults,
+  ImportPlan,
+  ImportRequest,
+  ImportResult,
   Picks,
   Settings,
   SkinPatch,
@@ -54,6 +57,9 @@ export interface Api {
   analyzeArchive(path: string): Promise<ArchiveSummary>;
   /** Extract & add; skins land inactive unless makeActive. */
   addSkin(req: AddSkinRequest, onProgress?: (p: AddProgress) => void): Promise<AddSkinResult>;
+  /** First-run / Re-scan review list: reads only (SPEC §5). */
+  planImport(onProgress?: (p: AddProgress) => void): Promise<ImportPlan>;
+  applyImport(request: ImportRequest, onProgress?: (p: AddProgress) => void): Promise<ImportResult>;
   /** OS file drags over the window (SPEC §13: Tauri intercepts drops, so DOM drop events carry no paths). */
   onFileDrop(handler: (e: FileDropEvent) => void): Promise<() => void>;
   openFolder(target: OpenTarget): Promise<void>;

@@ -4,6 +4,7 @@ use crate::core::add::{AddRequest, AddResult, ArchiveSummary};
 use crate::core::app::{AppCore, ApplyOutcome, EntityPatch, IMAGE_DIRS, Picks, SkinPatch};
 use crate::core::apply::Fault;
 use crate::core::error::{AppError, AppResult};
+use crate::core::importer::{ImportPlan, ImportRequest, ImportResult};
 use crate::core::model::{Settings, Snapshot};
 use crate::core::settings::{self, FirstRunDefaults};
 use serde::Deserialize;
@@ -202,6 +203,38 @@ pub async fn add_skin(app: AppHandle, state: State<'_, AppState>, request: AddRe
         .run(move |c| {
             c.add_skin(request, &mut |done, total, label| {
                 let _ = emitter.emit("add-progress", AddProgress { done, total, label: label.to_string() });
+            })
+        })
+        .await
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ImportProgress {
+    done: usize,
+    total: usize,
+    label: String,
+}
+
+/// First-run / Re-scan review list (SPEC §5). Reads only; emits `import-progress` while archives are read.
+#[tauri::command]
+pub async fn plan_import(app: AppHandle, state: State<'_, AppState>) -> AppResult<ImportPlan> {
+    state
+        .run(move |c| {
+            c.plan_import(&mut |done, total, label| {
+                let _ = app.emit("import-progress", ImportProgress { done, total, label: label.to_string() });
+            })
+        })
+        .await
+}
+
+/// Carry out the reviewed import. Emits `import-progress`.
+#[tauri::command]
+pub async fn apply_import(app: AppHandle, state: State<'_, AppState>, request: ImportRequest) -> AppResult<ImportResult> {
+    state
+        .run(move |c| {
+            c.apply_import(request, &mut |done, total, label| {
+                let _ = app.emit("import-progress", ImportProgress { done, total, label: label.to_string() });
             })
         })
         .await

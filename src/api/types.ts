@@ -107,6 +107,8 @@ export interface DiskState {
   libraries: LibraryMod[];
   /** Mod roots found in Mods that no skin in the library owns (shown by Re-scan review). */
   unknownRoots: string[];
+  /** Every .zip/.rar/.7z below Mods (the archive library and stray copies), relative to Mods. */
+  archives: string[];
 }
 
 export interface HashIndexInfo {
@@ -234,6 +236,8 @@ export interface NewEntity {
   name: string;
   category: Category;
   parentId?: string;
+  /** parent by name when it may not exist yet (Oz under a Fischl created by the same import) */
+  parentName?: string;
   portraitPath?: string;
 }
 
@@ -277,43 +281,66 @@ export type FileDropEvent =
   | { type: "drop"; paths: string[]; x: number; y: number }
   | { type: "leave" };
 
+// ----- first-run import / Re-scan review (§5) -----
+
+export type ImportSource =
+  | { kind: "installed"; folders: string[] }
+  | { kind: "archive"; archive: string; root: string; folders: string[]; main: boolean; nested: boolean };
+
+export interface ImportItem {
+  key: string;
+  source: ImportSource;
+  guess: EntityGuess;
+  skinName: string;
+  author?: string | null;
+  nsfw: boolean;
+  hotkeys: number;
+  images: number;
+  /** the archive's main item, for its other roots */
+  parent?: string | null;
+  /** default for a non-main root: its own skin rather than part of the main one */
+  own: boolean;
+}
+
+export interface ImportArchive {
+  path: string;
+  size: number;
+  error?: string | null;
+}
+
+export interface ImportPlan {
+  items: ImportItem[];
+  archives: ImportArchive[];
+  stray: string[];
+}
+
+export interface ImportChoice extends AddTarget {
+  key: string;
+  include: boolean;
+  nsfw: boolean;
+  own: boolean;
+}
+
+export interface ImportRequest {
+  choices: ImportChoice[];
+  moveArchives: boolean;
+  moveStray: boolean;
+  /** item keys (or existing skin ids) that stay on where an entity has several enabled */
+  keepActive: string[];
+}
+
+export interface ImportResult {
+  snapshot: Snapshot;
+  added: number;
+  warnings: string[];
+}
+
 export interface GameBananaInfo {
   id: number;
   name: string;
   author: string;
   images: string[];
   version?: string;
-}
-
-// ----- First-run import (§5) -----
-
-export interface ImportItem {
-  key: string; // stable id inside the plan
-  kind: "installed" | "archive";
-  /** Installed: folders relative to Mods. Archive: archive path relative to the archive library. */
-  folders: string[];
-  archive?: string;
-  guess: EntityGuess;
-  skinName: string;
-  nsfw: boolean;
-  active: boolean;
-  hashes: string[];
-  hotkeys: number;
-  /** Paths moved out to their own skin on import (nested foreign roots). */
-  splitFrom?: string;
-  note?: string;
-  include: boolean;
-}
-
-export interface ImportPlan {
-  items: ImportItem[];
-  libraries: LibraryMod[];
-  /** Detected by heuristic only; the user confirms ("Looks like a library"). */
-  maybeLibraries: LibraryMod[];
-  archiveLibrary: string | null; // e.g. "Charecters and wepon"
-  strayArchives: string[]; // .zip/.rar/.7z files directly in Mods
-  moveArchives: boolean; // pre-checked
-  skippedJunk: string[];
 }
 
 export interface ImportProgress {
