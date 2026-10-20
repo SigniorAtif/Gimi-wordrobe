@@ -24,8 +24,11 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
-            // auto re-hide NSFW on minimize (SPEC §11); minimizing shows up as a resize
-            if matches!(event, WindowEvent::Resized(_)) && window.is_minimized().unwrap_or(false) {
+            // auto re-hide NSFW on minimize (SPEC §11). Minimizing shows up as a resize and a focus loss; checking
+            // both means one skipped event can't leave 18+ skins showing. Re-hiding twice is harmless.
+            if matches!(event, WindowEvent::Resized(_) | WindowEvent::Focused(false))
+                && window.is_minimized().unwrap_or(false)
+            {
                 let _ = window.emit("window-minimized", ());
             }
         })
