@@ -449,17 +449,23 @@ impl AppCore {
         Ok(added)
     }
 
-    /// An image dropped on a card or the gallery, or picked with "Choose an image".
+    /// An image dropped on a card or the gallery, or picked with "Choose an image". It may live anywhere on disk (the
+    /// webview is our own), but it has to be the image itself: a symlink or anything over 25 MB is refused unread.
     pub fn add_preview_file(&mut self, skin_id: &str, path: &Path) -> AppResult<Snapshot> {
-        let meta =
-            fs::metadata(path).map_err(|e| AppError::new("io", format!("Can't read {}: {e}", path.display())))?;
+        let cant_read = |e: std::io::Error| AppError::new("io", format!("Can't read {}: {e}", path.display()));
+        let meta = fs::symlink_metadata(path).map_err(cant_read)?;
+        if meta.file_type().is_symlink() {
+            return Err(AppError::new("not_an_image", "That's a link to an image. Drop the image file itself."));
+        }
         if !meta.is_file() {
             return Err(AppError::new("not_an_image", "Drop an image file (PNG, JPG or WebP)."));
         }
         if meta.len() > MAX_IMAGE_BYTES {
             return Err(AppError::new("not_an_image", "That image is over 25 MB."));
         }
-        let bytes = fs::read(path)?;
+        let bytes = read_image_file(path).map_err(cant_read)?.ok_or_else(|| {
+            AppError::new("not_an_image", "That isn't a PNG, JPG or WebP image (or it's over 25 MB).")
+        })?;
         self.add_preview_bytes(skin_id, &bytes)
     }
 
@@ -774,6 +780,21 @@ mod tests {
         fs::write(&fake, "[TextureOverride]").unwrap();
         assert_eq!(core.add_preview_file(&id, &fake).unwrap_err().code, "not_an_image");
         assert_eq!(core.add_preview_bytes(&id, b"<svg/>").unwrap_err().code, "not_an_image");
+        // over 25 MB by size (sparse: nothing big is written), refused before it is read
+        let big = w.root.path().join("big.png");
+        let f = fs::File::create(&big).unwrap();
+        (&f).write_all(WEBP).unwrap();
+        f.set_len(MAX_IMAGE_BYTES + 1).unwrap();
+        assert_eq!(core.add_preview_file(&id, &big).unwrap_err().message, "That image is over 25 MB.");
+        // a symlink to an image is refused, even though the image itself would be fine
+        #[cfg(unix)]
+        {
+            let real = w.root.path().join("real.webp");
+            fs::write(&real, WEBP).unwrap();
+            let link = w.root.path().join("link.webp");
+            std::os::unix::fs::symlink(&real, &link).unwrap();
+            assert_eq!(core.add_preview_file(&id, &link).unwrap_err().code, "not_an_image");
+        }
         // it's all in library.json
         let saved = crate::core::library::load(&lib).unwrap();
         assert_eq!(saved.skin(&id).unwrap().previews.len(), 2);

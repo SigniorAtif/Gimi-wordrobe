@@ -302,7 +302,8 @@ pub async fn find_folder_previews(state: State<'_, AppState>, skin_id: String) -
     Ok(FolderPreviews { snapshot, added })
 }
 
-/// An image file dropped on a skin card or the gallery.
+/// An image file dropped on a skin card or the gallery, or picked. Any path is taken (the webview is our own), but
+/// the core refuses symlinks and files over 25 MB.
 #[tauri::command]
 pub async fn add_preview(state: State<'_, AppState>, skin_id: String, path: String) -> AppResult<Snapshot> {
     state.run(move |c| c.add_preview_file(&skin_id, std::path::Path::new(&path))).await
