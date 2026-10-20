@@ -415,14 +415,25 @@ the app changes real files, and it moves the archive library out of Mods.
 Close the game and the 3DMigoto loader. Then copy the whole loader folder, including `d3dx_user.ini`:
 
 ```powershell
-$B = "D:\mods\3dmigoto-backup-$(Get-Date -Format yyyyMMdd)"
-robocopy "D:\mods\3dmigoto" $B /E /COPY:DAT /DCOPY:DAT /R:1 /W:1 /NFL /NDL
+$B = "D:\mods\3dmigoto-backup-$(Get-Date -Format yyyyMMdd-HHmmss)"
+& {
+  if (Test-Path $B) { throw "backup folder exists: $B" }
+  robocopy "D:\mods\3dmigoto" $B /E /COPY:DAT /DCOPY:DAT /R:1 /W:1 /NFL /NDL
+  if ($LASTEXITCODE -ge 8) { throw "robocopy failed with exit code $LASTEXITCODE" }
+  $src = Get-ChildItem -Recurse -Force -File "D:\mods\3dmigoto" | Measure-Object Length -Sum
+  $dst = Get-ChildItem -Recurse -Force -File $B | Measure-Object Length -Sum
+  "source: $($src.Count) files, $($src.Sum) bytes"
+  "backup: $($dst.Count) files, $($dst.Sum) bytes"
+  if ($src.Count -ne $dst.Count -or $src.Sum -ne $dst.Sum) { throw "the backup doesn't match the source" }
+  "Backup OK: $B"
+}
 ```
 
-robocopy exit codes 0–7 mean success. Check that the backup's size matches: right-click both folders →
-Properties.
+The block refuses to write into a backup folder that already exists, stops if robocopy fails (exit code 8 or more),
+and compares the file count and total bytes on both sides. Write down the folder it prints: 6.5 needs it.
 
-- [ ] The backup exists and is the same size as `D:\mods\3dmigoto`.
+- [ ] The block ends with `Backup OK: D:\mods\3dmigoto-backup-…`, and the `source` and `backup` lines show the same
+      file count and bytes.
 
 ### 6.2 Run the first-run import
 
@@ -486,15 +497,27 @@ Get-ChildItem -Recurse -Force "D:\mods\3dmigoto\Mods" -Include desktop.ini, ORFi
 
 ### 6.5 If something goes wrong
 
-Close the app and the game, then put the backup back. Rename the current folder instead of deleting it, so nothing is
-lost. If this is a new PowerShell window, first set `$B` to the backup folder from 6.1 (e.g.
-`$B = "D:\mods\3dmigoto-backup-20261101"`).
+Close the app, the game and the loader, then put the backup back. The current Mods folder is renamed and the current
+`d3dx_user.ini` is copied aside, both with a timestamp, so nothing is lost. If this is a new PowerShell window, first
+set `$B` to the folder 6.1 printed (e.g. `$B = "D:\mods\3dmigoto-backup-20261101-203000"`).
 
 ```powershell
-Rename-Item "D:\mods\3dmigoto\Mods" "Mods-after-import"
-robocopy "$B\Mods" "D:\mods\3dmigoto\Mods" /E /COPY:DAT /DCOPY:DAT /R:1 /W:1 /NFL /NDL
-Copy-Item "$B\d3dx_user.ini" "D:\mods\3dmigoto\d3dx_user.ini" -Force
+& {
+  $ErrorActionPreference = 'Stop'
+  $L = "D:\mods\3dmigoto"
+  $stamp = Get-Date -Format yyyyMMdd-HHmmss
+  if (-not $B -or -not (Test-Path "$B\Mods")) { throw "no backup at '$B\Mods'. Set the B variable to the folder 6.1 printed." }
+  if (Test-Path "$L\Mods") { Rename-Item "$L\Mods" "Mods-after-import-$stamp" }
+  if (Test-Path "$L\Mods") { throw "$L\Mods still exists, so nothing was copied over it" }
+  robocopy "$B\Mods" "$L\Mods" /E /COPY:DAT /DCOPY:DAT /R:1 /W:1 /NFL /NDL
+  if ($LASTEXITCODE -ge 8) { throw "robocopy failed with exit code $LASTEXITCODE" }
+  if (Test-Path "$L\d3dx_user.ini") { Copy-Item "$L\d3dx_user.ini" "$L\d3dx_user.ini.after-import-$stamp" }
+  Copy-Item "$B\d3dx_user.ini" "$L\d3dx_user.ini" -Force
+  "Restored from $B. The previous Mods folder is now $L\Mods-after-import-$stamp"
+}
 ```
+
+The block stops at the first error, and it never copies the backup over a Mods folder that still exists.
 
 To make the app start fresh as well, rename `D:\mods\SkinLibrary` and `%AppData%\com.signioratif.skinswitcher`.
 The app also keeps the first `d3dx_user.ini` it ever changed as `d3dx_user.ini.skinswitcher-original` next to it.
