@@ -35,10 +35,13 @@ keeps exactly one active skin per character, waits until you press **Apply**, an
   guess before anything moves.
 - **Character detection by hash** from the GI-Model-Importer hash data, then by learned hashes, then by name.
 - **Hotkey conflicts** between enabled skins show before you apply.
-- **Previews** from the archive, a dropped or pasted image, or a GameBanana link.
-- **18+ skins hidden by default**, with an optional PIN and automatic re-hiding.
-- **Keyboard first**: type to search, arrows to move, Space to pick, Ctrl+S to apply, Ctrl+H to reveal 18+ skins.
+- **Previews** from the archive's own images, or an image you drop on the add dialog or browse to.
+- **18+ skins hidden by default**. The 18+ chip in the toolbar shows or hides them.
+- **Keyboard first**: type to search, arrows to move, Space to pick, Ctrl+S to apply.
 - Animated throughout, with a reduced-motion mode that keeps only crossfades.
+
+**Planned**, arriving with the UI redesign: an optional PIN for 18+ skins, the Ctrl+H reveal shortcut, automatic
+re-hiding, GameBanana preview fetching and pasted-image previews.
 
 ## Safety
 
@@ -105,7 +108,8 @@ npm run fixtures                                  # regenerate fixtures/Mods and
 - **[3DMigoto](https://github.com/bo3b/3Dmigoto)**, **[GIMI](https://github.com/SilentNightSound/GI-Model-Importer)**
   and **[XXMI](https://github.com/SpectrumQT/XXMI-Launcher)**: the loaders this app manages mods for. The `DISABLED*`
   rule and the `d3dx_user.ini` behaviour come from 3DMigoto's source.
-- **[GameBanana](https://gamebanana.com)**: preview images and mod names come from its public API.
+- **[GameBanana](https://gamebanana.com)**: the planned preview fetching uses its public API for preview images and
+  mod names.
 - Built with [Tauri](https://tauri.app), [React](https://react.dev), [Motion](https://motion.dev),
   [Zustand](https://zustand.docs.pmnd.rs), [Vite](https://vite.dev) and TypeScript, with the
   [Inter](https://rsms.me/inter/) typeface (SIL Open Font License, via Fontsource).
