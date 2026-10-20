@@ -108,13 +108,23 @@ On the **Set up Skin Switcher** screen, replace the pre-filled real paths:
 | Mods folder | `D:\mods\ss-test\fixtures\Mods` |
 | Library | `D:\mods\ss-test\Library` |
 
-Two helpers for the checks. Paste them into the same PowerShell window. `Snap before` records every file and folder
-name in the test Mods folder and Library, and `Same before after` compares two snapshots:
+Two helpers for the checks. Paste them into the same PowerShell window. `Snap before` records every folder and file in
+the test Mods folder and Library, plus `fixtures\d3dx_user.ini`, with a SHA-256 hash of each file's contents.
+`Same before after` compares two snapshots, case-sensitively:
 
 ```powershell
-function Snap($n) { Get-ChildItem -Recurse -Force "$T\fixtures\Mods", "$T\Library" | Where-Object FullName -notlike "$T\Library\tmp*" | ForEach-Object { $_.FullName.Substring($T.Length) } | Sort-Object | Set-Content "$T\$n.txt" -Encoding UTF8 }
-function Same($a, $b) { $d = Compare-Object (Get-Content "$T\$a.txt") (Get-Content "$T\$b.txt"); if ($d) { $d } else { "no differences" } }
+function Snap($n) {
+  $items = @(Get-ChildItem -Recurse -Force "$T\fixtures\Mods", "$T\Library") + @(Get-Item -Force -LiteralPath "$T\fixtures\d3dx_user.ini")
+  $items | Where-Object FullName -ne "$T\Library\tmp" | ForEach-Object {
+    $rel = $_.FullName.Substring($T.Length)
+    if ($_.PSIsContainer) { "$rel\" } else { "$rel  $((Get-FileHash -LiteralPath $_.FullName).Hash)" }
+  } | Sort-Object | Set-Content "$T\$n.txt" -Encoding UTF8
+}
+function Same($a, $b) { $d = Compare-Object -CaseSensitive (Get-Content "$T\$a.txt") (Get-Content "$T\$b.txt"); if ($d) { $d } else { "no differences" } }
 ```
+
+`Snap` leaves out only the `Library\tmp` folder itself, because the app creates it on the first add and deletes it at
+every start. Anything left inside it, such as staging files from a refused archive, shows up as a difference.
 
 If you close this window, open a new one, paste these lines, then paste both helpers again:
 
@@ -185,10 +195,10 @@ Use the test world from section 4 for every check. Each check says how to see th
    $h = [System.IO.File]::Open("$T\fixtures\Mods\Kazuha\Multi\merged.ini", 'Open', 'Read', 'None')
    ```
 3. Press **Apply**. It retries once, then fails.
-4. Compare and unlock:
+4. Unlock and compare (unlock first: `Snap` can't hash a locked file):
    ```powershell
-   Snap after; Same before after
    $h.Close()
+   Snap after; Same before after
    ```
 5. Press **Apply** again.
 
@@ -353,6 +363,10 @@ These code paths can't run on Linux.
    Set-Content "$S\desktop.ini" "[.ShellClassInfo]"
    attrib +r +h +s "$S\desktop.ini"
    tar.exe -a -c -f "$T\readonly_desktop_ini.zip" -C "$T\ro-src" ReadOnlyTest
+   ```
+   After adding it, check the staging folder (this prints nothing when it's empty or gone):
+   ```powershell
+   Get-ChildItem -Force "$T\Library\tmp" -ErrorAction SilentlyContinue
    ```
    - [ ] Adding `readonly_desktop_ini.zip` works without an "access denied" error, no `desktop.ini` is placed, and
          `D:\mods\ss-test\Library\tmp` is empty afterwards.
