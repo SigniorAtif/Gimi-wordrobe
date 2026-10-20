@@ -212,13 +212,13 @@ pub fn update_hash_index(dest: &Path) -> AppResult<(Option<String>, usize)> {
 }
 
 /// GameBanana (SPEC §10). Statuses come back as responses so GameBanana's own error message ("This Mod doesn't
-/// exist") reaches the user. Image downloads never follow redirects, so nothing but images.gamebanana.com is ever
-/// contacted for them.
-fn gb_agent(redirects: u32) -> ureq::Agent {
+/// exist") reaches the user. Nothing follows redirects, so only gamebanana.com (the API) and images.gamebanana.com
+/// (the images) are ever contacted; a redirect comes back as a 3xx response and fails.
+fn gb_agent() -> ureq::Agent {
     ureq::Agent::config_builder()
         .timeout_global(Some(Duration::from_secs(20)))
         .http_status_as_error(false)
-        .max_redirects(redirects)
+        .max_redirects(0)
         .build()
         .into()
 }
@@ -231,8 +231,11 @@ fn gb_failure(e: impl std::fmt::Display) -> AppError {
 pub fn gamebanana_info(url: &str) -> AppResult<GameBananaInfo> {
     let id = gamebanana_mod_id(url)
         .ok_or_else(|| AppError::new("bad_link", "That isn't a GameBanana mod link (gamebanana.com/mods/…)."))?;
-    let mut res = gb_agent(2).get(&profile_url(id)).header("User-Agent", UA).call().map_err(gb_failure)?;
+    let mut res = gb_agent().get(&profile_url(id)).header("User-Agent", UA).call().map_err(gb_failure)?;
     let status = res.status().as_u16();
+    if (300..400).contains(&status) {
+        return Err(gb_failure(format!("HTTP {status}, a redirect this app doesn't follow")));
+    }
     let body: Value = res.body_mut().with_config().limit(8 * 1024 * 1024).read_json().map_err(|e| {
         if status == 200 {
             AppError::new("gamebanana", format!("GameBanana sent an unreadable answer: {e}"))
@@ -249,7 +252,7 @@ pub fn download_image(url: &str) -> AppResult<Vec<u8>> {
     if !allowed_image_url(url) {
         return Err(AppError::new("bad_image_url", "Only images from images.gamebanana.com are downloaded."));
     }
-    let mut res = gb_agent(0).get(url).header("User-Agent", UA).call().map_err(gb_failure)?;
+    let mut res = gb_agent().get(url).header("User-Agent", UA).call().map_err(gb_failure)?;
     let status = res.status().as_u16();
     if status != 200 {
         return Err(gb_failure(format!("HTTP {status}")));
