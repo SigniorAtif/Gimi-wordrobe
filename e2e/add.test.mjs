@@ -68,7 +68,11 @@ test("an archive with a ../ entry is rejected and nothing is written", async () 
     const beforeLib = tree(w.lib);
     await click(browser, "button=+ Add");
     const toast = await waitFor(browser, ".toast--error");
-    assert.match(await toast.getText(), /Archive rejected/);
+    // the toast fades in, and WebDriver reports no text while it's still transparent
+    await browser.waitUntil(async () => /Archive rejected/.test(await toast.getText()), {
+      timeout: 5000,
+      timeoutMsg: "the error toast says the archive was rejected",
+    });
     await (await browser.$(".a4")).waitForExist({ reverse: true, timeout: 3000, timeoutMsg: "the dialog doesn't stay open" });
     assert.deepEqual(tree(w.mods), beforeMods);
     assert.deepEqual(tree(w.lib), beforeLib);
