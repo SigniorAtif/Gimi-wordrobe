@@ -17,7 +17,7 @@ use super::state;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(tag = "kind", rename_all = "camelCase")]
@@ -161,6 +161,53 @@ fn prune_empty(dir: &Path, stop: &Path) {
             break;
         }
         cur = d.parent();
+    }
+}
+
+/// An archive moved into the Library: where it was, its Library-relative path, and each skin's old `source_archive`.
+type MovedArchive = (PathBuf, String, Vec<(String, Option<String>)>);
+
+/// Move one archive from Mods to `<Library>/archives/[<entity>/]`, returning where it was and its Library-relative
+/// path. The copy is written as `<name>.part` and renamed once complete, so a cross-drive copy cut short by a crash
+/// never looks like a whole archive. Folders the move empties are removed, up to Mods.
+fn move_archive(
+    mods: &Path,
+    lib: &Path,
+    rel: &str,
+    entity: Option<&str>,
+    warnings: &mut Vec<String>,
+) -> Option<(PathBuf, String)> {
+    let src = paths::join_rel(mods, rel).filter(|p| p.is_file())?;
+    let file = src.file_name()?.to_string_lossy().into_owned();
+    let folder = entity.map(paths::sanitize_component);
+    let (stem, ext) = file.rsplit_once('.').unwrap_or((file.as_str(), ""));
+    let dest_rel = (1..)
+        .map(|i| match (i, &folder) {
+            (1, Some(f)) => format!("archives/{f}/{file}"),
+            (1, None) => format!("archives/{file}"),
+            (i, Some(f)) => format!("archives/{f}/{stem} ({i}).{ext}"),
+            (i, None) => format!("archives/{stem} ({i}).{ext}"),
+        })
+        .find(|r| !lib.join(r).exists() && !lib.join(format!("{r}.part")).exists())?;
+    let dest = lib.join(&dest_rel);
+    let part = lib.join(format!("{dest_rel}.part"));
+    let result = fs::create_dir_all(dest.parent()?).and_then(|()| apply::move_path(&src, &part)).and_then(|()| {
+        fs::rename(&part, &dest).inspect_err(|_| {
+            // the archive is whole in `part`; take it back rather than leave it under a name nobody looks for
+            let _ = apply::move_path(&part, &src);
+        })
+    });
+    match result {
+        Ok(()) => {
+            if let Some(parent) = src.parent() {
+                prune_empty(parent, mods);
+            }
+            Some((src, dest_rel))
+        }
+        Err(e) => {
+            warnings.push(format!("Couldn't move {rel} to the Library: {e}"));
+            None
+        }
     }
 }
 
@@ -399,56 +446,47 @@ impl AppCore {
         }
 
         // 3. archives out of Mods, so Mods holds only mods and each skin can be re-extracted from the Library
-        let mut move_out = |rel: &str, entity: Option<&str>| -> Option<String> {
-            let src = paths::join_rel(&mods, rel).filter(|p| p.is_file())?;
-            let file = src.file_name()?.to_string_lossy().into_owned();
-            let folder = entity.map(paths::sanitize_component);
-            let base = match &folder {
-                Some(f) => format!("archives/{f}/{file}"),
-                None => format!("archives/{file}"),
-            };
-            let (stem, ext) = file.rsplit_once('.').unwrap_or((file.as_str(), ""));
-            let dest_rel = (1..)
-                .map(|i| match (i, &folder) {
-                    (1, _) => base.clone(),
-                    (i, Some(f)) => format!("archives/{f}/{stem} ({i}).{ext}"),
-                    (i, None) => format!("archives/{stem} ({i}).{ext}"),
-                })
-                .find(|r| !lib.join(r).exists())?;
-            let dest = lib.join(&dest_rel);
-            fs::create_dir_all(dest.parent()?).ok()?;
-            match apply::move_path(&src, &dest) {
-                Ok(()) => {
-                    if let Some(parent) = src.parent() {
-                        prune_empty(parent, &mods);
-                    }
-                    Some(dest_rel)
-                }
-                Err(e) => {
-                    warnings.push(format!("Couldn't move {rel} to the Library: {e}"));
-                    None
-                }
-            }
-        };
+        let mut moved: Vec<MovedArchive> = vec![];
         if req.move_archives {
             for (rel, ids) in &imported_archives {
                 let entity = ids.last().and_then(|id| self.library.skin(id)).map(|s| s.entity_id.clone());
                 let entity_name = entity.as_ref().and_then(|e| self.library.entity(e)).map(|e| e.name.clone());
-                if let Some(dest_rel) = move_out(rel, entity_name.as_deref()) {
-                    for id in ids {
-                        if let Some(s) = self.library.skin_mut(id) {
-                            s.source_archive = Some(dest_rel.clone());
-                        }
+                let Some((src, dest_rel)) = move_archive(&mods, &lib, rel, entity_name.as_deref(), &mut warnings)
+                else {
+                    continue;
+                };
+                let mut before = vec![];
+                for id in ids {
+                    if let Some(s) = self.library.skin_mut(id) {
+                        before.push((id.clone(), s.source_archive.replace(dest_rel.clone())));
+                    }
+                }
+                moved.push((src, dest_rel, before));
+            }
+        }
+        if let Err(e) = self.save_library() {
+            // each add saved its skins already; put the archives back so library.json still matches the disk
+            for (src, dest_rel, before) in moved.into_iter().rev() {
+                let back = src
+                    .parent()
+                    .map_or(Ok(()), fs::create_dir_all)
+                    .and_then(|()| apply::move_path(&lib.join(&dest_rel), &src));
+                if let Err(err) = back {
+                    warnings.push(format!("Couldn't put {dest_rel} back in the Mods folder: {err}"));
+                }
+                for (id, prev) in before {
+                    if let Some(s) = self.library.skin_mut(&id) {
+                        s.source_archive = prev;
                     }
                 }
             }
-        }
-        if req.move_stray {
+            warnings
+                .push(format!("Couldn't save the library, so the archives stayed in the Mods folder: {}", e.message));
+        } else if req.move_stray {
             for rel in &state.plan.stray {
-                move_out(rel, None);
+                move_archive(&mods, &lib, rel, None, &mut warnings);
             }
         }
-        self.save_library()?;
 
         // 4. which skin stays on where an entity has several enabled
         let mut picks: BTreeMap<String, Option<String>> = BTreeMap::new();
@@ -458,23 +496,30 @@ impl AppCore {
                 picks.insert(skin.entity_id.clone(), Some(skin.id.clone()));
             }
         }
-        let mut snapshot = None;
+        // everything is saved now, so a failed re-read must not read as a failed import (a retry would duplicate
+        // skins). It also takes our own adds and moves as the state Apply checks the disk against.
+        let mut snapshot = match self.rescan() {
+            Ok(s) => s,
+            Err(e) => {
+                warnings.push(format!("Imported, but re-reading the Mods folder failed: {}", e.message));
+                self.snapshot()
+            }
+        };
         if !picks.is_empty() {
             match self.apply(&picks, Fault::None, &mut |d, t, l| progress(d, t, l)) {
-                Ok(out) if out.changed_outside => warnings.push(
-                    "The Mods folder changed meanwhile, so no skin was switched off. Pick them and Apply.".into(),
-                ),
+                Ok(out) if out.changed_outside => {
+                    warnings.push(
+                        "The Mods folder changed meanwhile, so no skin was switched off. Pick them and Apply.".into(),
+                    );
+                    snapshot = out.snapshot;
+                }
                 Ok(out) => {
                     warnings.extend(out.warnings);
-                    snapshot = Some(out.snapshot);
+                    snapshot = out.snapshot;
                 }
                 Err(e) => warnings.push(format!("Imported, but switching the extra skins off failed: {}", e.message)),
             }
         }
-        let snapshot = match snapshot {
-            Some(s) => s,
-            None => self.rescan()?,
-        };
         Ok(ImportResult { snapshot, added, warnings })
     }
 }
@@ -565,6 +610,25 @@ mod tests {
     }
 
     #[test]
+    fn keeping_one_skin_active_works_when_only_installed_mods_are_imported() {
+        let cfg = tempfile::tempdir().unwrap();
+        let (_t, mods, lib) = fixture_world();
+        let mut core = configured_core(cfg.path(), &mods, &lib);
+        core.library = Default::default();
+        core.rescan().unwrap(); // what boot shows the review: an empty library
+        let plan = plan_for(&mut core);
+        let mut choices = accept_all(&plan);
+        choices.iter_mut().filter(|c| !c.key.starts_with("mods:")).for_each(|c| c.include = false);
+        let keep = item(&plan, "mods:Furina/Remembrance").key.clone();
+        let req = ImportRequest { choices, move_archives: true, move_stray: false, keep_active: vec![keep] };
+        let out = core.apply_import(req, &mut |_, _, _| {}).unwrap();
+        assert!(!out.warnings.iter().any(|w| w.contains("changed meanwhile")), "{:?}", out.warnings);
+        assert!(mods.join("Furina/Remembrance").is_dir());
+        assert!(!mods.join("Furina/Casual").exists(), "{:?}", out.warnings);
+        assert!(lib.join("stash/Furina/Casual").is_dir());
+    }
+
+    #[test]
     fn archives_already_imported_are_not_offered_again() {
         let cfg = tempfile::tempdir().unwrap();
         let (_t, mods, lib) = fixture_world();
@@ -609,6 +673,7 @@ mod tests {
         let bennett = snap.library.skins.iter().find(|s| s.name == "Beach Day").unwrap();
         assert_eq!(bennett.source_archive.as_deref(), Some("archives/Bennett/bennett_beach.zip"));
         assert!(lib.join("archives/Bennett/bennett_beach.zip").is_file());
+        assert!(!lib.join("archives/Bennett/bennett_beach.zip.part").exists(), "the staged copy was renamed");
         assert!(!mods.join("Charecters and wepon/Benny").exists(), "emptied folder removed");
         assert!(mods.join("Charecters and wepon/Mona/mona_starry_skin.zip").is_file());
         assert!(mods.join("Charecters and wepon/desktop.ini").is_file(), "other files are left alone");
