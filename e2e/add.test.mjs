@@ -5,7 +5,7 @@ import { cpSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { click, launch, makeWorld, tree, waitFor } from "./harness.mjs";
+import { click, importAll, launch, makeWorld, tree, waitFor } from "./harness.mjs";
 
 const fixtures = resolve(dirname(fileURLToPath(import.meta.url)), "../fixtures/archives");
 
@@ -23,6 +23,7 @@ test("adding Bennett's archive files the skin, splits the nested sword out and l
   const app = await launch(w, { SKIN_SWITCHER_E2E_PICK_ARCHIVE: archive });
   try {
     const { browser } = app;
+    await importAll(browser);
     await click(browser, "button=+ Add");
     await waitFor(browser, ".a4 .roots");
     // detected by hash: Bennett (new to this library), and his sword as its own weapon skin
@@ -62,6 +63,7 @@ test("an archive with a ../ entry is rejected and nothing is written", async () 
   const app = await launch(w, { SKIN_SWITCHER_E2E_PICK_ARCHIVE: archive });
   try {
     const { browser } = app;
+    await importAll(browser);
     await waitFor(browser, '[data-entity="furina"]');
     const beforeLib = tree(w.lib);
     await click(browser, "button=+ Add");
