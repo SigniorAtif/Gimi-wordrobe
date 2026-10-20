@@ -78,7 +78,8 @@ export const useApp = create<AppState>((set, get) => ({
     try {
       const snapshot = await api.load();
       confirmedSettings = snapshot.settings;
-      set({ snapshot, booting: false, route: snapshot.configured ? { name: "home" } : { name: "setup" }, history: [] });
+      const route: Route = !snapshot.configured ? { name: "setup" } : wantsImport(snapshot) ? { name: "import" } : { name: "home" };
+      set({ snapshot, booting: false, route, history: [] });
       if (snapshot.recovered) {
         get().toast({ kind: "info", text: snapshot.recovered.message, ttl: 0 });
       }

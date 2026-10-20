@@ -9,6 +9,7 @@ import { useMotionConfigMode, useReduced } from "./lib/useReduced";
 import { useShortcuts } from "./lib/useShortcuts";
 import { EntityPage } from "./screens/EntityPage";
 import { Home } from "./screens/Home";
+import { ImportReview } from "./screens/ImportReview";
 import { SkinDetail } from "./screens/SkinDetail";
 import { SettingsPage } from "./screens/SettingsPage";
 import { Setup } from "./screens/Setup";
@@ -84,6 +85,8 @@ function Screen({ route }: { route: Route }) {
       return <SettingsPage />;
     case "setup":
       return <Setup />;
+    case "import":
+      return <ImportReview />;
     default:
       return <Home snapshot={snapshot} />;
   }

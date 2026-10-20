@@ -180,7 +180,8 @@ function LibrarySection({ s, snapshot, save }: { s: Settings; snapshot: Snapshot
     setScanning(true);
     try {
       setSnapshot(await api.rescan());
-      toast({ kind: "info", text: "Re-scanned the Mods folder." });
+      // new folders and archives join the library through the review (SPEC §5 step 6)
+      useApp.getState().navigate({ name: "import" });
     } catch (e) {
       toast({ kind: "error", text: toFailure(e).message });
     } finally {
