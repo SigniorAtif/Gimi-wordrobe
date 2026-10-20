@@ -164,6 +164,12 @@ fn prune_empty(dir: &Path, stop: &Path) {
     }
 }
 
+/// Two archive paths (`/` or `\` separated) name the same file, ignoring folders and case.
+fn same_file(a: &str, b: &str) -> bool {
+    let name = |p: &str| p.rsplit(['/', '\\']).next().unwrap_or(p).to_lowercase();
+    name(a) == name(b)
+}
+
 impl AppCore {
     /// Build the review list (SPEC §5 steps 2-4). Reads only; archive inis are extracted to `<Library>/tmp`.
     /// `progress(done, total, label)` reports the archives as they are read.
@@ -213,6 +219,12 @@ impl AppCore {
             progress(i, library.len(), rel);
             let Some(abs) = paths::join_rel(&mods, rel) else { continue };
             let size = fs::metadata(&abs).map(|m| m.len()).unwrap_or(0);
+            // left in Mods by an earlier import (moving was off or failed): offering it again would duplicate skins
+            if self.library.skins.iter().any(|s| s.source_archive.as_deref().is_some_and(|a| same_file(a, rel))) {
+                let error = Some("Its skins are already in the library.".to_string());
+                plan.archives.push(ImportArchive { path: rel.clone(), size, error });
+                continue;
+            }
             let summary = match self.analyze_archive(&abs) {
                 Ok(s) if !s.roots.is_empty() => s,
                 Ok(_) => {
@@ -550,6 +562,23 @@ mod tests {
         assert!(!bennett.nsfw);
         assert_eq!(plan.stray.len(), 2);
         assert!(plan.archives.iter().all(|a| a.error.is_none()), "{:?}", plan.archives);
+    }
+
+    #[test]
+    fn archives_already_imported_are_not_offered_again() {
+        let cfg = tempfile::tempdir().unwrap();
+        let (_t, mods, lib) = fixture_world();
+        let mut core = configured_core(cfg.path(), &mods, &lib);
+        core.library = Default::default();
+        let plan = plan_for(&mut core);
+        let req =
+            ImportRequest { choices: accept_all(&plan), move_archives: false, move_stray: false, keep_active: vec![] };
+        core.apply_import(req, &mut |_, _, _| {}).unwrap();
+        assert!(mods.join("Charecters and wepon/Benny/bennett_beach.zip").is_file(), "left in Mods");
+        let again = plan_for(&mut core);
+        assert!(!again.items.iter().any(|i| i.key.contains("bennett_beach.zip")), "no duplicate skins");
+        let listed = again.archives.iter().find(|a| a.path.ends_with("bennett_beach.zip")).unwrap();
+        assert!(listed.error.as_deref().is_some_and(|e| e.contains("already")), "{listed:?}");
     }
 
     #[test]

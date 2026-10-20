@@ -107,6 +107,8 @@ pub struct Skin {
     pub nsfw: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub game_banana_url: Option<String>,
+    /// The archive the skin was extracted from: its file name as added, or `archives/…` relative to the Library once
+    /// the import filed it there. Match on the file name part when looking for it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source_archive: Option<String>,
     #[serde(default)]
