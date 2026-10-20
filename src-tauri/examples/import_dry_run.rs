@@ -21,6 +21,8 @@ fn main() {
     assert!(mods.is_dir(), "Mods folder not found: {}", mods.display());
     let (mods_abs, lib_abs) = (mods.canonicalize().unwrap(), std::path::absolute(&lib).unwrap());
     assert!(!lib_abs.starts_with(&mods_abs), "the Library must not be inside the Mods folder");
+    // opening a Library re-scans and may save its library.json, so only a fresh scratch folder keeps this read-only
+    assert!(!lib_abs.join("library.json").exists(), "use an empty scratch Library, not one with a library.json");
     std::fs::create_dir_all(&cfg).expect("config dir");
 
     // no load(): there is no journal to recover in a scratch Library, and nothing is applied
