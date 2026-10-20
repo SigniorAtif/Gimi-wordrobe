@@ -446,8 +446,9 @@ const PROMO_WORDS: [&str; 4] = ["patreon", "ko-fi", "kofi", "discord"];
 /// Preview images among `files` (paths relative to the content root): no textures an ini references, no texture-like
 /// names, no UI assets; preview-named first, promo images last so they are never the default cover (SPEC §5, §10).
 pub fn preview_candidates(files: &[String], scan: &ScanResult) -> Vec<String> {
+    // `filename = ..\Shared\Body.png` and `./Face.jpg` point at the same files the listing names plainly
     let referenced: std::collections::HashSet<String> =
-        scan.inis.iter().flat_map(|i| i.filenames.iter().cloned()).collect();
+        scan.inis.iter().flat_map(|i| i.filenames.iter().map(|f| normalize_rel(f))).collect();
     let mut out: Vec<(u8, String)> = files
         .iter()
         .filter(|f| {
@@ -473,6 +474,21 @@ pub fn preview_candidates(files: &[String], scan: &ScanResult) -> Vec<String> {
         .collect();
     out.sort_by(|a, b| a.0.cmp(&b.0).then_with(|| natural_cmp(&a.1, &b.1)));
     out.into_iter().map(|(_, f)| f).collect()
+}
+
+/// Resolve `.` and `..` in a `/`-separated relative path ("a/../b/./c.png" -> "b/c.png").
+fn normalize_rel(p: &str) -> String {
+    let mut out: Vec<&str> = vec![];
+    for part in p.split('/') {
+        match part {
+            "" | "." => {}
+            ".." => {
+                out.pop();
+            }
+            _ => out.push(part),
+        }
+    }
+    out.join("/")
 }
 
 /// "prev (2).png" before "prev (10).png".
@@ -678,6 +694,23 @@ pub mod tests {
                 "NeuvilletteWedding/www.patreon.com annplan.png"
             ]
         );
+    }
+
+    #[test]
+    fn previews_skip_textures_referenced_through_relative_paths() {
+        let mut scan = ScanResult::default();
+        scan.inis.push(crate::core::scanner::IniFacts {
+            rel: "Diluc/Diluc.ini".into(),
+            filenames: vec!["diluc/../shared/body.png".into(), "diluc/./face.jpg".into(), "diluc/hair.png".into()],
+            ..Default::default()
+        });
+        let files: Vec<String> =
+            ["Shared/Body.png", "Diluc/Face.jpg", "Diluc/Hair.png", "Diluc/preview.webp", "Diluc/notes.txt"]
+                .iter()
+                .map(|s| s.to_string())
+                .collect();
+        assert_eq!(preview_candidates(&files, &scan), vec!["Diluc/preview.webp"]);
+        assert_eq!(normalize_rel("a/../../b/./c.png"), "b/c.png");
     }
 
     #[test]
