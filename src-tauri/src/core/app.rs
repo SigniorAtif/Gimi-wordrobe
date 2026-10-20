@@ -106,6 +106,8 @@ pub struct AppCore {
     recovered: Option<RecoveryInfo>,
     /// The review list last handed to the UI, until it is applied (SPEC §5).
     pub(super) pending_import: Option<super::importer::PlanState>,
+    /// Wrong NSFW PIN guesses (SPEC §6 PIN lock).
+    pub(super) pin_throttle: super::pin::Throttle,
 }
 
 impl AppCore {
@@ -127,6 +129,7 @@ impl AppCore {
             last_sig: None,
             recovered: None,
             pending_import: None,
+            pin_throttle: Default::default(),
         };
         if core.settings.is_configured()
             && let Err(e) = settings::validate(&core.settings)
@@ -234,8 +237,12 @@ impl AppCore {
             ),
             None => (vec![], vec![]),
         };
+        let mut settings = self.settings.clone();
+        // the PIN hash stays in the backend; the UI only learns whether one is set
+        settings.nsfw.pin_hash = None;
         Snapshot {
-            settings: self.settings.clone(),
+            pin_set: self.pin_set(),
+            settings,
             library: self.library.clone(),
             disk: super::model::DiskState {
                 archives,
@@ -678,7 +685,9 @@ impl AppCore {
     }
 
     /// Settings save instantly (SPEC §6). Creates the Library folder (and its image folders) when one is set.
-    pub fn save_settings(&mut self, next: Settings) -> AppResult<Snapshot> {
+    pub fn save_settings(&mut self, mut next: Settings) -> AppResult<Snapshot> {
+        // the UI never has the PIN hash; only set_pin changes it
+        next.nsfw.pin_hash = self.settings.nsfw.pin_hash.clone();
         settings::validate(&next)?;
         // switching the disable method migrates every inactive skin in one batch with rollback (SPEC §3)
         let same_paths =
