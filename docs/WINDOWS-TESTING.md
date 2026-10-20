@@ -313,12 +313,16 @@ WebView2 is the real target for motion, so judge it here. Walk through SPEC §7'
 
 ### 5.9 Archives: no ORFix copies, no junk, no escape
 
-1. **+ Add** → `D:\mods\ss-test\fixtures\archives\bennett_beach.zip` → **Extract & add**.
+1. The archive holds a `desktop.ini` and a bundled `BufferValues\ORFix.ini`. Which of those files already exist in
+   the test world depends on the earlier checks, so compare snapshots instead of listing them. Run `Snap before`,
+   then **+ Add** → `D:\mods\ss-test\fixtures\archives\bennett_beach.zip` → **Extract & add** (Bennett may already
+   have this skin from the import; the new copy gets a number). Then:
    ```powershell
-   Get-ChildItem -Recurse -Force "$T\fixtures\Mods", "$T\Library\stash" -Include desktop.ini, ORFix.ini | Select-Object FullName
+   Snap after
+   Compare-Object (Get-Content "$T\before.txt") (Get-Content "$T\after.txt") | Where-Object InputObject -match '\\(desktop|ORFix)\.ini\b'
    ```
-- [ ] The only results are the fixture's own `Mods\ORFix.ini` and `Mods\Furina\Remembrance\desktop.ini` from
-      before. Nothing new from the archive: no `BufferValues\ORFix.ini` copy, no `desktop.ini`.
+- [ ] The add works and the last command prints nothing: no `desktop.ini` or `ORFix.ini` was added, removed or
+      changed anywhere in Mods or the Library, stash included.
 
 2. Add `D:\mods\ss-test\fixtures\archives\mona_starry_skin.zip`.
 - [ ] No `__MACOSX` folder and no `desktop.ini` end up in the new skin. `MonaBodyDiffuse.png` (a texture) isn't
