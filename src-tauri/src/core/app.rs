@@ -7,6 +7,7 @@ use super::hashindex::HashIndex;
 use super::import;
 use super::library;
 use super::model::{Library, RecoveryInfo, Settings, Skin, Snapshot};
+use super::modfix::{self, FixData, FixReport};
 use super::persist;
 use super::scanner::{self, ScanContext, ScanResult};
 use super::settings;
@@ -96,6 +97,8 @@ pub struct AppCore {
     pub(super) settings: Settings,
     pub(super) library: Library,
     pub(super) index: HashIndex,
+    /// Tables for updating old mods on add (modfix.rs); None when modfix_data.json wasn't built.
+    pub(super) fix_data: Option<std::sync::Arc<FixData>>,
     pub(super) last_scan: Option<ScanResult>,
     /// library.json exists but can't be read: nothing is adopted or saved until it's fixed.
     library_error: Option<String>,
@@ -123,6 +126,7 @@ impl AppCore {
             settings,
             library: Library::default(),
             index: HashIndex::empty(),
+            fix_data: None,
             last_scan: None,
             library_error: None,
             settings_error: None,
@@ -137,6 +141,7 @@ impl AppCore {
             core.settings_error = Some(format!("Your saved settings need fixing: {}", e.message));
         }
         core.index = core.load_index();
+        core.fix_data = core.load_fix_data();
         core.reload_library();
         core
     }
@@ -154,6 +159,32 @@ impl AppCore {
     /// Use a specific hash index (tests).
     pub fn set_index(&mut self, index: HashIndex) {
         self.index = index;
+    }
+
+    /// Use specific mod fix tables (tests).
+    pub fn set_fix_data(&mut self, data: Option<FixData>) {
+        self.fix_data = data.map(std::sync::Arc::new);
+    }
+
+    /// The mod fix tables: one in the config dir wins over the bundled one.
+    fn load_fix_data(&self) -> Option<std::sync::Arc<FixData>> {
+        let mut candidates: Vec<PathBuf> = vec![self.config_dir.join(modfix::DATA_FILE)];
+        if let Some(r) = &self.resource_dir {
+            candidates.push(r.join("resources").join(modfix::DATA_FILE));
+            candidates.push(r.join(modfix::DATA_FILE));
+        }
+        // not under cargo test: a locally built table would change what the fixture tests see
+        #[cfg(all(debug_assertions, not(test)))]
+        candidates.push(Path::new(env!("CARGO_MANIFEST_DIR")).join("resources").join(modfix::DATA_FILE));
+        candidates.iter().find_map(|p| FixData::load(p).ok()).map(std::sync::Arc::new)
+    }
+
+    /// Bring a freshly extracted tree up to date for the current game, unless turned off in Settings.
+    pub(super) fn fix_mods(&self, root: &Path) -> FixReport {
+        match &self.fix_data {
+            Some(d) if !self.settings.skip_mod_fixes => modfix::fix_tree(root, d),
+            _ => FixReport::default(),
+        }
     }
 
     /// The newer of the bundled index and one fetched by "Update hash index" into the config dir.
@@ -251,6 +282,7 @@ impl AppCore {
             changed_outside: false,
             recovered: self.recovered.clone(),
             hash_index: self.index.info(),
+            mod_fixes: self.fix_data.is_some(),
             configured: self.settings.is_configured() && self.settings_error.is_none(),
             notice: self.settings_error.clone().or_else(|| self.library_error.clone()),
             same_drive: settings::same_drive(&self.settings),

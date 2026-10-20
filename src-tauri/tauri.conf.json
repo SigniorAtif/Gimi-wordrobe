@@ -50,7 +50,7 @@
       "icons/icon.ico"
     ],
     "resources": [
-      "resources/hash_index.json"
+      "resources/*.json"
     ],
     "windows": {
       "webviewInstallMode": {
