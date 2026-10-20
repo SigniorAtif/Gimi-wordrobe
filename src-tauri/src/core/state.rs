@@ -139,6 +139,7 @@ pub fn disk_state(
         active,
         libraries,
         unknown_roots,
+        archives: vec![],
     }
 }
 

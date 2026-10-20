@@ -284,6 +284,9 @@ pub struct DiskState {
     pub active: BTreeMap<String, Vec<String>>,
     pub libraries: Vec<LibraryMod>,
     pub unknown_roots: Vec<String>,
+    /// Every .zip/.rar/.7z below Mods (the archive library and stray copies), relative to Mods.
+    #[serde(default)]
+    pub archives: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
