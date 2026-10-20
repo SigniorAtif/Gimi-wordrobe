@@ -4,6 +4,7 @@
 import { ApiFailure, type Api } from "./api";
 import { buildMockWorld, coverArt, MOCK_LIBRARIES, MOCK_SETTINGS, type MockWorld } from "./mockData";
 import type { AddTarget, ArchiveSummary, Category, DiskState, EntityGuess, FileDropEvent, ImportItem, ImportPlan, PinCheck, Settings, Snapshot } from "./types";
+import { revealHotkeyProblem } from "../lib/shortcuts";
 
 const params = new URLSearchParams(typeof location !== "undefined" ? location.search : "");
 
@@ -185,6 +186,8 @@ export const api: Api = {
   },
   async saveSettings(next) {
     await wait(40);
+    const hotkey = revealHotkeyProblem(next.nsfw.hotkey);
+    if (hotkey) throw new ApiFailure(hotkey.code, hotkey.message);
     settings = structuredClone(next);
     configured = !!(settings.modsPath[settings.activeLoader]?.trim() && settings.libraryPath.trim());
     return snapshot();
