@@ -244,6 +244,12 @@ export const api: Api = {
     await wait();
     return snapshot();
   },
+  async runFixers() {
+    await wait(900);
+    const on = (settings.fixerScripts ?? []).filter((s) => s.enabled).length;
+    if (!on) throw new ApiFailure("no_fixers", "Add a fixer script in Settings first (or switch one on).");
+    return { snapshot: snapshot(), note: `Ran ${on} fixer script${on === 1 ? "" : "s"} on your active mods.`, warnings: [] };
+  },
   async saveSettings(next) {
     await wait(40);
     const hotkey = revealHotkeyProblem(next.nsfw.hotkey);

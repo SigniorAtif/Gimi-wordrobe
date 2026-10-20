@@ -1,5 +1,6 @@
 // Fixer scripts: the user's own fixer tools, run in order on every newly added skin (core/fixers.rs).
 import { AnimatePresence, motion } from "motion/react";
+import { useState } from "react";
 import { api, toFailure } from "../api";
 import type { FixerScript } from "../api/types";
 import { useReduced } from "../lib/useReduced";
@@ -131,5 +132,39 @@ export function FixerScriptList({ scripts, onChange }: { scripts: FixerScript[];
         </button>
       </div>
     </div>
+  );
+}
+
+/** Run the enabled fixer scripts once over the whole Mods folder, like running them there by hand. */
+export function RunFixersButton({ className = "btn" }: { className?: string }) {
+  const scripts = useApp((s) => s.snapshot?.settings.fixerScripts);
+  const setSnapshot = useApp((s) => s.setSnapshot);
+  const toast = useApp((s) => s.toast);
+  const [busy, setBusy] = useState(false);
+  const on = (scripts ?? []).filter((s) => s.enabled).length;
+  const run = async () => {
+    setBusy(true);
+    try {
+      const r = await api.runFixers();
+      setSnapshot(r.snapshot);
+      if (r.note) toast({ kind: "success", text: r.note });
+      for (const w of r.warnings) toast({ kind: "info", text: w });
+    } catch (e) {
+      toast({ kind: "error", text: toFailure(e).message });
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <button
+      type="button"
+      className={className}
+      onClick={() => void run()}
+      disabled={busy || on === 0}
+      title={on === 0 ? "Add or switch on a fixer script in Settings first" : "Runs your fixer scripts on every mod in the Mods folder"}
+    >
+      {busy && <span className="spinner" aria-hidden />}
+      {busy ? "Running fixers…" : "Run fixer scripts"}
+    </button>
   );
 }

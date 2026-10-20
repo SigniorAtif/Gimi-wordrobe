@@ -3,7 +3,7 @@ import { useState, type ReactNode } from "react";
 import { api, toFailure } from "../api";
 import type { DisableMethod, LayoutMode, Loader, ReduceMotion, Settings, Snapshot } from "../api/types";
 import { Field, PathField, RadioOption, Segmented } from "../components/controls";
-import { FixerScriptList, RecommendedFixers } from "../components/FixerScripts";
+import { FixerScriptList, RecommendedFixers, RunFixersButton } from "../components/FixerScripts";
 import { HotkeyRecorder } from "../components/HotkeyRecorder";
 import { LayoutPreview } from "../components/LayoutPreview";
 import { PinLock } from "../components/PinLock";
@@ -268,10 +268,13 @@ function FixerSection({ s, save }: { s: Settings; save: Save }) {
   return (
     <div className="stack">
       <p className="settings__note">
-        Tools that repair older mods. Each new skin goes through them, top to bottom, before it&apos;s added. Mods already in
-        the library aren&apos;t changed.
+        Tools that repair older mods. Each new skin goes through them, top to bottom, before it&apos;s added.
       </p>
       <FixerScriptList scripts={s.fixerScripts ?? []} onChange={(fixerScripts) => void save({ fixerScripts })} />
+      <div className="fixers__run">
+        <span className="field__hint">Installed mods: run them once over the whole Mods folder (every active mod).</span>
+        <RunFixersButton className="btn btn--sm" />
+      </div>
       <Field label="Recommended">
         <RecommendedFixers />
       </Field>

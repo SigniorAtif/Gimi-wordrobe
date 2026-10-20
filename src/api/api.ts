@@ -10,6 +10,7 @@ import type {
   EntityPatch,
   FileDropEvent,
   FirstRunDefaults,
+  FixersRun,
   FolderPreviewsResult,
   GameBananaInfo,
   ImportPlan,
@@ -40,6 +41,8 @@ export interface Api {
   load(): Promise<Snapshot>;
   /** Re-read the Mods folder and Library. */
   rescan(): Promise<Snapshot>;
+  /** Run the enabled fixer scripts once over the whole Mods folder, then re-scan. Code no_fixers when none is on. */
+  runFixers(): Promise<FixersRun>;
   /** Save settings (instantly, no Save button). Changing loader or paths re-scans. */
   saveSettings(settings: Settings): Promise<Snapshot>;
   /** Fetch the latest hash index from GI-Model-Importer-Assets, then re-scan (SPEC §5). */

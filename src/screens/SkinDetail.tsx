@@ -4,6 +4,7 @@ import { api, toFailure } from "../api";
 import type { Skin, Snapshot } from "../api/types";
 import { Ambient, coverUrl } from "../components/Ambient";
 import { rememberFlipKey } from "../components/Flip";
+import { RunFixersButton } from "../components/FixerScripts";
 import { Gallery } from "../components/Gallery";
 import { ConflictRows, HotkeyTable } from "../components/Hotkeys";
 import { Switch } from "../components/Switch";
@@ -161,6 +162,7 @@ export function SkinInfo({
         <button className="btn" onClick={() => void openFolder()}>
           Open folder
         </button>
+        {(snapshot.settings.fixerScripts ?? []).length > 0 && <RunFixersButton />}
         {skin.gameBananaUrl && (
           <button className="btn" onClick={() => void api.openUrl(skin.gameBananaUrl!)}>
             GameBanana page ↗

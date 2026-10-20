@@ -104,3 +104,9 @@
   font-size: var(--fs-meta);
   color: var(--text-3);
 }
+.fixers__run {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+}

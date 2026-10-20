@@ -86,6 +86,15 @@ export interface Settings {
   fixerScripts?: FixerScript[];
 }
 
+/** What "Run fixer scripts" did. */
+export interface FixersRun {
+  snapshot: Snapshot;
+  /** "Ran 2 fixer scripts on your active mods."; null when none ran cleanly. */
+  note: string | null;
+  /** One line per script that failed or was missing. */
+  warnings: string[];
+}
+
 /** A fixer tool the user downloaded (.exe, .bat, .cmd, .py or .ps1). */
 export interface FixerScript {
   path: string;
