@@ -202,10 +202,14 @@ function back(): boolean {
       app.back();
       if (useApp.getState().route.name === "home") focusSoon(`[data-entity="${CSS.escape(route.entityId)}"]`);
       return true;
-    case "skin":
+    case "skin": {
+      // the big preview morphs back into its card (A2 or an open shelf), and that card takes focus again
       rememberFlipKey(`skin:${route.skinId}`);
       app.back();
+      const id = CSS.escape(route.skinId);
+      focusSoon(`[data-skin="${id}"] [${NAV}], [data-skin="${id}"][${NAV}]`);
       return true;
+    }
     case "settings":
       app.back();
       return true;

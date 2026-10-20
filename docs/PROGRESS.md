@@ -41,6 +41,13 @@ first-run import on the real Mods folder after a backup.
 - No .rar fixture (needs the non-free `rar` tool); .rar adding is checked on Windows (docs/WINDOWS-TESTING.md).
 - Ctrl+V paste on a non-editable focus is only checked in Chromium; confirm it in WebView2 on Windows.
 
+## UI walkthrough (mock harness, 1000x700)
+
+Checked on screen: Pages keyboard (arrows, Enter into A2 and A3, Space picks, Esc back with focus on the card),
+gallery tools (make cover, Alt+arrow and drag reorder, remove to the Recycle Bin, paste, file drop, find in mod
+folder), GameBanana Retry after a failed fetch, and reduced motion (no transforms on A1/A2/A3 navigation or picks,
+in both layouts).
+
 ## M6 notes
 
 - First run (and Settings "Re-scan now") opens the import review instead of adopting mods silently.
