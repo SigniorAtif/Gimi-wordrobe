@@ -5,6 +5,7 @@
 use super::app::AppCore;
 use super::archive;
 use super::error::{AppError, AppResult};
+use super::fsutil;
 use super::ini::Ini;
 use super::model::{Preview, PreviewSource, Snapshot};
 use super::paths;
@@ -185,7 +186,7 @@ fn safe_component(id: &str) -> bool {
 }
 
 /// Preview candidates among the files below `dir` (relative to it), minus the textures its inis reference via
-/// `filename =`, texture-like names and UI assets, preview-named first (SPEC §10).
+/// `filename =`, texture-like names and UI assets, preview-named first (SPEC §10). Symlinked inis are not read.
 pub fn folder_previews(dir: &Path) -> Vec<String> {
     let files = archive::files_below(dir);
     let mut scan = ScanResult::default();
@@ -194,7 +195,8 @@ pub fn folder_previews(dir: &Path) -> Vec<String> {
         if !name.to_ascii_lowercase().ends_with(".ini") || paths::is_junk_name(name) {
             continue;
         }
-        if let Some(ini) = paths::join_rel(dir, rel).and_then(|p| Ini::read(&p).ok()) {
+        let plain = |p: &PathBuf| fs::symlink_metadata(p).is_ok_and(|m| m.is_file() && !fsutil::is_link(&m));
+        if let Some(ini) = paths::join_rel(dir, rel).filter(plain).and_then(|p| Ini::read(&p).ok()) {
             scan.inis.push(scanner::ini_facts(&ini, rel));
         }
     }
@@ -417,7 +419,8 @@ impl AppCore {
     }
 
     /// Previews already inside the skin's own folders, wherever they are (Mods, DISABLED_, stash), with the archive
-    /// filters (SPEC §10). Installed mods have no archive to take them from. Mods is only read.
+    /// filters (SPEC §10). Installed mods have no archive to take them from. Mods is only read. A folder that is (or
+    /// sits inside) a symlink or junction is skipped: it could lead anywhere on disk.
     pub fn find_folder_previews(&mut self, skin_id: &str) -> AppResult<(Snapshot, usize)> {
         let (mods, stash) = self.roots()?;
         let skin = self.library.skin(skin_id).cloned().ok_or_else(unknown_skin)?;
@@ -427,9 +430,11 @@ impl AppCore {
                 continue;
             }
             let Some(dir) = state::resolve_ci(&mods, f)
-                .or_else(|| state::find_disabled(&mods, f).map(|(p, _)| p))
-                .or_else(|| state::resolve_ci(&stash, f))
-                .filter(|p| p.is_dir())
+                .map(|p| (p, &mods))
+                .or_else(|| state::find_disabled(&mods, f).map(|(p, _)| (p, &mods)))
+                .or_else(|| state::resolve_ci(&stash, f).map(|p| (p, &stash)))
+                .filter(|(p, root)| p.is_dir() && !fsutil::leaves_root(root, p))
+                .map(|(p, _)| p)
             else {
                 continue;
             };
@@ -855,5 +860,38 @@ mod tests {
         assert_eq!(core.find_folder_previews(&id).unwrap().1, 0);
         let after = crate::core::apply::tests::tree(&w.mods);
         assert!(before.iter().all(|f| after.contains(f)), "nothing in Mods was moved or changed");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn never_follows_a_symlinked_skin_folder_or_ini() {
+        use std::os::unix::fs::symlink;
+        let (w, mut core, id) = world();
+        let skin = core.library.skin(&id).unwrap().clone();
+        let dir = state::resolve_ci(&w.mods, &skin.folders[0])
+            .or_else(|| state::find_disabled(&w.mods, &skin.folders[0]).map(|(p, _)| p))
+            .or_else(|| state::resolve_ci(&w.lib.join("stash"), &skin.folders[0]))
+            .expect("fixture skin folder");
+        // somewhere else on disk: an image, and an ini that names `preview.png` as a texture
+        let elsewhere = w.root.path().join("elsewhere");
+        let inis = w.root.path().join("inis");
+        fs::create_dir_all(&elsewhere).unwrap();
+        fs::create_dir_all(&inis).unwrap();
+        fs::write(elsewhere.join("preview.png"), PNG).unwrap();
+        fs::write(inis.join("tex.ini"), "[ResourceX]\nfilename = preview.png\n").unwrap();
+        // a symlinked ini inside a real folder is not read, so it can't hide the folder's own preview
+        let real = w.root.path().join("real");
+        fs::create_dir_all(&real).unwrap();
+        fs::write(real.join("preview.png"), PNG).unwrap();
+        symlink(inis.join("tex.ini"), real.join("tex.ini")).unwrap();
+        assert_eq!(folder_previews(&real), vec!["preview.png"]);
+        assert_eq!(folder_previews(&elsewhere), vec!["preview.png"], "what a followed link would find");
+        // the skin's folder itself is now a symlink to `elsewhere`: nothing is copied from there
+        fs::rename(&dir, w.root.path().join("moved-away")).unwrap();
+        symlink(&elsewhere, &dir).unwrap();
+        let (snap, added) = core.find_folder_previews(&id).unwrap();
+        assert_eq!(added, 0);
+        assert!(snap.library.skins.iter().find(|s| s.id == id).unwrap().previews.is_empty());
+        assert!(!w.lib.join("previews").join(&id).exists());
     }
 }
