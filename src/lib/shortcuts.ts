@@ -29,7 +29,8 @@ const MODIFIER_NAMES = new Set(["ctrl", "control", "alt", "shift", "meta"]);
  * physical key, so Shift+1 reads "Shift+1", not "Shift+!". null while only a modifier is down.
  */
 export function comboFromKey(e: KeyLike): string | null {
-  if (MODIFIER_KEYS.has(e.key)) return null;
+  // the Windows key belongs to the OS (Win+S, Win+arrows), never to the app
+  if (MODIFIER_KEYS.has(e.key) || e.metaKey) return null;
   const parts: string[] = [];
   if (e.ctrlKey) parts.push("Ctrl");
   if (e.altKey) parts.push("Alt");
@@ -130,11 +131,12 @@ export interface ShortcutContext {
  * (except Ctrl+Z, which undoes text there); plain keys don't. Only for the focused window: there is no global hook.
  */
 export function resolveShortcut(e: KeyLike, ctx: ShortcutContext): ShortcutAction | null {
-  if (e.isComposing) return null;
+  if (e.isComposing || e.metaKey) return null;
   if (matchesCombo(e, ctx.nsfwHotkey)) return { type: "toggleNsfw" };
-  const ctrl = e.ctrlKey || !!e.metaKey;
+  const ctrl = e.ctrlKey;
   if (ctrl && !e.altKey && !e.shiftKey) {
-    const k = e.key.toLowerCase();
+    // the physical key, like the reveal hotkey, so Ctrl+S still applies on a Cyrillic or Greek layout
+    const k = e.code.startsWith("Key") ? e.code.slice(3).toLowerCase() : e.key.toLowerCase();
     if (k === "s") return { type: "apply" };
     if (k === "f") return { type: "search" };
     if (k === "z") return ctx.typing ? null : { type: "undo" };

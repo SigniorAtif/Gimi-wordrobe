@@ -85,8 +85,16 @@ describe("SPEC §12 shortcuts", () => {
     expect(resolveShortcut({ ...press("k"), isComposing: true }, ctx)).toBeNull();
   });
 
-  it("treat Cmd like Ctrl for apply and undo", () => {
-    expect(resolveShortcut(press("s", { meta: true }), ctx)).toEqual({ type: "apply" });
-    expect(resolveShortcut(press("z", { meta: true }), ctx)).toEqual({ type: "undo" });
+  it("leave the Windows key to the OS", () => {
+    expect(resolveShortcut(press("s", { meta: true }), ctx)).toBeNull();
+    expect(resolveShortcut(press("ArrowLeft", { meta: true }), ctx)).toBeNull();
+    expect(resolveShortcut(press("h", { ctrl: true, meta: true }), ctx)).toBeNull();
+  });
+
+  it("use the physical key, so a non-Latin layout still works", () => {
+    // Russian layout: the S key types "ы", F types "а", Z types "я"
+    expect(resolveShortcut(press("ы", { ctrl: true }, "KeyS"), ctx)).toEqual({ type: "apply" });
+    expect(resolveShortcut(press("а", { ctrl: true }, "KeyF"), ctx)).toEqual({ type: "search" });
+    expect(resolveShortcut(press("я", { ctrl: true }, "KeyZ"), ctx)).toEqual({ type: "undo" });
   });
 });
