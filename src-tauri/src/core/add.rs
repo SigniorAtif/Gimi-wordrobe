@@ -496,7 +496,8 @@ impl AppCore {
                         .filter_map(|r| paths::join_rel(&src, &r))
                         .collect();
                     let mut w = PreviewWriter::new(&lib, &skin_id, &[], PreviewSource::Archive)?;
-                    let filled = copy_previews(&mut w, &picks);
+                    // best first (the first is the cover); files that aren't really images are skipped
+                    let filled = w.push_files(&picks, MAX_ARCHIVE_IMAGES);
                     previews = w.previews();
                     preview_writers.push(w);
                     filled?;
@@ -599,18 +600,6 @@ impl AppCore {
         }
         Ok(AddResult { snapshot, skin_ids: ids, warnings })
     }
-}
-
-/// Copy an archive's preview images into the new skin's previews folder, best first (the first is the cover). Files
-/// that aren't really images are skipped.
-fn copy_previews(w: &mut PreviewWriter, files: &[PathBuf]) -> AppResult<()> {
-    for f in files {
-        if w.len() >= MAX_ARCHIVE_IMAGES {
-            break;
-        }
-        w.push_file(f)?;
-    }
-    Ok(())
 }
 
 /// The image the user picked as the preview (anywhere on disk, so a shortcut to it is fine).

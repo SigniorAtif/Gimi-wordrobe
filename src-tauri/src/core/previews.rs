@@ -14,7 +14,7 @@ use super::state;
 use serde::Serialize;
 use serde_json::Value;
 use std::fs;
-use std::io::Write;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
 /// Largest image accepted from a drop, a paste, an archive or GameBanana.
@@ -25,6 +25,8 @@ pub const MAX_PREVIEWS: usize = 30;
 pub const MAX_GB_IMAGES: usize = 12;
 /// Most images taken from one archive or mod folder.
 pub const MAX_ARCHIVE_IMAGES: usize = 12;
+/// Most candidate files tried for one archive or mod folder, so a folder full of fakes can't hold the lock for long.
+pub const MAX_CANDIDATES_TRIED: usize = 60;
 
 /// The image type by its first bytes (png, jpg, webp), whatever the file is called.
 pub fn image_ext(bytes: &[u8]) -> Option<&'static str> {
@@ -169,6 +171,26 @@ pub fn percent_decode(s: &str) -> Option<String> {
     String::from_utf8(out).ok()
 }
 
+/// Read an image file: a plain file (never a symlink) of at most 25 MB whose first bytes are a PNG, JPG or WebP. Only
+/// the first 16 bytes are read before deciding, so a big file that isn't an image costs one small read.
+/// `Ok(None)` = not an image.
+pub fn read_image_file(path: &Path) -> std::io::Result<Option<Vec<u8>>> {
+    let meta = fs::symlink_metadata(path)?;
+    if !meta.is_file() || meta.len() > MAX_IMAGE_BYTES {
+        return Ok(None);
+    }
+    let mut f = fs::File::open(path)?;
+    let mut bytes = Vec::with_capacity(16);
+    (&mut f).take(16).read_to_end(&mut bytes)?;
+    if image_ext(&bytes).is_none() {
+        return Ok(None);
+    }
+    bytes.reserve(meta.len().saturating_sub(16) as usize);
+    // capped again here in case the file grew since its size was read
+    f.take(MAX_IMAGE_BYTES + 1 - bytes.len() as u64).read_to_end(&mut bytes)?;
+    Ok(Some(bytes).filter(|b| b.len() as u64 <= MAX_IMAGE_BYTES))
+}
+
 /// "previews/<skin>/07.png" -> 7, for numbering new files after the existing ones.
 fn number_of(file: &str) -> u32 {
     let name = file.rsplit('/').next().unwrap_or(file);
@@ -282,13 +304,25 @@ impl PreviewWriter {
         }
     }
 
-    /// Copy one image file (an archive's or mod folder's preview, a picked or dropped image). Symlinks are refused.
+    /// Copy one image file (an archive's or mod folder's preview). Symlinks are refused.
     pub fn push_file(&mut self, path: &Path) -> AppResult<Stored> {
-        let Ok(meta) = fs::symlink_metadata(path) else { return Ok(Stored::NotAnImage) };
-        if !meta.is_file() || meta.len() > MAX_IMAGE_BYTES {
-            return Ok(Stored::NotAnImage);
+        match read_image_file(path) {
+            Ok(Some(bytes)) => self.push(&bytes),
+            Ok(None) => Ok(Stored::NotAnImage),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Stored::NotAnImage),
+            Err(e) => Err(e.into()),
         }
-        self.push(&fs::read(path)?)
+    }
+
+    /// Copy candidate files in order until `limit` are added, trying at most [`MAX_CANDIDATES_TRIED`] of them.
+    pub fn push_files(&mut self, files: &[PathBuf], limit: usize) -> AppResult<()> {
+        for f in files.iter().take(MAX_CANDIDATES_TRIED) {
+            if self.len() >= limit {
+                break;
+            }
+            self.push_file(f)?;
+        }
+        Ok(())
     }
 
     pub fn len(&self) -> usize {
@@ -339,6 +373,18 @@ impl AppCore {
         Ok(lib)
     }
 
+    /// How many more previews the skin can take; refuses with `too_many` when it already has the most it keeps.
+    pub fn preview_room(&self, skin_id: &str) -> AppResult<usize> {
+        let skin = self.library.skin(skin_id).ok_or_else(unknown_skin)?;
+        match MAX_PREVIEWS.saturating_sub(skin.previews.len()) {
+            0 => Err(AppError::new(
+                "too_many",
+                format!("This skin already has {MAX_PREVIEWS} previews. Remove one first."),
+            )),
+            room => Ok(room),
+        }
+    }
+
     /// Run `fill` against a writer for the skin, then list what it stored after the skin's previews (the cover only
     /// changes if the skin had none) and save. Anything written is removed again if a step fails.
     fn store_previews(
@@ -348,15 +394,10 @@ impl AppCore {
         fill: impl FnOnce(&mut PreviewWriter, usize) -> AppResult<()>,
     ) -> AppResult<usize> {
         let lib = self.preview_lib(skin_id)?;
+        let room = self.preview_room(skin_id)?;
         let existing = self.library.skin(skin_id).map(|s| s.previews.clone()).unwrap_or_default();
-        if existing.len() >= MAX_PREVIEWS {
-            return Err(AppError::new(
-                "too_many",
-                format!("This skin already has {MAX_PREVIEWS} previews. Remove one first."),
-            ));
-        }
         let mut w = PreviewWriter::new(&lib, skin_id, &existing, source)?;
-        if let Err(e) = fill(&mut w, MAX_PREVIEWS - existing.len()) {
+        if let Err(e) = fill(&mut w, room) {
             w.undo();
             return Err(e);
         }
@@ -420,12 +461,17 @@ impl AppCore {
 
     /// Previews already inside the skin's own folders, wherever they are (Mods, DISABLED_, stash), with the archive
     /// filters (SPEC §10). Installed mods have no archive to take them from. Mods is only read. A folder that is (or
-    /// sits inside) a symlink or junction is skipped: it could lead anywhere on disk.
+    /// sits inside) a symlink or junction is skipped: it could lead anywhere on disk. A full skin is refused before
+    /// any folder is read.
     pub fn find_folder_previews(&mut self, skin_id: &str) -> AppResult<(Snapshot, usize)> {
         let (mods, stash) = self.roots()?;
         let skin = self.library.skin(skin_id).cloned().ok_or_else(unknown_skin)?;
+        self.preview_room(skin_id)?;
         let mut files: Vec<PathBuf> = vec![];
         for f in &skin.folders {
+            if files.len() >= MAX_CANDIDATES_TRIED {
+                break;
+            }
             if paths::has_parent_ref(f) || f.contains(':') {
                 continue;
             }
@@ -441,13 +487,7 @@ impl AppCore {
             files.extend(folder_previews(&dir).iter().filter_map(|rel| paths::join_rel(&dir, rel)));
         }
         let added = self.store_previews(skin_id, PreviewSource::Archive, |w, room| {
-            for p in &files {
-                if w.len() >= room.min(MAX_ARCHIVE_IMAGES) {
-                    break;
-                }
-                w.push_file(p)?;
-            }
-            Ok(())
+            w.push_files(&files, room.min(MAX_ARCHIVE_IMAGES))
         })?;
         Ok((self.snapshot(), added))
     }
@@ -730,6 +770,8 @@ mod tests {
         let many: Vec<Vec<u8>> = (0..MAX_PREVIEWS + 3).map(|i| [PNG, &i.to_le_bytes()[..]].concat()).collect();
         assert_eq!(core.add_previews(&id, &many, PreviewSource::User).unwrap(), MAX_PREVIEWS);
         assert_eq!(core.add_preview_bytes(&id, JPG).unwrap_err().code, "too_many");
+        assert_eq!(core.find_folder_previews(&id).unwrap_err().code, "too_many");
+        assert_eq!(core.preview_room(&id).unwrap_err().code, "too_many");
         // library.json can't be saved (its temp file is blocked by a folder): the files written for it are taken back
         let (w2, mut other, id2) = world();
         fs::create_dir_all(w2.lib.join("library.json.tmp")).unwrap();
@@ -760,6 +802,34 @@ mod tests {
         for bad in ["", "..", "a/b", "a\\b", "c:x", "CON"] {
             assert!(PreviewWriter::new(t.path(), bad, &[], PreviewSource::User).is_err(), "{bad:?}");
         }
+    }
+
+    #[test]
+    fn reads_images_by_their_first_bytes_and_tries_a_bounded_number_of_files() {
+        let t = tempfile::tempdir().unwrap();
+        let img = t.path().join("shot.png");
+        fs::write(&img, PNG).unwrap();
+        let fake = t.path().join("fake.png");
+        fs::write(&fake, "[TextureOverride]").unwrap();
+        assert_eq!(read_image_file(&img).unwrap().as_deref(), Some(PNG));
+        assert_eq!(read_image_file(&fake).unwrap(), None);
+        assert_eq!(read_image_file(t.path()).unwrap(), None, "a folder");
+        assert!(read_image_file(&t.path().join("missing.png")).is_err());
+        // over 25 MB by its size alone, whatever its first bytes say (sparse, so nothing big is written)
+        let big = t.path().join("big.png");
+        let f = fs::File::create(&big).unwrap();
+        (&f).write_all(PNG).unwrap();
+        f.set_len(MAX_IMAGE_BYTES + 1).unwrap();
+        assert_eq!(read_image_file(&big).unwrap(), None);
+        // a real image after MAX_CANDIDATES_TRIED fakes is never reached; one place earlier it is
+        let mut files = vec![fake.clone(); MAX_CANDIDATES_TRIED];
+        files.push(img.clone());
+        let mut w = PreviewWriter::new(t.path(), "s", &[], PreviewSource::Archive).unwrap();
+        w.push_files(&files, MAX_ARCHIVE_IMAGES).unwrap();
+        assert!(w.is_empty());
+        files.swap(MAX_CANDIDATES_TRIED - 1, MAX_CANDIDATES_TRIED);
+        w.push_files(&files, MAX_ARCHIVE_IMAGES).unwrap();
+        assert_eq!(w.len(), 1);
     }
 
     #[test]
