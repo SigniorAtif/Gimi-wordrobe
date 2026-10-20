@@ -357,7 +357,7 @@ function SkinCard({
   onMenu: (e: MouseEvent) => void;
 }) {
   return (
-    <div className={`skincard ${selected ? "is-selected" : ""} ${pending ? "is-pending" : ""}`} data-skin={skin.id}>
+    <div className={`skincard ${selected ? "is-selected" : ""} ${pending ? "is-pending" : ""}`} data-skin={skin.id} data-drop={`skin:${skin.id}`}>
       <button
         type="button"
         role="radio"
