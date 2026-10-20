@@ -231,7 +231,6 @@ function snapshot(): Snapshot {
     sameDrive: true,
     notice: null,
     pinSet: pin !== null,
-    modFixes: true,
   };
 }
 
@@ -422,7 +421,7 @@ export const api: Api = {
       for (const k of world.library.skins.filter((x) => x.entityId === entityId)) world.active.delete(k.id);
       world.active.add(ids[ids.length - 1]);
     }
-    return { snapshot: snapshot(), skinIds: ids, warnings: [], fixNote: null };
+    return { snapshot: snapshot(), skinIds: ids, warnings: [] };
   },
   async planImport(onProgress) {
     const archives = importPending ? IMPORT_PLAN.archives : [];

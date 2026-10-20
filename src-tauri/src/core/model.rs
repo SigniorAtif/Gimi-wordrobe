@@ -233,9 +233,6 @@ pub struct Settings {
     pub reduce_motion: ReduceMotion,
     #[serde(default)]
     pub nsfw: NsfwSettings,
-    /// Leave added mods exactly as they come (no ORFix, no hash or blend updates; modfix.rs).
-    #[serde(default)]
-    pub skip_mod_fixes: bool,
 }
 
 impl Settings {
@@ -324,9 +321,6 @@ pub struct Snapshot {
     pub notice: Option<String>,
     /// A PIN guards revealing NSFW skins; the hash itself never leaves the backend.
     pub pin_set: bool,
-    /// The tables for updating old mods (modfix_data.json) were found, so adds can fix mods.
-    #[serde(default)]
-    pub mod_fixes: bool,
 }
 
 #[cfg(test)]

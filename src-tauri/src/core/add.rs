@@ -9,7 +9,6 @@ use super::error::{AppError, AppResult};
 use super::fsutil;
 use super::import;
 use super::model::{Category, DisableMethod, Hotkey, PreviewSource, Skin, Snapshot};
-use super::modfix::FixReport;
 use super::names;
 use super::paths;
 use super::previews::{MAX_ARCHIVE_IMAGES, MAX_IMAGE_BYTES, PreviewWriter, Stored};
@@ -118,10 +117,6 @@ pub struct AddResult {
     pub snapshot: Snapshot,
     pub skin_ids: Vec<String>,
     pub warnings: Vec<String>,
-    /// What updating the mod for the current game changed (modfix.rs), as one line; None when nothing did.
-    pub fix_note: Option<String>,
-    #[serde(skip)]
-    pub fixed: FixReport,
 }
 
 /// A fresh, empty staging folder under `<Library>/tmp`. The name can't be guessed and `create_dir` fails when it
@@ -262,8 +257,6 @@ impl AppCore {
             let wrapper = archive::wrapper_of(&entries);
             // scan what is on disk, as add_skin does: a listing name can differ from the extracted one (code pages)
             let root = archive::content_root(&stage)?;
-            // the same hash updates the add will make, so the guess sees the hashes the index knows
-            self.fix_mods(&root);
             let (hint, hint_guess) = self.hint_guess(archive);
             let mut ctx = ScanContext::new(&self.index, &self.library);
             ctx.archive_root = true;
@@ -402,7 +395,6 @@ impl AppCore {
         let mut preview_writers: Vec<PreviewWriter> = vec![];
         let mut preview_notes: Vec<String> = vec![];
         let library_before = self.library.clone();
-        let mut fixed = FixReport::default();
         let result = (|| -> AppResult<Vec<String>> {
             progress(0, total, "Extracting");
             archive::extract(&archive_path, &stage, &[], &mut |b| progress(b.min(total), total, "Extracting"))?;
@@ -415,8 +407,6 @@ impl AppCore {
                     if p.is_dir() { fsutil::remove_tree_force(&p)? } else { fsutil::remove_file_force(&p)? }
                 }
             }
-            // ORFix and hash/blend updates for the current game, before the scan reads the hashes
-            fixed = self.fix_mods(&root);
             let mut ctx = ScanContext::new(&self.index, &self.library);
             ctx.archive_root = true;
             let scan = scanner::scan(&root, &ctx);
@@ -608,7 +598,7 @@ impl AppCore {
                 }
             }
         }
-        Ok(AddResult { snapshot, skin_ids: ids, warnings, fix_note: fixed.summary(), fixed })
+        Ok(AddResult { snapshot, skin_ids: ids, warnings })
     }
 }
 
@@ -912,39 +902,6 @@ mod tests {
         let skin = out.snapshot.library.skins.iter().find(|s| s.name == "Cow Girl").unwrap();
         assert!(skin.nsfw);
         assert_eq!(out.snapshot.disk.active["varesa"], vec![skin.id.clone()]);
-    }
-
-    #[test]
-    fn adds_update_old_hashes_unless_turned_off() {
-        let cfg = tempfile::tempdir().unwrap();
-        let (_t, mods, lib) = fixture_world();
-        let mut core = configured_core(cfg.path(), &mods, &lib);
-        let data = br#"{"releaseFix":{"steps":[{"pairs":[]},{"pairs":[]},{"pairs":[["d4acf3f7","0bad0bad"]]},{"pairs":[]}],"remaps":[]},"orfix":[],"oldShaderFixes":[]}"#;
-        core.set_fix_data(Some(crate::core::modfix::FixData::from_json(data).unwrap()));
-        let bennett = || AddTarget {
-            entity_id: None,
-            new_entity: Some(NewEntity {
-                name: "Bennett".into(),
-                category: Category::Character,
-                parent_id: None,
-                parent_name: None,
-                portrait_path: None,
-            }),
-            skin_name: "Beach".into(),
-        };
-        let hashes = |out: &AddResult| {
-            let id = out.skin_ids.last().unwrap();
-            out.snapshot.library.skins.iter().find(|s| &s.id == id).unwrap().hashes.clone()
-        };
-        let out = core.add_skin(request("bennett_beach.zip", bennett()), &mut |_, _, _| {}).unwrap();
-        assert!(hashes(&out).contains(&"0bad0bad".to_string()));
-        assert!(!hashes(&out).contains(&"d4acf3f7".to_string()));
-        assert_eq!(out.fix_note.as_deref(), Some("Updated for the current game: 1 old hash updated."));
-
-        core.settings.skip_mod_fixes = true;
-        let out = core.add_skin(request("bennett_beach.zip", bennett()), &mut |_, _, _| {}).unwrap();
-        assert!(hashes(&out).contains(&"d4acf3f7".to_string()));
-        assert_eq!(out.fix_note, None);
     }
 
     #[test]

@@ -157,7 +157,6 @@ export const useAdd = create<AddState>((set, get) => ({
       // a hidden 18+ skin isn't named, not even in a toast (SPEC §11)
       const hidden = req.nsfw && !useHome.getState().nsfwVisible;
       app.toast({ kind: "success", text: hidden ? `Added a hidden 18+ skin to ${entityName}.` : `Added ${req.main.skinName} to ${entityName}.` });
-      if (r.fixNote) app.toast({ kind: "info", text: r.fixNote });
       for (const w of r.warnings) app.toast({ kind: "info", text: w });
       // "From GameBanana link" downloads after the add (outside the extraction), so the new card shows the fetch
       const mainId = r.skinIds[r.skinIds.length - 1];

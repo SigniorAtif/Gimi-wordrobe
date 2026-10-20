@@ -36,9 +36,6 @@ keeps exactly one active skin per character, waits until you press **Apply**, an
 - **First-run import** of an existing Mods folder and archive library, with a review screen where you confirm every
   guess before anything moves.
 - **Character detection by hash** from the GI-Model-Importer hash data, then by learned hashes, then by name.
-- **Old mods updated on add.** A mod made for an older game version gets ORFix (no more flat green or glowing
-  characters), its outdated hashes replaced, and its blend file remapped where a skeleton changed. Needs the fix
-  tables (see [Fix tables](#fix-tables)); it can be turned off in Settings › Library.
 - **Hotkey conflicts** between enabled skins show before you apply.
 - **Previews** from the archive's own images, or an image you drop on the add dialog or browse to.
 - **18+ skins hidden by default**. The 18+ chip in the toolbar shows or hides them.
@@ -85,19 +82,6 @@ acceptance check on test data, and the first import of a real Mods folder.
 
 On first start, choose your loader (XXMI or standalone 3DMigoto), its Mods folder, and a Library folder on the same
 drive (for example `D:\mods\SkinLibrary`).
-
-### Fix tables
-
-Updating old mods needs the hash tables of the community fixer scripts `ORFixApplier_Ver_4_2.py` and
-`57ReleaseVersion.py` (distributed in the modding community, e.g. the AGMG Discord). They aren't part of this
-repository. With local copies of both scripts, build the tables before `npm run tauri build`:
-
-```powershell
-npm run modfix-data -- path\to\57ReleaseVersion.py path\to\ORFixApplier_Ver_4_2.py
-```
-
-This writes the gitignored `src-tauri/resources/modfix_data.json`, which the installer you build includes. The
-scripts are only read, never run. Without the file, adding works as before and Settings shows the fix as unavailable.
 
 ## Development
 
@@ -146,6 +130,5 @@ npm run fixtures                                  # regenerate fixtures/Mods and
 
 ## License
 
-[GPL-3.0](LICENSE.md). The hash data the build downloads stays under GPL-3.0 (see its repository). The fix tables
-built from the community scripts are not covered by this license and are never committed. Mods, previews and names
-shown in the app belong to their authors.
+[GPL-3.0](LICENSE.md). The hash data the build downloads stays under GPL-3.0 (see its repository). Mods, previews and
+names shown in the app belong to their authors.

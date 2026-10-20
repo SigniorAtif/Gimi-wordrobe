@@ -10,7 +10,6 @@ use super::apply::{self, Fault};
 use super::error::{AppError, AppResult};
 use super::import;
 use super::model::{Skin, Snapshot};
-use super::modfix::FixReport;
 use super::names;
 use super::paths;
 use super::scanner::{self, Candidate, Guess, GuessReason, ScanContext, ScanResult};
@@ -400,7 +399,6 @@ impl AppCore {
         }
         let total = by_archive.len();
         let mut imported_archives: Vec<(String, Vec<String>)> = vec![];
-        let mut fixed = FixReport::default();
         for (n, (rel, items)) in by_archive.iter().enumerate() {
             let Some(main) = items.iter().find(|i| matches!(i.source, ImportSource::Archive { main: true, .. })) else {
                 continue;
@@ -439,7 +437,6 @@ impl AppCore {
                 Ok(r) => {
                     added += r.skin_ids.len();
                     warnings.extend(r.warnings);
-                    fixed.merge(r.fixed);
                     if let Some(id) = r.skin_ids.last() {
                         skin_of_key.insert(main.key.clone(), id.clone());
                     }
@@ -448,9 +445,6 @@ impl AppCore {
                 Err(e) => warnings.push(format!("{rel}: {}", e.message)),
             }
         }
-
-        // one line for all archives, not one per archive
-        warnings.extend(fixed.summary());
 
         // 3. archives out of Mods, so Mods holds only mods and each skin can be re-extracted from the Library
         let mut moved: Vec<MovedArchive> = vec![];

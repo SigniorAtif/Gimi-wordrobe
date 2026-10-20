@@ -216,21 +216,6 @@ function LibrarySection({ s, snapshot, save }: { s: Settings; snapshot: Snapshot
           ))}
         </div>
       </Field>
-      <Field
-        label="Old mods"
-        hint={
-          snapshot.modFixes
-            ? "Adds ORFix and updates outdated hashes and blend files, so mods made for older game versions don't show up green or distorted."
-            : "Unavailable: the fix tables (modfix_data.json) weren't built. See the README."
-        }
-      >
-        <Switch
-          label="Update old mods when adding"
-          checked={snapshot.modFixes && !s.skipModFixes}
-          disabled={!snapshot.modFixes}
-          onChange={(on) => void save({ skipModFixes: !on })}
-        />
-      </Field>
       <div className="settings__actions">
         <button className="btn" onClick={() => void rescan()} disabled={scanning}>
           {scanning && <span className="spinner" aria-hidden />} Re-scan now
