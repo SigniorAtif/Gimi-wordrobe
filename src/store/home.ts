@@ -1,7 +1,7 @@
 // Home screen state: pending picks, the open shelf, search/filter, NSFW visibility and the Apply flow.
 import { create } from "zustand";
 import { api, toFailure } from "../api";
-import type { Picks, Snapshot } from "../api/types";
+import type { PinCheck, Picks, Snapshot } from "../api/types";
 import { useApp } from "./app";
 
 export type Chip = "all" | "character" | "weapon" | "extra" | "modded";
@@ -21,6 +21,12 @@ interface HomeState {
   query: string;
   chip: Chip;
   nsfwVisible: boolean;
+  /** bumped on every reveal or hide, so cards mounting after it know they are being revealed (SPEC §7) */
+  nsfwEpoch: number;
+  /** asking for the PIN before revealing NSFW skins */
+  pinPrompt: boolean;
+  /** when the PIN lockout ends (ms since epoch), 0 when not locked */
+  pinRetryAt: number;
   applyState: ApplyState;
   /** C3 quick peek: the skin shown in the open shelf's 3-column view */
   peek: string | null;
@@ -37,7 +43,15 @@ interface HomeState {
   closeShelf(): void;
   setQuery(q: string): void;
   setChip(c: Chip): void;
-  setNsfwVisible(v: boolean): void;
+  /** The reveal hotkey and the 18+ chip: hide, or reveal (asking for the PIN first when one is set). */
+  toggleNsfw(): void;
+  /** Show 18+ skins, or open the PIN prompt when a PIN is set. Nothing shows until the PIN checks out. */
+  revealNsfw(): void;
+  /** Hide 18+ skins (never needs a PIN), and leave any peek or detail page that shows one. */
+  hideNsfw(): void;
+  /** Check a PIN from the prompt; a right one reveals. Throws when the backend fails. */
+  submitPin(pin: string): Promise<PinCheck>;
+  closePinPrompt(): void;
   setPeek(skinId: string | null): void;
   setMorph(m: { skin?: string | null; entity?: string | null }): void;
   apply(): Promise<void>;
@@ -75,6 +89,9 @@ export const useHome = create<HomeState>((set, get) => ({
   query: "",
   chip: "all",
   nsfwVisible: false,
+  nsfwEpoch: 0,
+  pinPrompt: false,
+  pinRetryAt: 0,
   applyState: IDLE,
   peek: null,
   morphSkin: null,
@@ -134,8 +151,50 @@ export const useHome = create<HomeState>((set, get) => ({
     set({ chip });
   },
 
-  setNsfwVisible(nsfwVisible) {
-    set({ nsfwVisible });
+  toggleNsfw() {
+    if (get().nsfwVisible) get().hideNsfw();
+    else get().revealNsfw();
+  },
+
+  revealNsfw() {
+    if (get().nsfwVisible) return;
+    if (useApp.getState().snapshot?.pinSet) set({ pinPrompt: true });
+    else set((s) => ({ nsfwVisible: true, nsfwEpoch: s.nsfwEpoch + 1 }));
+  },
+
+  hideNsfw() {
+    if (!get().nsfwVisible) {
+      if (get().pinPrompt) set({ pinPrompt: false });
+      return;
+    }
+    const app = useApp.getState();
+    const skins = app.snapshot?.library.skins ?? [];
+    const hidden = (id: string | null) => !!id && !!skins.find((k) => k.id === id)?.nsfw;
+    set((s) => ({
+      nsfwVisible: false,
+      nsfwEpoch: s.nsfwEpoch + 1,
+      pinPrompt: false,
+      peek: hidden(s.peek) ? null : s.peek,
+      morphSkin: hidden(s.morphSkin) ? null : s.morphSkin,
+    }));
+    // a detail page of a skin that just went hidden goes back to its entity or home, and leaves the history too
+    app.leaveRoutes((r) => r.name === "skin" && hidden(r.skinId));
+  },
+
+  async submitPin(pin) {
+    const r = await api.verifyPin(pin);
+    if (r.ok) {
+      // the prompt was cancelled while the check ran: the user no longer asked to reveal
+      if (get().pinPrompt) set((s) => ({ nsfwVisible: true, nsfwEpoch: s.nsfwEpoch + 1, pinPrompt: false, pinRetryAt: 0 }));
+      else set({ pinRetryAt: 0 });
+    } else {
+      set({ pinRetryAt: r.retryIn > 0 ? Date.now() + r.retryIn * 1000 : 0 });
+    }
+    return r;
+  },
+
+  closePinPrompt() {
+    set({ pinPrompt: false });
   },
 
   async apply() {

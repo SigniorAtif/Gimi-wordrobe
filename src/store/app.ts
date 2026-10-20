@@ -52,6 +52,8 @@ interface AppState {
   navigate(r: Route): void;
   replace(r: Route, dir?: 1 | -1): void;
   back(): void;
+  /** Leave and forget every route `drop` matches: the history loses them, and the current one goes back. */
+  leaveRoutes(drop: (r: Route) => boolean): void;
   rememberScroll(key: string, top: number): void;
   saveSettings(patch: Partial<Settings>): Promise<void>;
   toast(t: Omit<Toast, "id" | "ttl"> & { ttl?: number }): void;
@@ -114,6 +116,16 @@ export const useApp = create<AppState>((set, get) => ({
     }
     const prev = history[history.length - 1];
     set({ route: prev, history: history.slice(0, -1), navDir: -1 });
+  },
+
+  leaveRoutes(drop) {
+    const { route, history } = get();
+    const kept = history.filter((r) => !drop(r));
+    if (!drop(route)) {
+      if (kept.length !== history.length) set({ history: kept });
+      return;
+    }
+    set({ route: kept[kept.length - 1] ?? { name: "home" }, history: kept.slice(0, -1), navDir: -1 });
   },
 
   rememberScroll(key, top) {

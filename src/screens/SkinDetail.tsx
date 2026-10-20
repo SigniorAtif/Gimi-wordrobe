@@ -34,21 +34,7 @@ export function SkinDetail({ skinId }: { skinId: string }) {
   const skin = snapshot.library.skins.find((s) => s.id === skinId);
   const entity = skin ? snapshot.library.entities.find((e) => e.id === skin.entityId) : undefined;
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const t = e.target as HTMLElement;
-      if (t.closest("input, textarea, select") || e.defaultPrevented) return;
-      // the outgoing page stays mounted during its exit animation; only the current one handles keys
-      const r = useApp.getState().route;
-      if (r.name !== "skin" || r.skinId !== skinId) return;
-      if (e.key === "Escape" || e.key === "Backspace") {
-        e.preventDefault();
-        back();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [back, skinId]);
+  // Esc / Backspace go back through useShortcuts
 
   if (!skin || !entity || (skin.nsfw && !nsfwVisible)) {
     return (
@@ -283,6 +269,7 @@ function EditDetails({ skin, snapshot }: { skin: Skin; snapshot: Snapshot }) {
     </label>
   );
   const entities = [...snapshot.library.entities].sort((a, b) => a.name.localeCompare(b.name));
+  const nsfwKey = snapshot.settings.nsfw.hotkey;
   return (
     <div className="edit">
       {field("Skin name", skin.name, "name")}
@@ -301,7 +288,7 @@ function EditDetails({ skin, snapshot }: { skin: Skin; snapshot: Snapshot }) {
       </label>
       <div className="edit__field edit__field--row">
         <Switch label="NSFW" checked={skin.nsfw} onChange={(v) => void save({ nsfw: v })} />
-        <span>NSFW / 18+ (hidden behind Ctrl+H)</span>
+        <span>NSFW / 18+ (hidden behind {nsfwKey})</span>
       </div>
     </div>
   );

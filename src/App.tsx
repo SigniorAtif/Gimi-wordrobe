@@ -3,8 +3,10 @@ import { useEffect } from "react";
 import { AddHost } from "./components/AddHost";
 import { Page, type PageKind } from "./components/Page";
 import { PendingBar } from "./components/PendingBar";
+import { PinPrompt } from "./components/PinPrompt";
 import { Toasts } from "./components/Toasts";
 import { tween } from "./motion";
+import { useAutoRehide } from "./lib/useAutoRehide";
 import { useMotionConfigMode, useReduced } from "./lib/useReduced";
 import { useShortcuts } from "./lib/useShortcuts";
 import { EntityPage } from "./screens/EntityPage";
@@ -32,6 +34,7 @@ export default function App() {
   const motionMode = useMotionConfigMode();
   const pendingShown = useHome((s) => Object.keys(s.picks).length > 0 || s.applyState.phase !== "idle");
   useShortcuts();
+  useAutoRehide();
 
   useEffect(() => {
     void boot();
@@ -56,6 +59,7 @@ export default function App() {
           </main>
           {snapshot?.configured && <PendingBar />}
           {snapshot?.configured && <AddHost />}
+          <PinPrompt />
           <Toasts />
         </div>
       </LayoutGroup>

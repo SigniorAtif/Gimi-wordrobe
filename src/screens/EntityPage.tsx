@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "motion/react";
-import { useCallback, useEffect, useState, type MouseEvent } from "react";
+import { useCallback, useState, type MouseEvent } from "react";
 import { api, toFailure } from "../api";
 import type { Skin } from "../api/types";
 import { RadioDot } from "../components/controls";
@@ -13,7 +13,7 @@ import { useClashes } from "../lib/conflicts";
 import { entityView } from "../lib/derive";
 import { useColumns } from "../lib/useColumns";
 import { useReduced } from "../lib/useReduced";
-import { riseIn, staggerContainer } from "../motion";
+import { nsfwHide, nsfwReveal, riseIn, spring, staggerContainer, tween } from "../motion";
 import { useApp } from "../store/app";
 import { useAdd } from "../store/add";
 import { useHome } from "../store/home";
@@ -34,7 +34,12 @@ export function EntityPage({ entityId }: { entityId: string }) {
   const toast = useApp((s) => s.toast);
   const picks = useHome((s) => s.picks);
   const nsfwVisible = useHome((s) => s.nsfwVisible);
-  const setNsfwVisible = useHome((s) => s.setNsfwVisible);
+  const toggleNsfw = useHome((s) => s.toggleNsfw);
+  const revealNsfw = useHome((s) => s.revealNsfw);
+  // 18+ cards that mount after a reveal or hide since the page opened animate as a reveal (SPEC §7)
+  const nsfwEpoch = useHome((s) => s.nsfwEpoch);
+  const [openedAt] = useState(nsfwEpoch);
+  const revealing = nsfwEpoch !== openedAt;
   const pick = useHome((s) => s.pick);
   const removeSkin = useHome((s) => s.removeSkin);
   const browse = useAdd((s) => s.browse);
@@ -45,21 +50,7 @@ export function EntityPage({ entityId }: { entityId: string }) {
   const [confirm, setConfirm] = useState<Skin | null>(null);
   const entity = snapshot.library.entities.find((e) => e.id === entityId);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const t = e.target as HTMLElement;
-      if (t.closest("input, textarea, select") || e.defaultPrevented) return;
-      // the outgoing page stays mounted during its exit animation; only the current one handles keys
-      const r = useApp.getState().route;
-      if (r.name !== "entity" || r.entityId !== entityId) return;
-      if (e.key === "Escape" || e.key === "Backspace") {
-        e.preventDefault();
-        back();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [back, entityId]);
+  // Esc / Backspace go back through useShortcuts
 
   if (!entity) {
     return (
@@ -91,6 +82,11 @@ export function EntityPage({ entityId }: { entityId: string }) {
       toast({ kind: "error", text: toFailure(e).message });
     }
   };
+  // grid items glide when 18+ cards come and go; those blur in after a reveal and out on hide
+  const item = { layout: "position" as const, transition: spring.smooth };
+  const fade = { initial: { opacity: 0 }, animate: { opacity: 1, transition: tween.small } };
+  const fadeOut = { opacity: 0, transition: tween.micro };
+  const nsfwOrder = view.skins.filter((k) => k.nsfw).map((k) => k.id);
   const details = (s: Skin) => {
     rememberFlipKey(`skin:${s.id}`);
     navigate({ name: "skin", skinId: s.id });
@@ -110,8 +106,9 @@ export function EntityPage({ entityId }: { entityId: string }) {
           <p className="epage__meta">{meta.join(" · ")}</p>
         </div>
         <span className="epage__spacer" />
-        <button type="button" className={`nsfw-chip ${nsfwVisible ? "is-visible" : ""}`} onClick={() => setNsfwVisible(!nsfwVisible)}>
+        <button type="button" className={`nsfw-chip ${nsfwVisible ? "is-visible" : ""}`} onClick={toggleNsfw} aria-pressed={nsfwVisible}>
           18+ {nsfwVisible ? "VISIBLE" : "HIDDEN"} · {snapshot.settings.nsfw.hotkey.toUpperCase()}
+          {nsfwVisible ? " TO HIDE" : ""}
         </button>
         <button className="btn" onClick={() => void browse(entity.id)}>
           + Add skin to {entity.name}
@@ -120,14 +117,17 @@ export function EntityPage({ entityId }: { entityId: string }) {
           ⋯
         </button>
       </header>
-      <motion.div className="epage__grid" style={{ ["--cols" as string]: cols }} variants={staggerContainer(count, reduced, 0.1)} initial="hidden" animate="show">
-        <motion.div variants={riseIn(reduced)}>
+      <motion.div className="epage__grid" style={{ ["--cols" as string]: cols, position: "relative" }} variants={staggerContainer(count, reduced, 0.1)} initial="hidden" animate="show">
+        {/* exiting cards pop out of the grid, so the rest settle in one glide (positioned against the grid) */}
+        <AnimatePresence mode="popLayout">
+        <motion.div key="original" variants={riseIn(reduced)} {...item}>
           <button
             type="button"
             role="radio"
             aria-checked={view.effective === null}
             className={`bigcard bigcard--original ${view.effective === null ? "is-selected" : ""} ${view.effective === null && view.pending ? "is-pending" : ""}`}
             data-skin="original"
+            data-nav
             onClick={() => pick(entity.id, null)}
           >
             <div className="bigcard__orig">
@@ -146,7 +146,13 @@ export function EntityPage({ entityId }: { entityId: string }) {
           const selected = view.effective === s.id;
           const conflict = (clashes.bySkin.get(s.id) ?? []).some((c) => c.severity === "conflict");
           return (
-            <motion.div key={s.id} variants={riseIn(reduced)}>
+            <motion.div
+              key={s.id}
+              variants={riseIn(reduced)}
+              // a revealed card fades in where it belongs; only the cards around it glide
+              {...(s.nsfw && revealing ? {} : item)}
+              {...(!s.nsfw ? { exit: fadeOut } : revealing ? nsfwReveal(reduced, nsfwOrder.indexOf(s.id)) : { exit: nsfwHide(reduced) })}
+            >
               <div className={`bigcard ${selected ? "is-selected" : ""} ${selected && view.pending ? "is-pending" : ""}`} data-skin={s.id}>
                 <button
                   type="button"
@@ -154,6 +160,7 @@ export function EntityPage({ entityId }: { entityId: string }) {
                   aria-checked={selected}
                   aria-label={s.name}
                   className="bigcard__hit"
+                  data-nav
                   onClick={() => pick(entity.id, s.id)}
                   onDoubleClick={() => details(s)}
                 />
@@ -178,8 +185,8 @@ export function EntityPage({ entityId }: { entityId: string }) {
           );
         })}
         {view.hidden > 0 && whenHidden === "stub" && (
-          <motion.div variants={riseIn(reduced)}>
-            <button className="bigcard bigcard--hidden" onClick={() => setNsfwVisible(true)}>
+          <motion.div key="hidden" variants={riseIn(reduced)} {...item} {...(revealing ? fade : {})} exit={fadeOut}>
+            <button className="bigcard bigcard--hidden" data-nav onClick={revealNsfw}>
               <span className="bigcard__hidden-title">
                 {view.hidden} skin{view.hidden === 1 ? "" : "s"} hidden
               </span>
@@ -188,15 +195,16 @@ export function EntityPage({ entityId }: { entityId: string }) {
             </button>
           </motion.div>
         )}
-        <motion.div variants={riseIn(reduced)}>
-          <button type="button" className="bigcard bigcard--drop" data-drop={`entity:${entity.id}`} onClick={() => void browse(entity.id)}>
+        <motion.div key="drop" variants={riseIn(reduced)} {...item}>
+          <button type="button" className="bigcard bigcard--drop" data-drop={`entity:${entity.id}`} data-nav onClick={() => void browse(entity.id)}>
             <span className="bigcard__plus">+</span>
             <span>{total ? "Drop archive here" : "No skins yet"}</span>
             <small>{total ? "or click to browse" : "drop a .zip / .rar / .7z here or click to browse"}</small>
           </button>
         </motion.div>
+        </AnimatePresence>
       </motion.div>
-      <Popover open={!!menu} anchor={menu?.anchor ?? null} onClose={() => setMenu(null)} align="end" label="Actions">
+      <Popover open={!!menu && (nsfwVisible || !menu.skin?.nsfw)} anchor={menu?.anchor ?? null} onClose={() => setMenu(null)} align="end" label="Actions">
         {menu?.skin ? (
           <>
             <MenuItem onSelect={() => { const s = menu.skin!; setMenu(null); details(s); }}>Edit details</MenuItem>
@@ -214,7 +222,7 @@ export function EntityPage({ entityId }: { entityId: string }) {
         )}
       </Popover>
       <ConfirmDialog
-        open={!!confirm}
+        open={!!confirm && (nsfwVisible || !confirm.nsfw)}
         title={`Remove ${confirm?.name ?? ""}?`}
         body="Its folder goes to the Recycle Bin, and it leaves the library. You can restore it from the Recycle Bin."
         confirmLabel="Move to Recycle Bin"

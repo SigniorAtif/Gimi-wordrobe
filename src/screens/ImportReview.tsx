@@ -8,6 +8,7 @@ import { choiceName, guessChoice, target, type EntityChoice } from "../lib/addDr
 import { CATEGORY_LABEL, CATEGORY_ORDER } from "../lib/derive";
 import { useReduced } from "../lib/useReduced";
 import { riseIn, spring, staggerContainer, tween } from "../motion";
+import { useRedact } from "../lib/useRedact";
 import { useApp } from "../store/app";
 import { useHome } from "../store/home";
 import "./ImportReview.css";
@@ -56,7 +57,8 @@ export function ImportReview() {
   const back = useApp((s) => s.back);
   const toast = useApp((s) => s.toast);
   const nsfwVisible = useHome((s) => s.nsfwVisible);
-  const setNsfwVisible = useHome((s) => s.setNsfwVisible);
+  const toggleNsfw = useHome((s) => s.toggleNsfw);
+  const redact = useRedact();
   const reduced = useReduced();
   const entities = snapshot.library.entities;
   const [phase, setPhase] = useState<Phase>({ kind: "reading", progress: null });
@@ -225,7 +227,7 @@ export function ImportReview() {
           ) : (
             <>
               <h1 className="imp__title">Couldn't read the Mods folder</h1>
-              <p className="imp__lede">{phase.message}</p>
+              <p className="imp__lede">{redact(phase.message)}</p>
               <div className="imp__row-actions">
                 <button className="btn" onClick={leave}>
                   Back
@@ -272,7 +274,7 @@ export function ImportReview() {
           </p>
         </div>
         <span className="imp__spacer" />
-        <button type="button" className={`nsfw-chip ${nsfwVisible ? "is-visible" : ""}`} onClick={() => setNsfwVisible(!nsfwVisible)}>
+        <button type="button" className={`nsfw-chip ${nsfwVisible ? "is-visible" : ""}`} onClick={toggleNsfw}>
           18+ {nsfwVisible ? "VISIBLE" : "HIDDEN"} · {snapshot.settings.nsfw.hotkey.toUpperCase()}
         </button>
       </header>
