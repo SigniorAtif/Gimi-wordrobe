@@ -1,6 +1,6 @@
 [package]
 name = "skin-switcher"
-version = "0.1.0"
+version = "0.2.0"
 description = "Choose which mod skin each Genshin character wears (XXMI / 3DMigoto)"
 authors = ["Atif Ahmed"]
 edition = "2024"
