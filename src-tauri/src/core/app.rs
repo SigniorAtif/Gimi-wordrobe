@@ -3,11 +3,11 @@
 
 use super::apply::{self, ExecError, Fault, Roots};
 use super::error::{AppError, AppResult};
+use super::fixers;
 use super::hashindex::HashIndex;
 use super::import;
 use super::library;
 use super::model::{Library, RecoveryInfo, Settings, Skin, Snapshot};
-use super::modfix::{self, FixData, FixReport};
 use super::persist;
 use super::scanner::{self, ScanContext, ScanResult};
 use super::settings;
@@ -90,6 +90,17 @@ pub const IMAGE_DIRS: [&str; 2] = ["previews", "portraits"];
 pub const STASH_DIR: &str = "stash";
 pub const HASH_INDEX_FILE: &str = "hash_index.json";
 
+/// What "Run fixer scripts" did.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FixersRun {
+    pub snapshot: Snapshot,
+    /// "Ran 2 fixer scripts on your active mods."; None when none ran cleanly.
+    pub note: Option<String>,
+    /// One line per script that failed or was missing.
+    pub warnings: Vec<String>,
+}
+
 pub struct AppCore {
     config_dir: PathBuf,
     /// Bundled resources (hash_index.json); None in tests.
@@ -97,8 +108,6 @@ pub struct AppCore {
     pub(super) settings: Settings,
     pub(super) library: Library,
     pub(super) index: HashIndex,
-    /// Tables for updating old mods on add (modfix.rs); None when modfix_data.json wasn't built.
-    pub(super) fix_data: Option<std::sync::Arc<FixData>>,
     pub(super) last_scan: Option<ScanResult>,
     /// library.json exists but can't be read: nothing is adopted or saved until it's fixed.
     library_error: Option<String>,
@@ -126,7 +135,6 @@ impl AppCore {
             settings,
             library: Library::default(),
             index: HashIndex::empty(),
-            fix_data: None,
             last_scan: None,
             library_error: None,
             settings_error: None,
@@ -141,7 +149,6 @@ impl AppCore {
             core.settings_error = Some(format!("Your saved settings need fixing: {}", e.message));
         }
         core.index = core.load_index();
-        core.fix_data = core.load_fix_data();
         core.reload_library();
         core
     }
@@ -159,32 +166,6 @@ impl AppCore {
     /// Use a specific hash index (tests).
     pub fn set_index(&mut self, index: HashIndex) {
         self.index = index;
-    }
-
-    /// Use specific mod fix tables (tests).
-    pub fn set_fix_data(&mut self, data: Option<FixData>) {
-        self.fix_data = data.map(std::sync::Arc::new);
-    }
-
-    /// The mod fix tables: one in the config dir wins over the bundled one.
-    fn load_fix_data(&self) -> Option<std::sync::Arc<FixData>> {
-        let mut candidates: Vec<PathBuf> = vec![self.config_dir.join(modfix::DATA_FILE)];
-        if let Some(r) = &self.resource_dir {
-            candidates.push(r.join("resources").join(modfix::DATA_FILE));
-            candidates.push(r.join(modfix::DATA_FILE));
-        }
-        // not under cargo test: a locally built table would change what the fixture tests see
-        #[cfg(all(debug_assertions, not(test)))]
-        candidates.push(Path::new(env!("CARGO_MANIFEST_DIR")).join("resources").join(modfix::DATA_FILE));
-        candidates.iter().find_map(|p| FixData::load(p).ok()).map(std::sync::Arc::new)
-    }
-
-    /// Bring a freshly extracted tree up to date for the current game, unless turned off in Settings.
-    pub(super) fn fix_mods(&self, root: &Path) -> FixReport {
-        match &self.fix_data {
-            Some(d) if !self.settings.skip_mod_fixes => modfix::fix_tree(root, d),
-            _ => FixReport::default(),
-        }
     }
 
     /// The newer of the bundled index and one fetched by "Update hash index" into the config dir.
@@ -282,7 +263,6 @@ impl AppCore {
             changed_outside: false,
             recovered: self.recovered.clone(),
             hash_index: self.index.info(),
-            mod_fixes: self.fix_data.is_some(),
             configured: self.settings.is_configured() && self.settings_error.is_none(),
             notice: self.settings_error.clone().or_else(|| self.library_error.clone()),
             same_drive: settings::same_drive(&self.settings),
@@ -348,6 +328,20 @@ impl AppCore {
             self.save_library()?;
         }
         Ok(self.publish())
+    }
+
+    /// "Run fixer scripts": the enabled tools once over the whole Mods folder, as running them there by hand would, so
+    /// every active mod is fixed. Stashed skins aren't touched. Re-scans after, so the library sees updated hashes.
+    pub fn run_fixers_on_mods(&mut self, progress: &mut dyn FnMut(&str)) -> AppResult<FixersRun> {
+        let (mods, _) = self.roots()?;
+        self.recover_pending()?;
+        let scripts = self.settings.fixer_scripts.clone();
+        if !scripts.iter().any(|s| s.enabled && !s.path.trim().is_empty()) {
+            return Err(AppError::new("no_fixers", "Add a fixer script in Settings first (or switch one on)."));
+        }
+        let out = fixers::run_all(&scripts, &mods, fixers::TIMEOUT, progress);
+        let snapshot = self.rescan()?;
+        Ok(FixersRun { snapshot, note: out.note("your active mods"), warnings: out.warnings })
     }
 
     /// Copy active skins' d3dx_user.ini lines into the library (SPEC §3).
@@ -1130,5 +1124,32 @@ pub mod tests {
             )
             .unwrap();
         assert_eq!(snap.library.entity("kazuha").unwrap().aliases, vec!["Kaz".to_string()]);
+    }
+
+    #[test]
+    fn fixer_scripts_run_once_over_the_mods_folder() {
+        let cfg = tempfile::tempdir().unwrap();
+        let tools = tempfile::tempdir().unwrap();
+        let (_t, mods, lib) = fixture_world();
+        let mut core = configured_core(cfg.path(), &mods, &lib);
+        assert_eq!(core.run_fixers_on_mods(&mut |_| {}).unwrap_err().code, "no_fixers");
+        #[cfg(windows)]
+        let (name, body) = ("fix.cmd", "@echo off\r\necho fixed>fixer-was-here.txt\r\n");
+        #[cfg(unix)]
+        let (name, body) = ("fix.sh", "#!/bin/sh\necho fixed > fixer-was-here.txt\n");
+        let script = tools.path().join(name);
+        fs::write(&script, body).unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&script, fs::Permissions::from_mode(0o755)).unwrap();
+        }
+        core.settings.fixer_scripts =
+            vec![crate::core::model::FixerScript { path: script.to_string_lossy().into_owned(), enabled: true }];
+        let out = core.run_fixers_on_mods(&mut |_| {}).unwrap();
+        assert_eq!(out.note.as_deref(), Some("Ran 1 fixer script on your active mods."));
+        assert!(out.warnings.is_empty());
+        assert!(mods.join("fixer-was-here.txt").is_file(), "ran in the Mods folder");
+        assert!(!lib.join("fixer-was-here.txt").exists());
     }
 }

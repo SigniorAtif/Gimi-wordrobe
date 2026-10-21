@@ -1,8 +1,9 @@
 import { motion } from "motion/react";
 import { useEffect, useState } from "react";
 import { api, toFailure } from "../api";
-import type { Loader } from "../api/types";
+import type { FixerScript, Loader } from "../api/types";
 import { Field, PathField, RadioOption } from "../components/controls";
+import { FixerScriptList, RecommendedFixers } from "../components/FixerScripts";
 import { riseIn, staggerContainer } from "../motion";
 import { useReduced } from "../lib/useReduced";
 import { useApp, wantsImport } from "../store/app";
@@ -20,6 +21,7 @@ export function Setup() {
     "3dmigoto": snapshot.settings.modsPath["3dmigoto"] ?? "",
   });
   const [library, setLibrary] = useState(snapshot.settings.libraryPath);
+  const [fixers, setFixers] = useState<FixerScript[]>(snapshot.settings.fixerScripts ?? []);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   // The form appears once the pre-fill is known, so defaults never overwrite something the user typed.
@@ -63,6 +65,7 @@ export function Setup() {
         activeLoader: loader,
         modsPath: { xxmi: mods.xxmi || undefined, "3dmigoto": mods["3dmigoto"] || undefined },
         libraryPath: library.trim(),
+        fixerScripts: fixers,
       };
       const snap = await api.saveSettings(next);
       setSnapshot(snap);
@@ -78,7 +81,7 @@ export function Setup() {
 
   return (
     <div className="setup">
-      <motion.div className="setup__panel" variants={staggerContainer(5, reduced, 0.05)} initial="hidden" animate="show">
+      <motion.div className="setup__panel" variants={staggerContainer(6, reduced, 0.05)} initial="hidden" animate="show">
         <motion.div variants={riseIn(reduced)}>
           <h1 className="setup__title">Set up Skin Switcher</h1>
           <p className="setup__lead">Point it at the Mods folder your loader reads. Nothing is moved until you confirm.</p>
@@ -105,6 +108,14 @@ export function Setup() {
         <motion.div variants={riseIn(reduced)}>
           <Field label="Library" hint="Keep it on the same drive as Mods so switching skins is instant. Never inside Mods.">
             <PathField label="Library folder" value={library} placeholder="D:\mods\SkinLibrary" onCommit={setLibrary} onBrowse={() => void browse("library")} />
+          </Field>
+        </motion.div>
+        <motion.div variants={riseIn(reduced)}>
+          <Field label="Fixer scripts (optional)" hint="Tools that repair older mods (green or distorted characters). Every skin you add goes through them first. You can change this later in Settings.">
+            <div className="setup__fixers">
+              <RecommendedFixers />
+              <FixerScriptList scripts={fixers} onChange={setFixers} />
+            </div>
           </Field>
         </motion.div>
         <motion.div variants={riseIn(reduced)} className="setup__footer">

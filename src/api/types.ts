@@ -82,8 +82,23 @@ export interface Settings {
   layout: LayoutMode;
   reduceMotion: ReduceMotion;
   nsfw: NsfwSettings;
-  /** Leave added mods exactly as they come (no ORFix, no hash or blend updates). */
-  skipModFixes?: boolean;
+  /** Fixer tools run, in this order, on every newly added skin. */
+  fixerScripts?: FixerScript[];
+}
+
+/** What "Run fixer scripts" did. */
+export interface FixersRun {
+  snapshot: Snapshot;
+  /** "Ran 2 fixer scripts on your active mods."; null when none ran cleanly. */
+  note: string | null;
+  /** One line per script that failed or was missing. */
+  warnings: string[];
+}
+
+/** A fixer tool the user downloaded (.exe, .bat, .cmd, .py or .ps1). */
+export interface FixerScript {
+  path: string;
+  enabled: boolean;
 }
 
 /** Where a skin's folders currently are on disk. Active = all folders in Mods, none DISABLED. */
@@ -139,8 +154,6 @@ export interface Snapshot {
   notice: string | null;
   /** A PIN guards revealing NSFW skins (SPEC §6 PIN lock). */
   pinSet: boolean;
-  /** The tables for updating old mods (modfix_data.json) were found, so adds can fix mods. */
-  modFixes: boolean;
 }
 
 /** Answer to a PIN guess. Wrong guesses are throttled: FREE tries, then a lockout that doubles. */
@@ -289,7 +302,7 @@ export interface AddSkinResult {
   /** Every skin added; the main skin is the last. */
   skinIds: string[];
   warnings: string[];
-  /** What updating the mod for the current game changed (ORFix, old hashes), as one line; null = nothing. */
+  /** What the fixer scripts did ("Ran 2 fixer scripts…"); null when none ran. Failures come as warnings. */
   fixNote: string | null;
 }
 

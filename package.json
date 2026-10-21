@@ -15,7 +15,6 @@
     "test": "vitest run",
     "tauri": "tauri",
     "hash-index": "node scripts/build-hash-index.mjs --force",
-    "modfix-data": "python -I scripts/extract-modfix-data.py",
     "fixtures": "node scripts/make-fixtures.mjs",
     "e2e:build": "node e2e/build.mjs",
     "e2e": "node --test --test-concurrency=1 e2e/",

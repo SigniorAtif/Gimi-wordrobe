@@ -35,7 +35,6 @@ function world(pinSet: boolean): Snapshot {
     sameDrive: true,
     notice: null,
     pinSet,
-    modFixes: false,
   };
 }
 

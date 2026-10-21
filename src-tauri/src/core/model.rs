@@ -233,9 +233,22 @@ pub struct Settings {
     pub reduce_motion: ReduceMotion,
     #[serde(default)]
     pub nsfw: NsfwSettings,
-    /// Leave added mods exactly as they come (no ORFix, no hash or blend updates; modfix.rs).
+    /// The user's fixer tools, run in this order on every newly added skin (core/fixers.rs).
     #[serde(default)]
-    pub skip_mod_fixes: bool,
+    pub fixer_scripts: Vec<FixerScript>,
+}
+
+/// One fixer tool picked in Settings: an .exe, .bat, .cmd, .py or .ps1 the user downloaded.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FixerScript {
+    pub path: String,
+    #[serde(default = "enabled_by_default")]
+    pub enabled: bool,
+}
+
+fn enabled_by_default() -> bool {
+    true
 }
 
 impl Settings {
@@ -324,9 +337,6 @@ pub struct Snapshot {
     pub notice: Option<String>,
     /// A PIN guards revealing NSFW skins; the hash itself never leaves the backend.
     pub pin_set: bool,
-    /// The tables for updating old mods (modfix_data.json) were found, so adds can fix mods.
-    #[serde(default)]
-    pub mod_fixes: bool,
 }
 
 #[cfg(test)]

@@ -381,24 +381,21 @@ UI:
 - **Not done in this pass:** the full SPEC §7 frame-strip audit, the Setup and Import review layout redesign and the
   Settings two-column layout. They use the new tokens and titles, but their structure is unchanged.
 
-## Updating old mods on add
+## Fixer scripts
 
-- **The fixes run inside the app, on every add.** Mods made for older game versions show up flat green (no ORFix) or
-  distorted (outdated hashes, remapped skeletons). `core/modfix.rs` does what the community `ORFixApplier_Ver_4_2.py`
-  and `57ReleaseVersion.py` scripts do, on the freshly extracted copy, before the scan, so entity detection sees the
-  current hashes. The analysis for the add dialog runs the same text fixes on its extracted inis. No backups: the
-  archive stays in the Library. Settings › Library › "Update old mods when adding" turns it off.
-- **Their tables stay out of the repo.** The scripts ship without a license, so neither their code nor their tables
-  are committed. `scripts/extract-modfix-data.py` parses local copies (ast, never executed) into the gitignored
-  `src-tauri/resources/modfix_data.json`; the app looks for it in the config dir, then the bundled resources. Without
-  it the fix is off and Settings says so. Tests use the hand-made `fixtures/modfix_data.test.json`.
-- **Checked against the tools' own output.** On copies of the real Mods folder's pre-fix backups, the port matched
-  the ORFix applier on all 24 inis and `57ReleaseVersion` on all 7 inis plus Diluc's remapped Blend.buf
-  (`cargo run --example modfix_dry_run`). The only differences are layout, from deliberate changes:
-  - the run line goes before blank lines that follow the texture slots, at the slots' indentation (the script puts
-    it after the blank lines, unindented when the slots open a branch);
-  - hashes match as whole words in any case, and `match_first_index` must match the whole number;
-  - a Blend.buf is remapped at most once per add, and not at all when the ini already has the hash its trigger is
-    replaced by (a mod made for both game versions; remapping it would break the new one).
-- **Installed mods aren't touched.** The first-run import adopts installed mods in place without fixing them; only
-  archives it extracts go through the fix. Fixing mods already in Mods would need backups and a way back.
+- **The app runs the user's own tools instead of shipping fixes.** Mods made for older game versions show up flat
+  green (no ORFix) or distorted (outdated hashes). The community tools that fix them (Fix All Character Mods, ORFix
+  Applier) are CC BY-NC-ND and their GameBanana pages ask to be asked before redistributing or bundling them, so an
+  earlier built-in port of their tables was removed. Settings › Fixer scripts (also offered during setup) keeps an
+  ordered list of tools the user downloaded, and Setup and Settings link to the recommended ones' pages.
+- **When they run:** on every add, in the extracted copy in `<Library>/tmp`, after unticked roots are removed and
+  before the scan, so detection sees the hashes they update. Not during the add dialog's analysis (only the inis are
+  extracted there, and running packed .exes twice is slow).
+- **Installed mods on request:** "Run fixer scripts" (Settings › Fixer scripts and the skin detail page) runs the
+  enabled tools once over the whole Mods folder, as running them there by hand would, so every active mod is fixed;
+  stashed skins aren't touched. A re-scan follows, so the library picks up the updated hashes.
+- **How they run** (`core/fixers.rs`): .exe/.bat/.cmd directly, .py through `py -3` or `python`, .ps1 through
+  PowerShell; no console window, the skin's folder as the working folder, a stream of Enter presses on stdin (both
+  tools wait for Enter at start and end), five minutes each before the process tree is killed. A failing or missing
+  script is a warning and the add goes on; import shows each distinct warning once. The tools' own backups (`.txt`,
+  `.bak`) stay in the skin, which 3DMigoto ignores.

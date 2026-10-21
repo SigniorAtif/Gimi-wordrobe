@@ -33,7 +33,6 @@ function world(): Snapshot {
     sameDrive: true,
     notice: null,
     pinSet: false,
-    modFixes: false,
   };
 }
 

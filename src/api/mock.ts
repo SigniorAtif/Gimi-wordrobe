@@ -231,7 +231,6 @@ function snapshot(): Snapshot {
     sameDrive: true,
     notice: null,
     pinSet: pin !== null,
-    modFixes: true,
   };
 }
 
@@ -244,6 +243,12 @@ export const api: Api = {
   async rescan() {
     await wait();
     return snapshot();
+  },
+  async runFixers() {
+    await wait(900);
+    const on = (settings.fixerScripts ?? []).filter((s) => s.enabled).length;
+    if (!on) throw new ApiFailure("no_fixers", "Add a fixer script in Settings first (or switch one on).");
+    return { snapshot: snapshot(), note: `Ran ${on} fixer script${on === 1 ? "" : "s"} on your active mods.`, warnings: [] };
   },
   async saveSettings(next) {
     await wait(40);
@@ -352,6 +357,10 @@ export const api: Api = {
   async pickArchive() {
     await wait(60);
     return "C:\\Users\\you\\Downloads\\Mona_[skin].zip";
+  },
+  async pickScript() {
+    await wait(60);
+    return "C:\\Users\\you\\Downloads\\orfixapplier_ver_4_2\\ORFix Applier.exe";
   },
   async pickImage() {
     await wait(60);
