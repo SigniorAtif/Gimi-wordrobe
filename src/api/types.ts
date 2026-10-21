@@ -82,6 +82,8 @@ export interface Settings {
   layout: LayoutMode;
   reduceMotion: ReduceMotion;
   nsfw: NsfwSettings;
+  /** Leave added mods exactly as they come (no ORFix, no hash or blend updates). */
+  skipModFixes?: boolean;
 }
 
 /** Where a skin's folders currently are on disk. Active = all folders in Mods, none DISABLED. */
@@ -137,6 +139,8 @@ export interface Snapshot {
   notice: string | null;
   /** A PIN guards revealing NSFW skins (SPEC §6 PIN lock). */
   pinSet: boolean;
+  /** The tables for updating old mods (modfix_data.json) were found, so adds can fix mods. */
+  modFixes: boolean;
 }
 
 /** Answer to a PIN guess. Wrong guesses are throttled: FREE tries, then a lockout that doubles. */
@@ -285,6 +289,8 @@ export interface AddSkinResult {
   /** Every skin added; the main skin is the last. */
   skinIds: string[];
   warnings: string[];
+  /** What updating the mod for the current game changed (ORFix, old hashes), as one line; null = nothing. */
+  fixNote: string | null;
 }
 
 export interface AddProgress {

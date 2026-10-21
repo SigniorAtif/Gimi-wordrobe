@@ -9,6 +9,8 @@ src-tauri/gen/schemas/
 
 # Generated from GPL-3.0 data at build time (SPEC §5); never commit
 src-tauri/resources/hash_index.json
+# Built locally from the community fixer scripts (scripts/extract-modfix-data.py); not ours to publish
+src-tauri/resources/modfix_data.json
 
 # Test output
 test-results/
